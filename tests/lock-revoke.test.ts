@@ -1,10 +1,10 @@
 /**
- * Lock revocation races (ADR-0013).
+ * Lock ownership, reclamation and displacement (ADR-0015).
  *
- * The dangerous sequence is "verify the lock, then delete the path": another
- * process can replace the lock in between, and the delete then destroys a lock
- * that is actively held. These tests reproduce that replacement deterministically
- * through the lock's test hooks and assert the foreign lock survives.
+ * The dangerous sequence is "remove a lock whose owner is still running": the
+ * owner keeps working while someone else enters the same protected section. These
+ * tests pin down when removal is allowed at all, and prove that a displaced lock
+ * blocks new writers instead of being quietly forgotten.
  */
 
 import assert from 'node:assert/strict';
@@ -27,22 +27,40 @@ function isDomainError(code: string) {
   return (error: unknown): boolean => error instanceof DomainError && error.code === code;
 }
 
-/** Write a lock file exactly as another process would have. */
-async function writeLock(
-  lockPath: string,
-  token: string,
-  acquiredAt: Date = new Date(),
-): Promise<void> {
-  await fs.writeFile(
-    lockPath,
-    `${JSON.stringify({
-      token,
-      pid: 999_999,
-      hostname: 'test-host',
-      acquiredAt: acquiredAt.toISOString(),
-    })}\n`,
-    'utf8',
-  );
+/**
+ * A pid that belongs to no running process. Candidates above the default
+ * `pid_max` are never allocated, so the answer stays true for the test's life.
+ */
+function deadPid(): number {
+  for (let candidate = 4_000_001; candidate < 4_000_101; candidate += 1) {
+    try {
+      process.kill(candidate, 0);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ESRCH') {
+        return candidate;
+      }
+    }
+  }
+  throw new Error('could not find a free pid');
+}
+
+const POSIX_ONLY = process.platform === 'win32' ? 'pid liveness is POSIX-verified' : false;
+
+interface LockIdentity {
+  readonly token: string;
+  readonly pid: number;
+  readonly hostname: string;
+  readonly acquiredAt: string;
+}
+
+async function writeLock(lockPath: string, identity: Partial<LockIdentity> & { token: string }) {
+  const payload: LockIdentity = {
+    token: identity.token,
+    pid: identity.pid ?? deadPid(),
+    hostname: identity.hostname ?? os.hostname(),
+    acquiredAt: identity.acquiredAt ?? new Date(Date.now() - 60_000).toISOString(),
+  };
+  await fs.writeFile(lockPath, `${JSON.stringify(payload)}\n`, 'utf8');
 }
 
 async function readToken(lockPath: string): Promise<string | undefined> {
@@ -54,37 +72,44 @@ async function readToken(lockPath: string): Promise<string | undefined> {
   }
 }
 
-async function quarantineFiles(directory: string): Promise<string[]> {
-  const entries = await fs.readdir(directory);
-  return entries.filter((name) => name.includes('.quarantine')).sort();
+async function inodeOf(target: string): Promise<number> {
+  return (await fs.stat(target)).ino;
 }
 
-const QUICK: LockOptions = { timeoutMs: 200, pollIntervalMs: 5, staleMs: 5_000 };
+async function quarantineFiles(directory: string): Promise<string[]> {
+  return (await fs.readdir(directory))
+    .filter((name) => name.endsWith('.quarantine'))
+    .sort();
+}
 
-describe('lock revocation safety', () => {
-  it('does not delete a lock that replaced ours between verification and release', async (t) => {
+const QUICK: LockOptions = { timeoutMs: 250, pollIntervalMs: 5, staleMs: 50 };
+
+describe('lock ownership safety', () => {
+  it('never deletes or displaces a foreign lock that replaced ours before release', async (t) => {
     const directory = await makeTempDir(t);
     const lockPath = path.join(directory, 'projects.json.lock');
 
     const handle = await acquireFileLock(lockPath, QUICK);
     let captures = 0;
+    let foreignInode = 0;
 
-    // Our lock is verified as ours, then the path is re-pointed at a foreign lock
-    // before the removal step would run.
+    // Replace our lock with a foreign one between our read and any removal.
     await releaseLock(lockPath, handle.token, {
       async beforeCapture(currentPath) {
         await fs.rm(currentPath, { force: true });
-        await writeLock(currentPath, 'intruder');
+        await writeLock(currentPath, { token: 'intruder', pid: process.pid });
+        foreignInode = await inodeOf(currentPath);
       },
       afterCapture() {
         captures += 1;
       },
     });
 
-    // The foreign lock was captured and restored — not deleted — and no quarantine
-    // file is left behind.
-    assert.equal(captures, 1, 'expected the foreign lock to have been captured');
+    // The replacement was captured and handed straight back: same inode, same
+    // owner, and no quarantine litter left behind.
+    assert.equal(captures, 1, 'the replacement should have been captured and restored');
     assert.equal(await readToken(lockPath), 'intruder');
+    assert.equal(await inodeOf(lockPath), foreignInode, 'the foreign lock must be the same file');
     assert.deepEqual(await quarantineFiles(directory), []);
   });
 
@@ -93,109 +118,143 @@ describe('lock revocation safety', () => {
     const lockPath = path.join(directory, 'projects.json.lock');
 
     const handle = await acquireFileLock(lockPath, QUICK);
-
-    // Simulate our lock being reclaimed while we were slow.
     await fs.rm(lockPath, { force: true });
-    await writeLock(lockPath, 'took-over');
+    await writeLock(lockPath, { token: 'took-over', pid: process.pid });
+    const before = await inodeOf(lockPath);
 
     await handle.release();
 
     assert.equal(await readToken(lockPath), 'took-over');
+    assert.equal(await inodeOf(lockPath), before);
     assert.deepEqual(await quarantineFiles(directory), []);
   });
 
-  it('restores a fresh lock captured during stale reclaim instead of deleting it', async (t) => {
+  it(
+    'does not reclaim a lock whose owner is alive, however old it is',
+    { skip: POSIX_ONLY },
+    async (t) => {
+      const directory = await makeTempDir(t);
+      const lockPath = path.join(directory, 'projects.json.lock');
+      // Alive: this very process, with an acquisition time far in the past.
+      await writeLock(lockPath, {
+        token: 'paused-owner',
+        pid: process.pid,
+        acquiredAt: new Date(Date.now() - 600_000).toISOString(),
+      });
+
+      await assert.rejects(acquireFileLock(lockPath, QUICK), isDomainError('storage_lock_timeout'));
+
+      assert.equal(await readToken(lockPath), 'paused-owner');
+    },
+  );
+
+  it('does not reclaim a lock whose owner is on another host', async (t) => {
+    const directory = await makeTempDir(t);
+    const lockPath = path.join(directory, 'projects.json.lock');
+    await writeLock(lockPath, { token: 'remote-owner', hostname: 'build-agent.invalid' });
+
+    await assert.rejects(acquireFileLock(lockPath, QUICK), isDomainError('storage_lock_timeout'));
+
+    assert.equal(await readToken(lockPath), 'remote-owner');
+  });
+
+  it('does not reclaim a lock whose owner cannot be identified', async (t) => {
+    const directory = await makeTempDir(t);
+    const lockPath = path.join(directory, 'projects.json.lock');
+    await fs.writeFile(lockPath, '{"token": "half-writ', 'utf8');
+    const old = new Date(Date.now() - 600_000);
+    await fs.utimes(lockPath, old, old);
+
+    await assert.rejects(acquireFileLock(lockPath, QUICK), isDomainError('storage_lock_timeout'));
+
+    assert.equal((await fs.stat(lockPath)).isFile(), true);
+  });
+
+  it('refuses to enter while a displaced lock with a live owner is quarantined', async (t) => {
+    const directory = await makeTempDir(t);
+    const lockPath = path.join(directory, 'projects.json.lock');
+    // Only `stale-`/`displaced-` quarantine files can mean a live owner that is
+    // still inside its section; `release-` leftovers are the owner's own and are
+    // harmless.
+    const quarantined = `${lockPath}.stale-deadbeef.quarantine`;
+    await writeLock(quarantined, { token: 'displaced-owner', pid: process.pid });
+
+    await assert.rejects(acquireFileLock(lockPath, QUICK), isDomainError('storage_lock_unsafe'));
+
+    // Nothing was acquired, and the displaced lock was not removed.
+    await assert.rejects(fs.stat(lockPath), { code: 'ENOENT' });
+    assert.equal(await readToken(quarantined), 'displaced-owner');
+  });
+
+  it('aborts recovery when a live lock is captured in the gap', async (t) => {
     const directory = await makeTempDir(t);
     const lockPath = path.join(directory, 'projects.json.lock');
 
-    // An old lock, so the age pre-check decides reclaiming is worth attempting.
-    await writeLock(lockPath, 'stale-owner', new Date(Date.now() - 60_000));
-    let captures = 0;
+    // Recoverable: nobody owns it any more.
+    await writeLock(lockPath, { token: 'dead-owner' });
 
-    // In the window between the age check and the capture, a live process takes
-    // over the lock. It must survive.
     await assert.rejects(
       acquireFileLock(lockPath, {
         ...QUICK,
         hooks: {
           async beforeCapture(currentPath) {
+            // …but a live process takes over between the check and the capture.
             await fs.rm(currentPath, { force: true });
-            await writeLock(currentPath, 'fresh-owner');
-          },
-          afterCapture() {
-            captures += 1;
-          },
-        },
-      }),
-      isDomainError('storage_lock_timeout'),
-    );
-
-    assert.equal(captures, 1, 'expected the fresh lock to have been captured');
-    assert.equal(await readToken(lockPath), 'fresh-owner');
-    assert.deepEqual(await quarantineFiles(directory), []);
-  });
-
-  it('never clobbers a lock acquired while a captured lock is being restored', async (t) => {
-    const directory = await makeTempDir(t);
-    const lockPath = path.join(directory, 'projects.json.lock');
-
-    const handle = await acquireFileLock(lockPath, QUICK);
-    let capturedPath: string | undefined;
-
-    await releaseLock(lockPath, handle.token, {
-      async beforeCapture(currentPath) {
-        await fs.rm(currentPath, { force: true });
-        await writeLock(currentPath, 'intruder');
-      },
-      async afterCapture(path_) {
-        capturedPath = path_;
-        // A third process acquires the now-free lock name while the captured
-        // (foreign) lock is still awaiting its verdict.
-        await writeLock(lockPath, 'third-owner');
-      },
-    });
-
-    // The newcomer's lock is untouched, and the captured foreign lock is kept
-    // rather than silently deleted.
-    assert.equal(await readToken(lockPath), 'third-owner');
-    const quarantined = await quarantineFiles(directory);
-    assert.equal(quarantined.length, 1);
-    assert.equal(await readToken(path.join(directory, queriedQuarantine(quarantined))), 'intruder');
-    assert.ok(capturedPath !== undefined);
-  });
-
-  it('keeps a fresh captured lock when a newcomer takes the name during reclaim', async (t) => {
-    const directory = await makeTempDir(t);
-    const lockPath = path.join(directory, 'projects.json.lock');
-
-    await writeLock(lockPath, 'stale-owner', new Date(Date.now() - 60_000));
-
-    await assert.rejects(
-      acquireFileLock(lockPath, {
-        ...QUICK,
-        hooks: {
-          async beforeCapture(currentPath) {
-            await fs.rm(currentPath, { force: true });
-            await writeLock(currentPath, 'fresh-owner');
+            await writeLock(currentPath, { token: 'live-owner', pid: process.pid });
           },
           async afterCapture() {
-            await writeLock(lockPath, 'third-owner');
+            // …and a third process acquires the now-free name before restoration.
+            await writeLock(lockPath, { token: 'third-owner', pid: process.pid });
           },
         },
       }),
-      isDomainError('storage_lock_timeout'),
+      isDomainError('storage_lock_unsafe'),
     );
 
+    // The newcomer keeps its lock; the captured live lock is preserved, not deleted.
     assert.equal(await readToken(lockPath), 'third-owner');
     const quarantined = await quarantineFiles(directory);
     assert.equal(quarantined.length, 1);
-    assert.equal(await readToken(path.join(directory, queriedQuarantine(quarantined))), 'fresh-owner');
+    const captured = quarantined[0];
+    assert.ok(captured !== undefined);
+    assert.equal(await readToken(path.join(directory, captured)), 'live-owner');
+  });
+
+  it(
+    'recovers a lock whose owner is provably gone, and leaves nothing behind',
+    { skip: POSIX_ONLY },
+    async (t) => {
+      const directory = await makeTempDir(t);
+      const lockPath = path.join(directory, 'projects.json.lock');
+      await writeLock(lockPath, { token: 'crashed-owner' });
+
+      const handle = await acquireFileLock(lockPath, QUICK);
+
+      assert.equal(await readToken(lockPath), handle.token);
+      await handle.release();
+      await assert.rejects(fs.stat(lockPath), { code: 'ENOENT' });
+      assert.deepEqual(await quarantineFiles(directory), []);
+    },
+  );
+
+  it('a displaced owner unblocks the store when it finally releases', async (t) => {
+    const directory = await makeTempDir(t);
+    const lockPath = path.join(directory, 'projects.json.lock');
+
+    // This process holds the lock, but its file is moved to quarantine by an
+    // over-eager recovery while it is still working.
+    const handle = await acquireFileLock(lockPath, QUICK);
+    const quarantined = `${lockPath}.stale-c0ffee.quarantine`;
+    await fs.rename(lockPath, quarantined);
+
+    // With a live owner displaced, nobody may enter.
+    await assert.rejects(acquireFileLock(lockPath, QUICK), isDomainError('storage_lock_unsafe'));
+
+    // Releasing is what makes the store usable again.
+    await handle.release();
+    assert.deepEqual(await quarantineFiles(directory), []);
+
+    const next = await acquireFileLock(lockPath, QUICK);
+    await next.release();
   });
 });
-
-/** Return the single quarantine entry, failing clearly if there is not exactly one. */
-function queriedQuarantine(entries: readonly string[]): string {
-  const [entry] = entries;
-  assert.ok(entry !== undefined, 'expected a quarantine file to be retained');
-  return entry;
-}
