@@ -7,6 +7,7 @@
 
 import { DomainError, invariant } from './errors.ts';
 import type { ProjectId } from './ids.ts';
+import { contentHash } from './integrity.ts';
 import { asRevision, type RevisionId } from './revision.ts';
 
 export { isFloatingRevision } from './revision.ts';
@@ -83,12 +84,34 @@ export function createProject(input: CreateProjectInput): Project {
 }
 
 /**
- * Guard that makes a project snapshot immutable.
+ * Canonical, order-insensitive digest of a dependency list.
+ *
+ * Dependencies are a set-like collection: re-importing the same manifests in a
+ * different order is not a content change, so ordering must not affect the
+ * comparison.
+ */
+function dependenciesDigest(dependencies: readonly DependencySnapshot[]): string {
+  const keys = dependencies
+    .map((item) => `${item.ecosystem}\u0000${item.manifestPath}\u0000${item.digest}`)
+    .sort();
+  return contentHash(keys);
+}
+
+/**
+ * Guard that makes a project snapshot fully immutable.
  *
  * A run records the revision it verified, so silently re-pointing the same
  * project id at different code would detach every historical verdict from what
- * was actually examined. Re-registering the source at a new revision is the
- * supported path, and it produces a new project id.
+ * was actually examined. The same reasoning applies to every other recorded
+ * observation about the snapshot: name, dependency digests and configuration are
+ * part of what was verified, not mutable metadata.
+ *
+ * `createdAt` is deliberately excluded. It is provenance rather than content, and
+ * excluding it keeps an identical re-save idempotent; adapters preserve the
+ * original value when they accept one.
+ *
+ * Re-registering the source at a new revision — or with different recorded
+ * observations — is the supported path, and it produces a new project id.
  */
 export function assertProjectSnapshotCompatible(existing: Project, next: Project): void {
   if (existing.id !== next.id) {
@@ -112,6 +135,27 @@ export function assertProjectSnapshotCompatible(existing: Project, next: Project
       'project_identity_immutable',
       `Project ${existing.id} belongs to ${existing.source.kind}:${existing.source.location} ` +
         `and cannot be re-pointed to ${next.source.kind}:${next.source.location}`,
+    );
+  }
+  if (existing.name !== next.name) {
+    throw new DomainError(
+      'project_name_immutable',
+      `Project ${existing.id} is named '${existing.name}' and cannot change to ` +
+        `'${next.name}'; register a new project instead`,
+    );
+  }
+  if (dependenciesDigest(existing.dependencies) !== dependenciesDigest(next.dependencies)) {
+    throw new DomainError(
+      'project_dependencies_immutable',
+      `Project ${existing.id} has a recorded dependency snapshot that cannot be replaced; ` +
+        'register a new project instead',
+    );
+  }
+  if (contentHash(existing.configuration) !== contentHash(next.configuration)) {
+    throw new DomainError(
+      'project_configuration_immutable',
+      `Project ${existing.id} has a recorded configuration that cannot change; ` +
+        'register a new project instead',
     );
   }
 }

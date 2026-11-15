@@ -25,9 +25,12 @@ export class InMemoryProjectRepository implements ProjectRepository {
   async save(project: Project): Promise<void> {
     const existing = this.#byId.get(project.id);
     if (existing !== undefined) {
-      // A snapshot is immutable: re-pointing an id at another revision would
+      // A snapshot is immutable: re-pointing an id at other content would
       // detach every existing run from the code it verified.
       assertProjectSnapshotCompatible(existing, project);
+      // Content is unchanged, so keep the original provenance.
+      this.#byId.set(project.id, { ...project, createdAt: existing.createdAt });
+      return;
     }
     this.#byId.set(project.id, project);
   }
