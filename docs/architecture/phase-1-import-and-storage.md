@@ -65,6 +65,17 @@ unreadable file or directory, and an empty result all fail with a code
 (`path_not_found`, `not_a_directory`, `path_unreadable`, `empty_project`) instead
 of producing an empty or partial snapshot.
 
+**Verified reads (TOCTOU).** Discovery and read are separated in time, so the
+scanner does not trust the path twice. Files are opened with `O_NOFOLLOW`, the
+open descriptor is validated (`fstat`: still a regular file, same `dev`/`ino` as
+discovered, within the size limit), and the bytes are read from that same
+descriptor. A symlink substituted after discovery fails with `ELOOP`; a file
+swapped for another one fails the identity check. Either way the whole import
+aborts with `scan_entry_changed` rather than hashing something the user did not
+import. Directories are `lstat`-ed immediately before `readdir` for the same
+reason. See [ADR-0012](../adr/0012-scan-time-filesystem-validation.md) for the
+remaining directory-level window.
+
 **Path handling.** Relative paths are resolved against the process working
 directory, then canonicalized with `realpath`, so the stored `source.location` is
 absolute and stable. The project name defaults to the directory name and can be
@@ -147,6 +158,11 @@ Guarantees (see [ADR-0009](../adr/0009-local-storage-format.md)):
   that is rejected by the same guard the in-memory adapter uses.
 - **Migrated, not guessed**: version 0 (a bare array) migrates to version 1;
   a newer `schemaVersion` is refused rather than partially read.
+- **Writes are serialized across processes** by a lock file
+  (`projects.json.lock`, created with `O_EXCL`, default timeout 5 s, abandoned
+  after 30 s). The document is re-read while the lock is held, so a concurrent
+  writer cannot be overwritten by a stale in-memory copy. See
+  [ADR-0011](../adr/0011-storage-write-locking.md).
 
 The storage document holds no file contents, only paths and digests.
 
@@ -176,9 +192,11 @@ The storage document holds no file contents, only paths and digests.
   `$VOLDBASE_HOME`.
 
 Known limits of this model: the digest covers file contents, not file modes or
-ownership; a project can change on disk while it is being scanned (the snapshot is
-still internally consistent, because each file is hashed once); and two concurrent
-CLI processes are not coordinated (last write wins).
+ownership; a project that changes *during* a scan now aborts the import
+(`scan_entry_changed`) instead of producing a snapshot of an inconsistent moment;
+two VOLDBASE processes writing the store are serialized by the lock file, but an
+external editor or a tool that ignores the lock can still overwrite it; and the
+lock's exclusivity assumes a local filesystem, not NFS/SMB.
 
 ## 7. CLI
 

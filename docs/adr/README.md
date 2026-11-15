@@ -40,3 +40,5 @@ Rules:
 | [0008](0008-ci-and-quality-gates.md) | CI and quality gates | Accepted |
 | [0009](0009-local-storage-format.md) | Local storage format | Accepted |
 | [0010](0010-build-and-distribution.md) | Build and distribution for the CLI | Accepted |
+| [0011](0011-storage-write-locking.md) | Cross-process write locking for the local store | Accepted |
+| [0012](0012-scan-time-filesystem-validation.md) | Scan-time filesystem validation (TOCTOU) | Accepted |
