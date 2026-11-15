@@ -12,6 +12,9 @@ that regressions are caught by a machine rather than by production.
 ## Decision
 
 1. **`main` is never pushed to directly.** All work lands via pull request.
+   *Enforcement status: branch protection is not enabled yet, so this is a review
+   convention rather than a technical control. Until it is enabled, CI results are
+   advisory and a direct push remains possible.*
 2. **Required gate** (`.github/workflows/ci.yml`), on every PR and on pushes to
    `main`:
    - `npm ci` (frozen lockfile),

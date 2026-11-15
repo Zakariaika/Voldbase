@@ -25,17 +25,23 @@ and configuration."*
 | `id` | `ProjectId` | Stable, generated locally. |
 | `name` | `string` | Human label; not an identifier. |
 | `source` | `{ kind: 'github' \| 'local', location, ref? }` | Where the code came from. `location` is a URL or path. |
-| `revision` | `string` | **Pinned** revision — commit SHA or content digest. Never `HEAD`/`main`. |
+| `revision` | `RevisionId` | **Pinned** revision: a full 40-char Git commit SHA or a 64-char SHA-256 digest (lowercase hex). Never `HEAD`/`main`, never an abbreviated SHA. |
 | `dependencies` | `DependencySnapshot[]` | `{ ecosystem, manifestPath, digest }`. A digest, not a resolved tree. |
 | `configuration` | `Record<string, string>` | Non-secret, observed configuration. Secrets must never be stored here. |
 | `createdAt` | `Date` | Injected clock. |
 
 **Invariants**
 
-- `name` and `revision` are non-empty; `revision` must look pinned (no floating
-  refs such as `main`, `HEAD`, `latest`).
-- The same source may be registered at multiple revisions; a project is a
-  *snapshot*, not a live pointer. This is what makes verification reproducible.
+- `revision` must be a validated immutable identifier: `git-sha1` (40 lowercase
+  hex) or `sha256` (64 lowercase hex). Floating refs (`main`, `HEAD`, `latest`,
+  `refs/heads/*`, `refs/tags/*`), abbreviated SHAs (`9a3f1c2`), uppercase hex and
+  arbitrary hash-shaped strings (`deadbeef`) are rejected.
+- **A stored snapshot is immutable.** A project id may not be re-pointed at a
+  different revision or a different source; `assertProjectSnapshotCompatible`
+  enforces this, and every repository adapter must call it before saving.
+- Registering the same source at a new revision creates a **new project**. A
+  project is a snapshot, not a live pointer — that is what makes a verdict
+  reproducible and keeps every run attached to the code it examined.
 
 ---
 
@@ -77,6 +83,7 @@ observations, results, logs, artifacts, and integrity metadata."*
 | --- | --- | --- |
 | `id` | `RunId` | |
 | `projectId` | `ProjectId` | Denormalized for querying. |
+| `projectRevision` | `RevisionId` | The exact project revision this run verified, copied at creation so evidence stays traceable. |
 | `experimentId` | `ExperimentId` | |
 | `experimentDefinitionHash` | `string` | SHA-256 of the canonical experiment definition at creation. |
 | `environment` | `EnvironmentManifest` | OS, arch, runtime, runtime version, lockfile digest, image digest. |
@@ -90,9 +97,9 @@ observations, results, logs, artifacts, and integrity metadata."*
 **Lifecycle**
 
 ```
-queued ──start──▶ running ──complete──▶ completed   (result set)
+queued ──start──▶ running ──complete──▶ completed   (PASS | FAIL | INCONCLUSIVE | NOT_TESTED)
                     │
-                    ├──▶ failed        (result set, typically BLOCKED/FAIL)
+                    ├──▶ failed        (BLOCKED only)
                     └──▶ cancelled     (no result)
 ```
 
@@ -102,6 +109,10 @@ new runs.
 **Invariants (enforced in `src/domain/run.ts`)**
 
 - `complete` requires `state === 'running'`.
+- `complete` maps `BLOCKED` to `failed`; every other verdict maps to `completed`.
+  `FAIL` therefore ends `completed` with `result: 'FAIL'` — the experiment ran and
+  produced a negative observation, which is a different fact from being unable to
+  run at all.
 - `PASS` and `FAIL` require at least one `EvidenceRef`.
 - `queued` runs have no `startedAt`; completed runs have `finishedAt >= startedAt`.
 - A cancelled run never acquires a `result`.
@@ -141,7 +152,7 @@ infrastructure problems inside a coverage number.
 
 | Port | Responsibility | Phase 0 implementation |
 | --- | --- | --- |
-| `ProjectRepository` | Save/find/list projects | In-memory (tests) |
+| `ProjectRepository` | Save/find/list projects; rejects re-pointing a stored snapshot | In-memory (tests) |
 | `ExperimentRepository` | Save/find, list by project | In-memory (tests) |
 | `RunRepository` | Save, find, list by experiment; rejects overwriting a terminal run | In-memory (tests) |
 | `Clock` | Current time | Fixed clock (tests) |
