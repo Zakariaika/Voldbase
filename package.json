@@ -1,17 +1,27 @@
 {
   "name": "voldbase",
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-alpha.0",
   "private": true,
   "description": "Universal Experiment & Verification Infrastructure for software and AI projects",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "voldbase": "./bin/voldbase.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "test": "node --test tests/*.test.ts",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm run build && npm test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
