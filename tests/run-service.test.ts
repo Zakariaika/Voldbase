@@ -254,6 +254,54 @@ describe('RunService', () => {
     await assert.doesNotReject(() => projects.save(same));
   });
 
+  it('refuses to rename a stored project', async () => {
+    const { projects } = await seed();
+
+    const renamed = createProject({
+      id: asProjectId('proj-1'),
+      name: 'renamed',
+      source: { kind: 'github', location: 'https://github.com/example/example' },
+      revision: 'a'.repeat(40),
+    });
+
+    await assert.rejects(() => projects.save(renamed), /cannot change to 'renamed'/);
+  });
+
+  it('refuses to change a stored project configuration', async () => {
+    const { projects } = await seed();
+
+    const reconfigured = createProject({
+      id: asProjectId('proj-1'),
+      name: 'example',
+      source: { kind: 'github', location: 'https://github.com/example/example' },
+      revision: 'a'.repeat(40),
+      configuration: { node: '24' },
+    });
+
+    await assert.rejects(
+      () => projects.save(reconfigured),
+      /configuration that cannot change/,
+    );
+  });
+
+  it('preserves the original createdAt when re-saving an identical snapshot', async () => {
+    const { projects } = await seed();
+    const before = await projects.findById(asProjectId('proj-1'));
+    assert.ok(before !== undefined);
+
+    const same = createProject({
+      id: asProjectId('proj-1'),
+      name: 'example',
+      source: { kind: 'github', location: 'https://github.com/example/example' },
+      revision: 'a'.repeat(40),
+      createdAt: new Date('2030-01-01T00:00:00Z'),
+    });
+    await projects.save(same);
+
+    const after = await projects.findById(asProjectId('proj-1'));
+    assert.equal(after?.createdAt.toISOString(), before.createdAt.toISOString());
+  });
+
   it('lists runs per experiment without leaking other histories', async () => {
     const { service, runs } = await seed();
     await service.createRun({
