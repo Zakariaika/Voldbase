@@ -1,59 +1,81 @@
 /**
- * Cross-process write coordination for the local store (ADR-0011, ADR-0013).
+ * Cross-process write coordination for the local store.
  *
- * Atomic replacement (`write temp → rename`) makes a single write all-or-nothing,
- * but it cannot prevent a lost update: two processes can read the same document,
- * each add a project, and the second rename silently discards the first one. The
- * lock closes that read-modify-write window.
+ * Decisions: ADR-0011 (acquisition, bounded wait, in-lock re-read), ADR-0013
+ * (capture-before-removal), ADR-0015 (this protocol: liveness-based reclaim and
+ * the displaced-owner guard).
  *
- * Mechanism: a lock file created with `O_EXCL` (`'wx'`), so exactly one process
- * can create it. It holds an owner token, pid and timestamp. Acquisition polls
- * until a deadline, and a lock older than the stale threshold is reclaimed — a
- * crashed process must not wedge the store forever.
+ * Mutual exclusion is defined by exactly one thing: **creating the lock file with
+ * `O_EXCL`**. Only the kernel's atomic exclusive create decides who may write.
+ * Everything else here exists to answer two questions without ever breaking that
+ * rule:
  *
- * ## Why the lock is never deleted after a check
+ * 1. When may a lock be removed at all?
+ * 2. What happens when a lock has been removed while its owner is still running?
  *
- * "Stat the file, decide, then unlink the path" is a race: another process can
- * release and re-create the lock in between, and the unlink then destroys a lock
- * that someone is actively holding. POSIX offers no compare-and-delete, so this
- * module never deletes a name it just inspected. Instead every removal is
- * two-phase:
+ * ## 1. Removal requires proof the owner is gone
  *
- * 1. **Capture.** `rename(lockPath, quarantine)` is atomic and moves whatever
- *    inode is at the path into a name only this process knows. No file is
- *    destroyed by this step.
- * 2. **Verify, then delete or restore.** The captured file is inspected on its
- *    own; if it is the lock we meant to remove (our token, or a genuinely stale
- *    lock), it is deleted — safely, because no other process can ever acquire
- *    that quarantine name. If it turns out to belong to someone else (it was
- *    replaced between the pre-check and the capture), it is put back with
- *    `link()`, which refuses to overwrite a lock that appeared meanwhile.
+ * A lock is reclaimed only when **both** hold:
  *
- * The consequence is the guarantee that matters: **a newly acquired lock cannot
- * be deleted by another process's release or stale reclaim**, because deletion
- * only ever targets a quarantine name owned exclusively by the deleting process.
+ * - it is older than the stale threshold, and
+ * - its owner is *provably not running* on this machine: same hostname, and
+ *   `process.kill(pid, 0)` fails with `ESRCH`.
  *
- * Residual limitation, stated honestly: a foreign lock can be *captured* — made
- * briefly unavailable under its own name — in the microseconds between a
- * pre-check and the capture. It is restored immediately, and if a third process
- * acquired the lock in that gap the restore refuses (EEXIST) and the captured
- * copy is kept rather than clobbering the new lock. Exclusivity is never
- * knowingly broken, but this is not a linearizable mutex on top of POSIX
- * rename/link, and no claim beyond the above is made.
+ * Elapsed time alone is never sufficient. A paused process (`SIGSTOP`, a
+ * debugger, a laptop suspended mid-write), a process stalled in I/O, and a
+ * long-running operation are all *alive* and must never be displaced — they will
+ * resume and write. A crashed process is gone, and its lock is recovered at once.
  *
- * ## Other guarantees (and limits)
+ * Liveness checks are **not** portable proof of death, and this code does not
+ * pretend otherwise:
  *
- * - Cooperative: only code that takes this lock is serialized. An external editor
- *   or a process that ignores the lock can still overwrite the document.
- * - Local filesystems only. `O_EXCL`, rename/link semantics and timestamps vary
- *   over NFS/SMB; the lock is best-effort there.
- * - The lock is held only for the duration of one read-modify-write, never across
- *   a scan or any user-visible work.
+ * - a PID may be reused by an unrelated process → the check says "alive" and the
+ *   lock is simply not reclaimed (the safe direction: a user must remove it);
+ * - PIDs are namespaced: a process in another container or on another host is not
+ *   visible, so a different hostname — or any doubt — is treated as "unknown" and
+ *   is never reclaimed automatically;
+ * - `EPERM` (a live process owned by another user) is treated as "alive";
+ * - an unreadable or truncated lock carries no owner identity, so it is never
+ *   reclaimed automatically (removal is documented as a manual repair).
+ *
+ * ## 2. If a lock is displaced anyway, no new writer may enter
+ *
+ * Portable file APIs have no compare-and-delete, so a removal can still race with
+ * a re-creation. Therefore a captured lock is never used as evidence that its
+ * owner is gone, and a displaced lock is never silently forgotten:
+ *
+ * - removal first **captures** the lock with an atomic `rename` to a private
+ *   `*.quarantine` name, then verifies the captured inode/owner and either deletes
+ *   it (owner provably dead) or restores it with `link` (which never overwrites).
+ * - if the captured lock turns out to belong to a *live* owner, the remover does
+ *   not acquire; it fails with `storage_lock_unsafe`.
+ * - **every acquisition checks for unresolved quarantine files both before and
+ *   after creating its lock.** If a quarantine file belongs to an owner that is
+ *   alive — or whose state cannot be proven dead — the acquisition removes its own
+ *   lock and fails with `storage_lock_unsafe`. That is the guarantee that matters:
+ *   *while a valid owner may still be operating under a displaced lock, no other
+ *   process enters the protected section.*
+ * - the displaced owner cleans up its own quarantine file when it releases, which
+ *   is what makes the store usable again without manual intervention.
+ *
+ * ## What remains true and what remains limited
+ *
+ * - Cooperative: only code that uses this module is serialized.
+ * - Local filesystems only. `O_EXCL`, `rename`, `link` and PID visibility are not
+ *   dependable over NFS/SMB or across containers, and the store is not supported
+ *   there.
+ * - There is still a microsecond window between an acquisition's quarantine check
+ *   and its entry into the protected section. Closing it would need a conditional
+ *   delete/rename primitive that portable filesystems do not provide. It can only
+ *   be hit if a reclaimer simultaneously misjudges a live owner as dead, and the
+ *   result is detected and reported (`storage_lock_unsafe`) rather than ignored.
+ * - Manual deletion of a lock file is outside every guarantee.
  */
 
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { DomainError } from '../../domain/errors.ts';
 
@@ -67,8 +89,8 @@ export interface LockHooks {
   beforeCapture?(lockPath: string, kind: 'release' | 'stale'): void | Promise<void>;
   /**
    * Called after the lock was captured (moved to its quarantine name) and before
-   * it is verified and deleted or restored. Tests use it to simulate another
-   * process acquiring the lock in that gap. Must not be used in production.
+   * it is verified. Tests use it to simulate another process acquiring the lock
+   * in that gap. Must not be used in production.
    */
   afterCapture?(capturedPath: string, kind: 'release' | 'stale'): void | Promise<void>;
 }
@@ -76,7 +98,10 @@ export interface LockHooks {
 export interface LockOptions {
   /** Maximum time to wait for the lock before failing. */
   readonly timeoutMs?: number;
-  /** Age after which an existing lock is considered abandoned. */
+  /**
+   * Minimum age before a lock is even considered for recovery. Recovery also
+   * requires proof that the owner is no longer running.
+   */
   readonly staleMs?: number;
   /** Delay between acquisition attempts. */
   readonly pollIntervalMs?: number;
@@ -98,9 +123,48 @@ interface LockMetadata {
   readonly acquiredAt: string;
 }
 
+/** What is on disk at a lock path, read through a single descriptor. */
+interface LockSnapshot {
+  readonly metadata: LockMetadata | undefined;
+  readonly device: number;
+  readonly inode: number;
+  readonly modifiedMs: number;
+}
+
 export const DEFAULT_LOCK_TIMEOUT_MS = 5_000;
 export const DEFAULT_STALE_LOCK_MS = 30_000;
 export const DEFAULT_POLL_INTERVAL_MS = 25;
+
+const QUARANTINE_SUFFIX = '.quarantine';
+
+/**
+ * Quarantine kinds.
+ *
+ * `release` is written by the owner itself, after its protected section has
+ * finished, so it never indicates a writer that is still working. `stale` is
+ * written by a reclaimer and `displaced` by a release that could not hand a
+ * foreign lock back; both mean "a lock may have left its path while its owner was
+ * still running", and both block new writers while the owner is alive.
+ */
+type QuarantineKind = 'release' | 'stale' | 'displaced';
+
+function quarantineKindOf(entryName: string, lockName: string): QuarantineKind | undefined {
+  if (!entryName.startsWith(`${lockName}.`) || !entryName.endsWith(QUARANTINE_SUFFIX)) {
+    return undefined;
+  }
+  const middle = entryName.slice(lockName.length + 1, entryName.length - QUARANTINE_SUFFIX.length);
+  if (middle.startsWith('release-')) return 'release';
+  if (middle.startsWith('stale-')) return 'stale';
+  if (middle.startsWith('displaced-')) return 'displaced';
+  return undefined;
+}
+
+/** Only these kinds can mean a live owner is still inside its section. */
+function blocksEntry(kind: QuarantineKind): boolean {
+  return kind === 'stale' || kind === 'displaced';
+}
+
+type Liveness = 'alive' | 'dead' | 'unknown';
 
 function errorCode(error: unknown): string | undefined {
   if (typeof error === 'object' && error !== null && 'code' in error) {
@@ -116,13 +180,7 @@ function sleep(milliseconds: number): Promise<void> {
   });
 }
 
-async function readMetadata(lockPath: string): Promise<LockMetadata | undefined> {
-  let raw: string;
-  try {
-    raw = await fs.readFile(lockPath, 'utf8');
-  } catch {
-    return undefined;
-  }
+function parseMetadata(raw: string): LockMetadata | undefined {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null) {
@@ -139,47 +197,81 @@ async function readMetadata(lockPath: string): Promise<LockMetadata | undefined>
     }
     return { token, pid, hostname, acquiredAt };
   } catch {
-    // A process that crashed mid-write leaves a partial file: treat it as stale.
     return undefined;
   }
 }
 
-/** How long the lock at `lockPath` has existed, in milliseconds. */
-async function lockAgeMs(lockPath: string): Promise<number | undefined> {
-  let stats;
+/**
+ * Read a lock through one descriptor: identity, contents and timestamp all come
+ * from the same inode, so what is judged cannot be swapped between the reads.
+ */
+async function readLockSnapshot(lockPath: string): Promise<LockSnapshot | undefined> {
+  let handle;
   try {
-    stats = await fs.stat(lockPath);
+    handle = await fs.open(lockPath, 'r');
   } catch {
     return undefined;
   }
-
-  const metadata = await readMetadata(lockPath);
-  if (metadata !== undefined) {
-    const acquiredAt = Date.parse(metadata.acquiredAt);
-    if (Number.isFinite(acquiredAt)) {
-      return Math.max(0, Date.now() - acquiredAt);
+  try {
+    const stats = await handle.stat();
+    let raw: string | undefined;
+    try {
+      raw = await handle.readFile('utf8');
+    } catch {
+      raw = undefined;
     }
+    return {
+      metadata: raw === undefined ? undefined : parseMetadata(raw),
+      device: stats.dev,
+      inode: stats.ino,
+      modifiedMs: stats.mtimeMs,
+    };
+  } finally {
+    await handle.close().catch(() => undefined);
   }
-  // Unreadable or unparsable metadata: fall back to the filesystem timestamp, so
-  // a half-written lock still ages out instead of blocking forever.
-  return Math.max(0, Date.now() - stats.mtimeMs);
+}
+
+/** Age of a snapshot, from its recorded acquisition time or its mtime. */
+function ageOf(snapshot: LockSnapshot): number {
+  const acquiredAt = snapshot.metadata === undefined ? Number.NaN : Date.parse(snapshot.metadata.acquiredAt);
+  if (Number.isFinite(acquiredAt)) {
+    return Math.max(0, Date.now() - acquiredAt);
+  }
+  return Math.max(0, Date.now() - snapshot.modifiedMs);
 }
 
 /**
- * Unique name in the same directory, so `rename` stays on one filesystem and is
- * therefore atomic. Quarantine files never collide with the lock name, so a
- * leftover one can never block an acquisition.
- */
-function quarantinePath(lockPath: string, kind: 'release' | 'stale'): string {
-  return `${lockPath}.${kind}-${randomUUID()}.quarantine`;
-}
-
-/**
- * Atomically take exclusive custody of whatever is currently at `lockPath`.
+ * Is the recorded owner still running?
  *
- * Returns false when there is nothing to capture (already gone, or the move was
- * refused) — never throws, because callers treat failure as "try again later".
+ * `dead` is only returned when the owner claims this host *and* the PID does not
+ * exist. Everything else — another host, another container, a permission error, a
+ * platform without the check, a parse failure — is `alive` or `unknown`, and
+ * neither is grounds for taking the lock away.
  */
+function ownerLiveness(metadata: LockMetadata | undefined): Liveness {
+  if (metadata === undefined) {
+    return 'unknown';
+  }
+  if (metadata.hostname !== os.hostname()) {
+    return 'unknown';
+  }
+  if (metadata.pid === process.pid) {
+    return 'alive';
+  }
+  try {
+    process.kill(metadata.pid, 0);
+    return 'alive';
+  } catch (error) {
+    // ESRCH is the only answer that means "no such process".
+    return errorCode(error) === 'ESRCH' ? 'dead' : 'alive';
+  }
+}
+
+function quarantinePath(lockPath: string, kind: 'release' | 'stale'): string {
+  return `${lockPath}.${kind}-${randomUUID()}${QUARANTINE_SUFFIX}`;
+}
+
+/** Atomically take custody of whatever is at `lockPath`. */
 async function captureLock(lockPath: string, target: string): Promise<boolean> {
   try {
     await fs.rename(lockPath, target);
@@ -190,50 +282,125 @@ async function captureLock(lockPath: string, target: string): Promise<boolean> {
 }
 
 /**
- * Put a captured lock back under its original name.
- *
- * `link()` is used deliberately: it fails with `EEXIST` instead of overwriting, so
- * a lock acquired while the capture was in flight is never clobbered. On
- * filesystems without hard links the fallback renames only when the name is free.
- *
- * When the restore is refused, the captured file is *kept*: it is the only
- * remaining reference to that lock, and silently deleting it would be worse than
- * leaving a stray quarantine file.
+ * Put a captured lock back under its original name, without overwriting a lock
+ * that appeared meanwhile. The captured copy is kept when it cannot be restored:
+ * it is that owner's only remaining record, and deleting it would hide the fact
+ * that a lock went missing.
  */
-async function restoreCapturedLock(lockPath: string, captured: string): Promise<void> {
+async function restoreCapturedLock(lockPath: string, captured: string): Promise<boolean> {
   try {
     await fs.link(captured, lockPath);
     await fs.rm(captured, { force: true });
-    return;
+    return true;
   } catch (error) {
     if (errorCode(error) === 'EEXIST') {
-      return; // A new lock appeared; keep the captured copy, never touch the new one.
+      return false;
     }
   }
 
   try {
     await fs.lstat(lockPath);
-    return; // Occupied: leave the captured copy alone.
+    return false;
   } catch {
-    await fs.rename(captured, lockPath).catch(() => undefined);
+    try {
+      await fs.rename(captured, lockPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
+function unsafe(message: string): DomainError {
+  return new DomainError('storage_lock_unsafe', message);
+}
+
 /**
- * Remove an abandoned lock, without ever being able to delete a live one.
+ * Resolve quarantine files for this lock.
  *
- * The age check is only a hint that decides whether capturing is worth attempting.
- * The decision that matters is made *after* capture, on the captured inode, and a
- * lock that turns out to be fresh is restored untouched.
+ * Files whose owner is provably dead are deleted (a dead owner cannot be inside
+ * the protected section). Files whose owner is alive, or whose state cannot be
+ * proven, *block* new writers: that owner may still be writing under a lock that
+ * is no longer at its original path.
+ */
+async function resolveQuarantine(lockPath: string): Promise<'clear' | 'blocked'> {
+  const directory = path.dirname(lockPath);
+  const lockName = path.basename(lockPath);
+
+  let entries: string[];
+  try {
+    entries = await fs.readdir(directory);
+  } catch {
+    return 'clear';
+  }
+
+  let blocked = false;
+  for (const entry of entries) {
+    const kind = quarantineKindOf(entry, lockName);
+    if (kind === undefined) {
+      continue;
+    }
+    const candidate = path.join(directory, entry);
+    const snapshot = await readLockSnapshot(candidate);
+    if (snapshot === undefined) {
+      continue; // vanished between listing and reading
+    }
+    if (ownerLiveness(snapshot.metadata) === 'dead') {
+      // A dead owner cannot be inside its section: this file is only litter.
+      await fs.rm(candidate, { force: true }).catch(() => undefined);
+      continue;
+    }
+    if (blocksEntry(kind)) {
+      blocked = true;
+    }
+  }
+  return blocked ? 'blocked' : 'clear';
+}
+
+/** Remove quarantine files that carry this process's own token. */
+async function removeOwnQuarantine(lockPath: string, token: string): Promise<void> {
+  const directory = path.dirname(lockPath);
+  const lockName = path.basename(lockPath);
+  let entries: string[];
+  try {
+    entries = await fs.readdir(directory);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (quarantineKindOf(entry, lockName) === undefined) {
+      continue;
+    }
+    const candidate = path.join(directory, entry);
+    const snapshot = await readLockSnapshot(candidate);
+    if (snapshot?.metadata?.token === token) {
+      await fs.rm(candidate, { force: true }).catch(() => undefined);
+    }
+  }
+}
+
+type ReclaimOutcome = 'reclaimed' | 'skip' | 'unsafe';
+
+/**
+ * Try to recover a lock left by a process that is no longer running.
+ *
+ * The age check is a floor, not a licence: the owner must also be provably dead.
  */
 async function reclaimStaleLock(
   lockPath: string,
   staleMs: number,
   hooks: LockHooks | undefined,
-): Promise<boolean> {
-  const age = await lockAgeMs(lockPath);
-  if (age === undefined || age <= staleMs) {
-    return false;
+): Promise<ReclaimOutcome> {
+  const snapshot = await readLockSnapshot(lockPath);
+  if (snapshot === undefined) {
+    return 'skip';
+  }
+  // No identity means no proof of death: never reclaim, ask for a human instead.
+  if (snapshot.metadata === undefined || ownerLiveness(snapshot.metadata) !== 'dead') {
+    return 'skip';
+  }
+  if (ageOf(snapshot) <= staleMs) {
+    return 'skip';
   }
 
   if (hooks?.beforeCapture !== undefined) {
@@ -242,33 +409,47 @@ async function reclaimStaleLock(
 
   const captured = quarantinePath(lockPath, 'stale');
   if (!(await captureLock(lockPath, captured))) {
-    return false;
+    return 'skip';
   }
 
   if (hooks?.afterCapture !== undefined) {
     await hooks.afterCapture(captured, 'stale');
   }
 
-  // Exclusively ours from here on: whatever we do to this name cannot affect a
-  // lock held by anyone else.
-  const capturedAge = await lockAgeMs(captured);
-  if (capturedAge === undefined || capturedAge <= staleMs) {
-    // Fresh lock captured by mistake (it replaced the stale one in the gap):
-    // put it back and keep waiting.
-    await restoreCapturedLock(lockPath, captured);
-    return false;
+  // Only delete if the inode we captured is the inode we judged, and its owner is
+  // still provably gone. Anything else is a lock that appeared in the gap: it may
+  // have a live owner, so it is put back and this process refuses to continue.
+  const capturedSnapshot = await readLockSnapshot(captured);
+  const sameLock =
+    capturedSnapshot !== undefined &&
+    capturedSnapshot.device === snapshot.device &&
+    capturedSnapshot.inode === snapshot.inode;
+  const stillDead =
+    capturedSnapshot !== undefined && ownerLiveness(capturedSnapshot.metadata) === 'dead';
+
+  if (sameLock && stillDead) {
+    await fs.rm(captured, { force: true }).catch(() => undefined);
+    return 'reclaimed';
   }
 
-  await fs.rm(captured, { force: true }).catch(() => undefined);
-  return true;
+  const restored = await restoreCapturedLock(lockPath, captured);
+  throw unsafe(
+    restored
+      ? `${lockPath} changed while it was being recovered; the lock was restored and this ` +
+        'process refused to continue. Retry the operation.'
+      : `${lockPath} changed while it was being recovered and a new lock appeared before the ` +
+        'previous one could be restored. Refusing to continue: another writer may still be ' +
+        'active. Inspect the store directory, then retry.',
+  );
 }
 
 /**
  * Acquire the lock, waiting up to `timeoutMs`.
  *
  * @throws DomainError `storage_lock_timeout` when the deadline passes.
- * @throws DomainError `storage_lock_failed` when the lock cannot be created at all
- * (for example the directory does not exist or is read-only).
+ * @throws DomainError `storage_lock_unsafe` when another writer may still be
+ * active under a displaced lock; the caller must not enter the protected section.
+ * @throws DomainError `storage_lock_failed` when the lock cannot be created at all.
  */
 export async function acquireFileLock(
   lockPath: string,
@@ -280,6 +461,8 @@ export async function acquireFileLock(
   const hooks = options.hooks;
   const token = randomUUID();
   const deadline = Date.now() + timeoutMs;
+  const instruction =
+    'Remove it only if you are certain no VOLDBASE process is running.';
 
   const metadata: LockMetadata = {
     token,
@@ -289,6 +472,15 @@ export async function acquireFileLock(
   };
 
   for (;;) {
+    // Cheap pre-check: do not even try while a live owner's lock is displaced.
+    if ((await resolveQuarantine(lockPath)) === 'blocked') {
+      throw unsafe(
+        `${lockPath} has a displaced lock whose owner may still be active. ` +
+          'Refusing to enter the protected section.',
+      );
+    }
+
+    let created = false;
     try {
       // Exclusive creation: the kernel guarantees exactly one winner.
       const handle = await fs.open(lockPath, 'wx', 0o600);
@@ -297,11 +489,7 @@ export async function acquireFileLock(
       } finally {
         await handle.close();
       }
-      return {
-        path: lockPath,
-        token,
-        release: () => releaseLock(lockPath, token, hooks),
-      };
+      created = true;
     } catch (error) {
       if (errorCode(error) !== 'EEXIST') {
         throw new DomainError(
@@ -311,19 +499,44 @@ export async function acquireFileLock(
       }
     }
 
-    if (await reclaimStaleLock(lockPath, staleMs, hooks)) {
+    if (created) {
+      // Binding check, done after we own the name: if a valid owner is displaced,
+      // this process gives the lock back instead of becoming a second writer.
+      if ((await resolveQuarantine(lockPath)) === 'blocked') {
+        await releaseLock(lockPath, token, hooks);
+        throw unsafe(
+          `${lockPath} was acquired but a displaced lock with a live owner exists. ` +
+            'Refusing to enter the protected section.',
+        );
+      }
+
+      return {
+        path: lockPath,
+        token,
+        release: () => releaseLock(lockPath, token, hooks),
+      };
+    }
+
+    const outcome = await reclaimStaleLock(lockPath, staleMs, hooks);
+    if (outcome === 'reclaimed') {
       continue;
     }
 
     if (Date.now() >= deadline) {
+      const held = await readLockSnapshot(lockPath);
+      const owner =
+        held?.metadata === undefined
+          ? 'its owner could not be identified (the file is empty, truncated or unreadable)'
+          : held.metadata.hostname === os.hostname()
+            ? `pid ${held.metadata.pid} on this host, which is still running`
+            : `pid ${held.metadata.pid} on host ${held.metadata.hostname}, which cannot be checked from here`;
       throw new DomainError(
         'storage_lock_timeout',
-        `Timed out after ${timeoutMs} ms waiting for ${lockPath}. Another VOLDBASE ` +
-          'process may be writing; if not, remove the lock file manually.',
+        `Timed out after ${timeoutMs} ms waiting for ${lockPath}. The lock is held by ${owner}. ` +
+          instruction,
       );
     }
 
-    // Small jitter avoids two waiters retrying in lockstep forever.
     await sleep(pollIntervalMs + Math.floor(Math.random() * pollIntervalMs));
   }
 }
@@ -332,40 +545,42 @@ export async function acquireFileLock(
  * Release the lock only if this process still owns it.
  *
  * Never throws: it runs from `finally` blocks and must not mask the original
- * error. If the lock was already replaced, nothing is released and nothing is
- * deleted — the foreign lock is restored if it had to be captured to find that out.
+ * error. It never removes a name it has not just verified as its own, so it cannot
+ * delete a lock held by another process, and it never displaces a foreign lock.
  */
 export async function releaseLock(
   lockPath: string,
   token: string,
   hooks?: LockHooks,
 ): Promise<void> {
-  // Fast path: if the file is already gone, or clearly not ours, do not touch it.
-  const metadata = await readMetadata(lockPath);
-  if (metadata === undefined || metadata.token !== token) {
-    return;
+  const current = await readLockSnapshot(lockPath);
+
+  if (current !== undefined && current.metadata?.token === token) {
+    if (hooks?.beforeCapture !== undefined) {
+      await hooks.beforeCapture(lockPath, 'release');
+    }
+
+    const captured = quarantinePath(lockPath, 'release');
+    if (await captureLock(lockPath, captured)) {
+      if (hooks?.afterCapture !== undefined) {
+        await hooks.afterCapture(captured, 'release');
+      }
+
+      const capturedSnapshot = await readLockSnapshot(captured);
+      if (capturedSnapshot?.metadata?.token === token) {
+        await fs.rm(captured, { force: true }).catch(() => undefined);
+      } else if (!(await restoreCapturedLock(lockPath, captured))) {
+        // A foreign lock was caught in the capture window and could not be handed
+        // back because a newcomer took the name. It must keep blocking entry while
+        // its owner may still be working, so it is re-labelled as displaced.
+        await fs
+          .rename(captured, `${lockPath}.displaced-${randomUUID()}${QUARANTINE_SUFFIX}`)
+          .catch(() => undefined);
+      }
+    }
   }
 
-  if (hooks?.beforeCapture !== undefined) {
-    await hooks.beforeCapture(lockPath, 'release');
-  }
-
-  const captured = quarantinePath(lockPath, 'release');
-  if (!(await captureLock(lockPath, captured))) {
-    return;
-  }
-
-  if (hooks?.afterCapture !== undefined) {
-    await hooks.afterCapture(captured, 'release');
-  }
-
-  // Decide on the captured inode, not on the path we checked earlier.
-  const capturedMetadata = await readMetadata(captured);
-  if (capturedMetadata !== undefined && capturedMetadata.token === token) {
-    await fs.rm(captured, { force: true }).catch(() => undefined);
-    return;
-  }
-
-  // Someone else's lock was captured (it replaced ours in the gap): hand it back.
-  await restoreCapturedLock(lockPath, captured);
+  // Our own lock may have ended up in quarantine (for example if it was displaced
+  // while this process was paused). Releasing it is what unblocks new writers.
+  await removeOwnQuarantine(lockPath, token);
 }
