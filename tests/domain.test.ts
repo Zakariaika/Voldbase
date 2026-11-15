@@ -5,7 +5,9 @@ import {
   asArtifactId,
   asExperimentId,
   asProjectId,
+  asRevision,
   asRunId,
+  assertProjectSnapshotCompatible,
   canonicalize,
   completeRun,
   createEvidenceRef,
@@ -14,7 +16,9 @@ import {
   createRun,
   experimentDefinitionHash,
   isResultStatus,
+  isRevision,
   requiresEvidence,
+  revisionKind,
   startRun,
   type EnvironmentManifest,
   type Experiment,
@@ -56,6 +60,7 @@ function sampleRun(): Run {
   return createRun({
     id: asRunId('run-1'),
     projectId: asProjectId('proj-1'),
+    projectRevision: 'a'.repeat(40),
     experimentId: asExperimentId('exp-1'),
     experimentDefinitionHash: experimentDefinitionHash(sampleExperiment()),
     environment: ENVIRONMENT,
@@ -97,7 +102,7 @@ describe('project', () => {
   });
 
   it('rejects floating revisions', () => {
-    for (const revision of ['main', 'HEAD', 'latest', 'refs/heads/main', '  ']) {
+    for (const revision of ['main', 'HEAD', 'latest', 'refs/heads/main', 'refs/tags/v1']) {
       assert.throws(
         () =>
           createProject({
@@ -106,9 +111,22 @@ describe('project', () => {
             source: { kind: 'local', location: '/tmp/example' },
             revision,
           }),
-        /pinned/,
+        /pinned to an immutable identifier/,
       );
     }
+  });
+
+  it('rejects a revision that is only hash-shaped', () => {
+    assert.throws(
+      () =>
+        createProject({
+          id: asProjectId('proj-4'),
+          name: 'example',
+          source: { kind: 'local', location: '/tmp/example' },
+          revision: 'deadbeef',
+        }),
+      /full 40-character Git commit SHA/,
+    );
   });
 
   it('rejects an empty name', () => {
@@ -118,7 +136,7 @@ describe('project', () => {
           id: asProjectId('proj-3'),
           name: ' ',
           source: { kind: 'local', location: '/tmp/example' },
-          revision: 'deadbeef',
+          revision: 'a'.repeat(40),
         }),
       /name/,
     );
@@ -267,6 +285,78 @@ describe('evidence', () => {
         }),
       /non-negative/,
     );
+  });
+});
+
+describe('revision identifiers', () => {
+  it('accepts a full git commit SHA and a SHA-256 digest', () => {
+    const sha1 = 'a'.repeat(40);
+    const sha256 = 'b'.repeat(64);
+
+    assert.equal(asRevision(sha1), sha1);
+    assert.equal(asRevision(sha256), sha256);
+    assert.equal(revisionKind(sha1), 'git-sha1');
+    assert.equal(revisionKind(sha256), 'sha256');
+    assert.equal(isRevision(sha1), true);
+    assert.equal(isRevision(sha256), true);
+  });
+
+  it('rejects hash-shaped strings that are not immutable identifiers', () => {
+    const invalid = [
+      'deadbeef',
+      '9a3f1c2',
+      'a'.repeat(39),
+      'a'.repeat(41),
+      'g'.repeat(40),
+      'A'.repeat(40),
+    ];
+
+    for (const revision of invalid) {
+      assert.throws(() => asRevision(revision), /full 40-character Git commit SHA/);
+      assert.equal(isRevision(revision), false);
+      assert.equal(revisionKind(revision), undefined);
+    }
+  });
+
+  it('distinguishes a floating ref from missing input', () => {
+    for (const revision of ['main', 'HEAD', 'latest', 'refs/heads/main']) {
+      assert.throws(() => asRevision(revision), /pinned to an immutable identifier/);
+    }
+    for (const revision of ['', '   ']) {
+      assert.throws(() => asRevision(revision), /non-empty/);
+    }
+  });
+});
+
+describe('project snapshot immutability', () => {
+  it('refuses to re-point an existing snapshot at a different revision', () => {
+    const original = sampleProject();
+    const repointed = createProject({ ...original, revision: 'c'.repeat(40) });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, repointed),
+      /cannot be re-pointed/,
+    );
+  });
+
+  it('refuses to move a snapshot to a different source', () => {
+    const original = sampleProject();
+    const moved = createProject({
+      ...original,
+      source: { kind: 'local', location: '/tmp/elsewhere' },
+    });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, moved),
+      /cannot be re-pointed to local:/,
+    );
+  });
+
+  it('accepts an unchanged snapshot', () => {
+    const original = sampleProject();
+    const same = createProject({ ...original });
+
+    assert.doesNotThrow(() => assertProjectSnapshotCompatible(original, same));
   });
 });
 
