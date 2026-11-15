@@ -38,3 +38,5 @@ Rules:
 | [0006](0006-evidence-integrity.md) | Evidence integrity and reproducibility | Accepted |
 | [0007](0007-dependency-policy.md) | Dependency policy | Accepted |
 | [0008](0008-ci-and-quality-gates.md) | CI and quality gates | Accepted |
+| [0009](0009-local-storage-format.md) | Local storage format | Accepted |
+| [0010](0010-build-and-distribution.md) | Build and distribution for the CLI | Accepted |
