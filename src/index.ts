@@ -110,6 +110,7 @@ export {
   DEFAULT_POLL_INTERVAL_MS,
   DEFAULT_STALE_LOCK_MS,
   type LockHandle,
+  type LockHooks,
   type LockOptions,
 } from './infrastructure/fs/file-lock.ts';
 export {
