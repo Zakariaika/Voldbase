@@ -71,6 +71,15 @@ lock caught in that window is handed straight back. Finally, any quarantine file
 carrying this process's own token is removed — that is how a displaced owner
 unblocks the store without human intervention.
 
+**5. The quarantine check fails closed.**
+
+A quarantine directory that cannot be listed, or a quarantine file that exists but
+cannot be opened or read, blocks entry with `storage_lock_unsafe`. Only a file that
+is genuinely gone (`ENOENT`) counts as absent. "I could not look" is not evidence
+that nothing is there, and an inspection failure of any kind — including one that
+looks like harmless `release-` litter — must never wave a writer into a section a
+displaced owner may still be editing.
+
 ## Guarantees
 
 - Exactly one process can create the lock: `open(path, 'wx')`, enforced by the
@@ -81,6 +90,7 @@ unblocks the store without human intervention.
 - A displaced live lock prevents any other process from entering until its owner
   releases (`storage_lock_unsafe`).
 - Release cannot delete or displace a lock owned by another process.
+- An unreadable lock directory or quarantine entry never admits a writer.
 
 ## Limitations (none of these are hypothetical)
 
@@ -100,6 +110,11 @@ unblocks the store without human intervention.
   portable filesystems do not provide. It is detected and reported
   (`storage_lock_unsafe`) rather than silently ignored, and it requires a liveness
   check to be wrong first.
+- **Fail-closed means a wedge is possible.** An unreadable lock directory, or a
+  quarantine file that cannot be inspected (permissions, an I/O error, a file owned
+  by another user), keeps every writer out until it becomes readable again or is
+  removed by hand; the error names the path. That is deliberate: the alternative is
+  entering alongside a writer that may still be running.
 - **Manual deletion** of a lock file, or a tool that ignores the lock, is outside
   every guarantee.
 - **Local filesystems only.** `O_EXCL`, `rename`, `link`, PID visibility and
@@ -114,6 +129,8 @@ unblocks the store without human intervention.
   newcomer from entering while the displaced owner is working; the guard does.
 - **Never reclaim at all.** Maximally safe but wedges the store after any crash; the
   liveness check preserves recovery for the one case that can be proven.
+- **Treat an unreadable quarantine directory as empty.** Rejected: it is exactly the
+  case where a displaced owner may be hidden, so the check fails closed instead.
 - **`flock`/`fcntl`.** Not exposed by Node's standard library (ADR-0007).
 - **SQLite with transactions and its own locking.** The correct long-term answer for
   real multi-writer concurrency, deferred by ADR-0009 for Phase 1 scale.
