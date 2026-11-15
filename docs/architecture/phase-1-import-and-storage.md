@@ -167,14 +167,20 @@ Guarantees (see [ADR-0009](../adr/0009-local-storage-format.md)):
 - **Migrated, not guessed**: version 0 (a bare array) migrates to version 1;
   a newer `schemaVersion` is refused rather than partially read.
 - **Writes are serialized across processes** by a lock file
-  (`projects.json.lock`, created with `O_EXCL`, default timeout 5 s, abandoned
-  after 30 s). The document is re-read while the lock is held, so a concurrent
-  writer cannot be overwritten by a stale in-memory copy.
-- **A live lock cannot be deleted by another process.** Release and stale reclaim
-  capture the lock with an atomic `rename` to a private `*.quarantine` name, verify
-  the captured file, then delete it — restoring it with `link` (which never
-  overwrites) if it belonged to someone else. See
-  [ADR-0013](../adr/0013-lock-capture-and-restore.md).
+  (`projects.json.lock`, created with `O_EXCL`, default timeout 5 s). The document
+  is re-read while the lock is held, so a concurrent writer cannot be overwritten
+  by a stale in-memory copy.
+- **A lock is recovered only when its owner is provably gone** (same host, PID no
+  longer exists), never on age alone, so a paused or long-running writer keeps its
+  exclusion. Recovery captures the lock with an atomic `rename` and verifies that
+  the captured inode is the one it judged; if it is not, the lock is handed back and
+  the reclaimer aborts with `storage_lock_unsafe`.
+- **A displaced live lock blocks new writers.** Acquisitions check quarantine files
+  before and after creating their lock; a `stale-`/`displaced-` entry whose owner is
+  alive makes them give the lock back and fail with `storage_lock_unsafe`. Release
+  never deletes or moves a lock it does not own, and removes the owner's own
+  quarantine leftovers when it finishes. See
+  [ADR-0015](../adr/0015-liveness-based-lock-recovery.md).
 
 The storage document holds no file contents, only paths and digests.
 
@@ -208,9 +214,11 @@ ownership; a project that changes *during* a scan now aborts the import
 (`scan_entry_changed`) instead of producing a snapshot of an inconsistent moment;
 two VOLDBASE processes writing the store are serialized by the lock file, but an
 external editor or a tool that ignores the lock can still overwrite it; the lock's
-exclusivity assumes a local filesystem, not NFS/SMB; and on a filesystem that
-reports no inode numbers, a same-size regular-file swap cannot be distinguished
-from the file that was validated (symbolic-link substitution still is).
+exclusivity assumes a local filesystem, not NFS/SMB; locking recovery relies on PID
+liveness, which is not portable proof of death (reused PIDs and containers are
+unverifiable); and on a filesystem that reports no inode numbers, a same-size
+regular-file swap cannot be distinguished from the file that was validated
+(symbolic-link substitution still is).
 
 ## 7. CLI
 
