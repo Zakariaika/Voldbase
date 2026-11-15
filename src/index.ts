@@ -64,14 +64,23 @@ export {
 export type {
   ArtifactStore,
   Clock,
+  DetectedManifest,
   ExecutionOutcome,
   ExecutionRequest,
   Executor,
   ExperimentRepository,
   IdGenerator,
   ProjectRepository,
+  ProjectScan,
+  ProjectScanner,
   RunRepository,
 } from './application/ports.ts';
+export {
+  ProjectImportService,
+  type ImportProjectCommand,
+  type ImportProjectResult,
+  type ProjectImportDeps,
+} from './application/project-import-service.ts';
 export {
   RunService,
   type CreateRunCommand,
@@ -85,3 +94,34 @@ export {
   InMemoryRunRepository,
   SequentialIdGenerator,
 } from './infrastructure/memory/in-memory.ts';
+export {
+  DEFAULT_SCANNER_LIMITS,
+  EXCLUDED_DIRECTORY_NAMES,
+  LocalProjectScanner,
+  MANIFEST_ECOSYSTEMS,
+  snapshotDigest,
+  type ScannerLimits,
+} from './infrastructure/fs/scanner.ts';
+export {
+  JsonProjectRepository,
+  type JsonProjectRepositoryOptions,
+} from './infrastructure/fs/json-project-repository.ts';
+export {
+  HOME_ENV_VAR,
+  projectStorageFilePath,
+  resolveVoldbaseHome,
+} from './infrastructure/fs/paths.ts';
+export {
+  documentToProjects,
+  migrateStorageDocument,
+  projectToStored,
+  projectsToDocument,
+  STORAGE_FILE_NAME,
+  STORAGE_MIGRATIONS,
+  STORAGE_SCHEMA_VERSION,
+  storedToProject,
+  type StorageDocumentV1,
+  type StorageMigration,
+  type StoredProject,
+} from './infrastructure/fs/storage-schema.ts';
+export { RandomIdGenerator, SystemClock } from './infrastructure/ids.ts';
