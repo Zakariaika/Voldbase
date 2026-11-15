@@ -8,6 +8,7 @@
 import type { EvidenceRef } from './evidence.ts';
 import { DomainError, invariant } from './errors.ts';
 import type { ExperimentId, ProjectId, RunId } from './ids.ts';
+import { asRevision, type RevisionId } from './revision.ts';
 import { requiresEvidence, type ResultStatus } from './result.ts';
 
 export type RunState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
@@ -27,6 +28,11 @@ export interface EnvironmentManifest {
 export interface Run {
   readonly id: RunId;
   readonly projectId: ProjectId;
+  /**
+   * The exact project revision this run verified. Stored on the run so that
+   * evidence stays traceable even if project storage is ever allowed to change.
+   */
+  readonly projectRevision: RevisionId;
   readonly experimentId: ExperimentId;
   /** Hash of the experiment definition as it existed when this run was created. */
   readonly experimentDefinitionHash: string;
@@ -42,6 +48,7 @@ export interface Run {
 export interface CreateRunInput {
   id: RunId;
   projectId: ProjectId;
+  projectRevision: string;
   experimentId: ExperimentId;
   experimentDefinitionHash: string;
   environment: EnvironmentManifest;
@@ -69,9 +76,12 @@ export function createRun(input: CreateRunInput): Run {
     'A run must record os, arch, runtime and runtime version',
   );
 
+  const projectRevision = asRevision(input.projectRevision);
+
   return {
     id: input.id,
     projectId: input.projectId,
+    projectRevision,
     experimentId: input.experimentId,
     experimentDefinitionHash: input.experimentDefinitionHash,
     environment: input.environment,
