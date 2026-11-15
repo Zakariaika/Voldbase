@@ -1,0 +1,40 @@
+# Architecture Decision Records
+
+Every decision that is expensive to reverse is written down here before it is
+implemented. An ADR is one page: the context, the decision, the consequences, and
+the alternatives that were rejected.
+
+## Format
+
+```
+# NNNN — Title
+
+- Status: Proposed | Accepted | Superseded by NNNN | Deprecated
+- Date: YYYY-MM-DD
+
+## Context
+## Decision
+## Consequences
+## Alternatives considered
+```
+
+Rules:
+
+1. ADRs are **immutable once accepted**. To change a decision, add a new ADR and
+   mark the old one `Superseded by NNNN`.
+2. A pull request that introduces a new runtime dependency, a new external
+   service, or a change in a layering rule must reference an ADR.
+3. Numbers are never reused.
+
+## Index
+
+| ADR | Title | Status |
+| --- | --- | --- |
+| [0001](0001-product-scope.md) | Product scope and result taxonomy | Accepted |
+| [0002](0002-language-and-runtime.md) | Language, runtime and toolchain | Accepted |
+| [0003](0003-modular-monolith.md) | Modular monolith with ports and adapters | Accepted |
+| [0004](0004-local-first.md) | Local-first V0.1 with a hosted-ready seam | Accepted |
+| [0005](0005-execution-isolation.md) | Execution isolation and the no-execution rule | Accepted |
+| [0006](0006-evidence-integrity.md) | Evidence integrity and reproducibility | Accepted |
+| [0007](0007-dependency-policy.md) | Dependency policy | Accepted |
+| [0008](0008-ci-and-quality-gates.md) | CI and quality gates | Accepted |
