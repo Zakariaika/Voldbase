@@ -39,10 +39,17 @@ and configuration."*
 - **A stored snapshot is immutable.** A project id may not be re-pointed at a
   different revision, source, **name, dependency set or configuration**;
   `assertProjectSnapshotCompatible` enforces all of it, and every repository
-  adapter must call it before saving. Dependency comparison is
-  order-insensitive (the set is what matters), while configuration comparison
-  uses a canonical digest. `createdAt` is provenance, not content: an identical
-  re-save is idempotent and keeps the original value.
+  adapter must call it before saving. Source identity is `kind` + `location` +
+  the requested `ref` (adding, dropping or changing the ref is a change), so
+  `main` and `v1.0.0` are never treated as the same origin. Dependency
+  comparison is order-insensitive (the set is what matters), while configuration
+  comparison uses a canonical digest. `createdAt` is provenance, not content: an
+  identical re-save is idempotent and keeps the original value.
+- **`readonly` is compile-time only.** A caller still holds the nested `source`,
+  `dependencies`, `configuration` and `createdAt` objects and can mutate them
+  after handing a project over. Adapters must therefore copy on save and on every
+  read (`cloneProject`), or a stored snapshot can drift without ever passing
+  through the guard.
 - Registering the same source at a new revision creates a **new project**. A
   project is a snapshot, not a live pointer — that is what makes a verdict
   reproducible and keeps every run attached to the code it examined.
