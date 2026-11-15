@@ -37,8 +37,12 @@ and configuration."*
   `refs/heads/*`, `refs/tags/*`), abbreviated SHAs (`9a3f1c2`), uppercase hex and
   arbitrary hash-shaped strings (`deadbeef`) are rejected.
 - **A stored snapshot is immutable.** A project id may not be re-pointed at a
-  different revision or a different source; `assertProjectSnapshotCompatible`
-  enforces this, and every repository adapter must call it before saving.
+  different revision, source, **name, dependency set or configuration**;
+  `assertProjectSnapshotCompatible` enforces all of it, and every repository
+  adapter must call it before saving. Dependency comparison is
+  order-insensitive (the set is what matters), while configuration comparison
+  uses a canonical digest. `createdAt` is provenance, not content: an identical
+  re-save is idempotent and keeps the original value.
 - Registering the same source at a new revision creates a **new project**. A
   project is a snapshot, not a live pointer — that is what makes a verdict
   reproducible and keeps every run attached to the code it examined.
@@ -152,7 +156,7 @@ infrastructure problems inside a coverage number.
 
 | Port | Responsibility | Phase 0 implementation |
 | --- | --- | --- |
-| `ProjectRepository` | Save/find/list projects; rejects re-pointing a stored snapshot | In-memory (tests) |
+| `ProjectRepository` | Save/find/list projects; rejects any change to a stored snapshot | In-memory (tests) |
 | `ExperimentRepository` | Save/find, list by project | In-memory (tests) |
 | `RunRepository` | Save, find, list by experiment; rejects overwriting a terminal run | In-memory (tests) |
 | `Clock` | Current time | Fixed clock (tests) |
