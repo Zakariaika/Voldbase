@@ -9,7 +9,7 @@
 import type { Experiment } from '../../domain/experiment.ts';
 import { DomainError } from '../../domain/errors.ts';
 import type { ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
-import type { Project } from '../../domain/project.ts';
+import { assertProjectSnapshotCompatible, type Project } from '../../domain/project.ts';
 import { isTerminal, type Run } from '../../domain/run.ts';
 import type {
   Clock,
@@ -23,6 +23,12 @@ export class InMemoryProjectRepository implements ProjectRepository {
   readonly #byId = new Map<ProjectId, Project>();
 
   async save(project: Project): Promise<void> {
+    const existing = this.#byId.get(project.id);
+    if (existing !== undefined) {
+      // A snapshot is immutable: re-pointing an id at another revision would
+      // detach every existing run from the code it verified.
+      assertProjectSnapshotCompatible(existing, project);
+    }
     this.#byId.set(project.id, project);
   }
 

@@ -82,6 +82,7 @@ export class RunService {
     const run = createRun({
       id: this.#deps.ids.next() as RunId,
       projectId: project.id,
+      projectRevision: project.revision,
       experimentId: experiment.id,
       experimentDefinitionHash: experimentDefinitionHash(experiment),
       environment: command.environment,
