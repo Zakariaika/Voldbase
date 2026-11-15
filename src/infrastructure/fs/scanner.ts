@@ -69,8 +69,8 @@ export const MANIFEST_ECOSYSTEMS: ReadonlyMap<string, string> = new Map([
 /**
  * `O_NOFOLLOW` makes `open()` fail with `ELOOP` instead of following a symbolic
  * link. It exists on POSIX platforms; on Windows the constant is absent, so the
- * flag degrades to plain `O_RDONLY` and the post-open `fstat` check is what
- * detects the substitution (see ADR-0012).
+ * flag degrades to plain `O_RDONLY` and the post-read path check is what detects
+ * the substitution (see ADR-0014).
  */
 const O_NOFOLLOW: number =
   typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0;
@@ -83,7 +83,16 @@ export interface ScannerHooks {
    * anything in production use.
    */
   beforeRead?(absolutePath: string, relativePath: string): void | Promise<void>;
+  /**
+   * Called after the descriptor was validated and before the first chunk is
+   * read, so tests can make a file grow after the size check. Never used by
+   * production code.
+   */
+  beforeReadBytes?(absolutePath: string, relativePath: string): void | Promise<void>;
 }
+
+/** Size of the buffer used to read a file in bounded chunks. */
+const READ_CHUNK_BYTES = 64 * 1024;
 
 export interface ScannerLimits {
   /** Maximum number of regular files in one snapshot. */
@@ -159,6 +168,24 @@ function compareNames(left: string, right: string): number {
   return 0;
 }
 
+/**
+ * Turn an over-budget read into the right error: a single file over the per-file
+ * limit is `file_too_large`; anything else that exhausts the total budget is
+ * `scan_limit_exceeded`. Both abort the import.
+ */
+function limitFailure(relativePath: string, bytes: number, limits: ScannerLimits): DomainError {
+  if (bytes > limits.maxFileBytes) {
+    return new DomainError(
+      'file_too_large',
+      `${relativePath} is ${bytes} bytes, above the ${limits.maxFileBytes}-byte per-file limit`,
+    );
+  }
+  return new DomainError(
+    'scan_limit_exceeded',
+    `Project exceeds the ${limits.maxTotalBytes}-byte total scan limit at ${relativePath}`,
+  );
+}
+
 function manifestFor(file: ScannedFile): DetectedManifest | undefined {
   const name = file.relPath.slice(file.relPath.lastIndexOf('/') + 1);
   const ecosystem = MANIFEST_ECOSYSTEMS.get(name);
@@ -197,9 +224,29 @@ export class LocalProjectScanner implements ProjectScanner {
    * a different file. Reading from a validated handle closes that window for file
    * content: the identity (device + inode) and type are checked on the open
    * descriptor, not on the path, and the bytes come from the same descriptor.
+   *
+   * Reading is bounded: bytes are pulled in fixed chunks and the limits are
+   * enforced on what was actually read, so a file that grows after the size check
+   * cannot be read in full. The path is re-validated once more after the read, so
+   * an entry swapped for a symbolic link (including on platforms without
+   * `O_NOFOLLOW`) is caught before its bytes are ever hashed.
    */
-  async #readVerifiedFile(absolutePath: string, relativePath: string): Promise<Buffer> {
+  async #readVerifiedFile(
+    absolutePath: string,
+    relativePath: string,
+    remainingBytes: number,
+  ): Promise<Buffer> {
     const limits = this.#limits;
+    // A file may not consume more than the per-file limit or what is left of the
+    // total budget, whichever is smaller.
+    const allowance = Math.min(limits.maxFileBytes, remainingBytes);
+
+    if (allowance <= 0) {
+      throw new DomainError(
+        'scan_limit_exceeded',
+        `Project exceeds the ${limits.maxTotalBytes}-byte total scan limit at ${relativePath}`,
+      );
+    }
 
     let discovered;
     try {
@@ -214,12 +261,8 @@ export class LocalProjectScanner implements ProjectScanner {
           'project changed during the scan, import it again',
       );
     }
-    if (discovered.size > limits.maxFileBytes) {
-      throw new DomainError(
-        'file_too_large',
-        `${relativePath} is ${discovered.size} bytes, above the ${limits.maxFileBytes}-byte ` +
-          'per-file limit',
-      );
+    if (discovered.size > allowance) {
+      throw limitFailure(relativePath, discovered.size, limits);
     }
 
     if (this.#hooks.beforeRead !== undefined) {
@@ -259,17 +302,89 @@ export class LocalProjectScanner implements ProjectScanner {
           `${relativePath} was replaced while scanning; import the project again`,
         );
       }
-      if (opened.size > limits.maxFileBytes) {
-        throw new DomainError(
-          'file_too_large',
-          `${relativePath} is ${opened.size} bytes, above the ${limits.maxFileBytes}-byte ` +
-            'per-file limit',
-        );
+      if (opened.size > allowance) {
+        throw limitFailure(relativePath, opened.size, limits);
       }
 
-      return await handle.readFile();
+      if (this.#hooks.beforeReadBytes !== undefined) {
+        await this.#hooks.beforeReadBytes(absolutePath, relativePath);
+      }
+
+      // Bounded streaming read. The limits are enforced on bytes actually read,
+      // not on the size observed earlier, so growth during the read aborts the
+      // scan instead of buffering an oversized file.
+      const chunkSize = Math.min(READ_CHUNK_BYTES, allowance + 1);
+      const chunk = Buffer.allocUnsafe(chunkSize);
+      const chunks: Buffer[] = [];
+      let total = 0;
+
+      for (;;) {
+        const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+        if (bytesRead === 0) {
+          break;
+        }
+        total += bytesRead;
+        if (total > allowance) {
+          throw limitFailure(relativePath, total, limits);
+        }
+        chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
+      }
+
+      if (total > limits.maxFileBytes) {
+        throw limitFailure(relativePath, total, limits);
+      }
+
+      // Last check before hashing: the path must still name the very file whose
+      // descriptor produced these bytes.
+      await this.#assertEntryUnchanged(absolutePath, relativePath, opened.dev, opened.ino);
+
+      return Buffer.concat(chunks, total);
     } finally {
       await handle.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * Re-establish, after the read, that the path still names the file we read.
+   *
+   * This is the protection that survives where `O_NOFOLLOW` does not exist
+   * (Windows): a substituted symbolic link is visible here as a link, and a
+   * substituted file as a different device/inode. Either aborts the scan before
+   * the bytes are hashed.
+   */
+  async #assertEntryUnchanged(
+    absolutePath: string,
+    relativePath: string,
+    device: number,
+    inode: number,
+  ): Promise<void> {
+    let current;
+    try {
+      current = await fs.lstat(absolutePath);
+    } catch (error) {
+      throw readFailure(error, relativePath, 'scan_entry_changed');
+    }
+
+    if (current.isSymbolicLink()) {
+      throw new DomainError(
+        'scan_entry_changed',
+        `${relativePath} is now a symbolic link; symbolic links are never followed, ` +
+          'import the project again',
+      );
+    }
+    if (!current.isFile()) {
+      throw new DomainError(
+        'scan_entry_changed',
+        `${relativePath} is no longer a regular file; the project changed during the scan`,
+      );
+    }
+
+    const identityComparable = inode !== 0 && current.ino !== 0;
+    if (identityComparable && (current.ino !== inode || current.dev !== device)) {
+      throw new DomainError(
+        'scan_entry_changed',
+        `${relativePath} was replaced while scanning; import the project again`,
+      );
     }
   }
 
@@ -403,8 +518,13 @@ export class LocalProjectScanner implements ProjectScanner {
           );
         }
 
-        // Sizes and bytes come from an opened, validated descriptor.
-        const bytes = await this.#readVerifiedFile(absolutePath, relativePath);
+        // Sizes and bytes come from an opened, validated descriptor, and the read
+        // itself is capped by what is left of the total budget.
+        const bytes = await this.#readVerifiedFile(
+          absolutePath,
+          relativePath,
+          limits.maxTotalBytes - totalBytes,
+        );
 
         totalBytes += bytes.byteLength;
         if (totalBytes > limits.maxTotalBytes) {
