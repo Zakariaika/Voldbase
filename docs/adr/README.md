@@ -42,5 +42,6 @@ Rules:
 | [0010](0010-build-and-distribution.md) | Build and distribution for the CLI | Accepted |
 | [0011](0011-storage-write-locking.md) | Cross-process write locking for the local store | Superseded by 0013 |
 | [0012](0012-scan-time-filesystem-validation.md) | Scan-time filesystem validation (TOCTOU) | Superseded by 0014 |
-| [0013](0013-lock-capture-and-restore.md) | Lock removal by capture, verification and restore | Accepted |
+| [0013](0013-lock-capture-and-restore.md) | Lock removal by capture, verification and restore | Superseded by 0015 |
 | [0014](0014-bounded-reads-and-path-revalidation.md) | Bounded reads and post-read path revalidation | Accepted |
+| [0015](0015-liveness-based-lock-recovery.md) | Lock safety: liveness-based recovery and the displaced-owner guard | Accepted |

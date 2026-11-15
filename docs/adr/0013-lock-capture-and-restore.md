@@ -1,6 +1,6 @@
 # 0013 — Lock removal by capture, verification and restore
 
-- Status: Accepted
+- Status: Superseded by [0015](0015-liveness-based-lock-recovery.md)
 - Date: 2026-11-15
 - Supersedes: [0011](0011-storage-write-locking.md) (removal mechanism; acquisition, timeouts and the in-lock re-read are retained)
 
