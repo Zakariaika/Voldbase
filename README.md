@@ -135,15 +135,19 @@ newer VOLDBASE is refused rather than partially read. Format details:
 **Concurrent writes are serialized.** A `projects.json.lock` file is created with
 `O_EXCL` around each read-modify-write; the store is re-read while the lock is held,
 so two `voldbase` processes cannot lose each other's projects. Waiting is bounded
-(5 s by default) and a lock abandoned by a crashed process is reclaimed after 30 s.
+(5 s by default).
 
-The lock is never deleted after merely being inspected: removal first *captures* it
-with an atomic rename to a private `*.quarantine` name, verifies the captured file,
-and only then deletes it — restoring it (never overwriting a newer lock) if it turns
-out to belong to someone else. A live lock therefore cannot be deleted by another
-process's release or stale reclaim. This is cooperative locking for local
-filesystems: an external editor, or a tool that ignores the lock, can still
-overwrite the file. See [ADR-0013](docs/adr/0013-lock-capture-and-restore.md).
+A lock is recovered only when its owner is **provably gone** — same host and a PID
+that no longer exists — never merely because the lock is old. A paused, stalled or
+long-running writer therefore keeps its exclusion. If a lock is ever displaced while
+its owner is alive, the displaced file blocks every other writer
+(`storage_lock_unsafe`) until that owner releases, instead of admitting a second
+writer; release never deletes or moves a lock it does not own. Limits that matter: a
+PID check cannot prove death across PID namespaces/containers or reused PIDs (the
+store then stays locked until a human removes the file), the check is POSIX-verified
+only, and this is cooperative locking for local filesystems — a tool that ignores
+the lock can still overwrite the store. See
+[ADR-0015](docs/adr/0015-liveness-based-lock-recovery.md).
 
 ## Supported dependency manifests
 
