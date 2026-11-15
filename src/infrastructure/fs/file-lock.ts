@@ -55,6 +55,10 @@
  *   lock and fails with `storage_lock_unsafe`. That is the guarantee that matters:
  *   *while a valid owner may still be operating under a displaced lock, no other
  *   process enters the protected section.*
+ * - that check **fails closed**: a quarantine directory that cannot be listed, or a
+ *   quarantine file that exists but cannot be read, blocks entry (`storage_lock_unsafe`).
+ *   Only a file that is genuinely gone (`ENOENT`) is treated as absent, because
+ *   "I could not look" is not evidence that nothing is there.
  * - the displaced owner cleans up its own quarantine file when it releases, which
  *   is what makes the store usable again without manual intervention.
  *
@@ -93,6 +97,12 @@ export interface LockHooks {
    * in that gap. Must not be used in production.
    */
   afterCapture?(capturedPath: string, kind: 'release' | 'stale'): void | Promise<void>;
+  /**
+   * Called for each quarantine entry immediately before it is inspected. Tests
+   * use it to remove an entry in exactly that window. Must not be used in
+   * production.
+   */
+  beforeQuarantineInspect?(entryPath: string): void | Promise<void>;
 }
 
 export interface LockOptions {
@@ -202,33 +212,67 @@ function parseMetadata(raw: string): LockMetadata | undefined {
 }
 
 /**
+ * What inspection of a lock file produced.
+ *
+ * `missing` and `unreadable` are deliberately distinct: a file that is genuinely
+ * gone cannot hold anything, while a file that exists but cannot be read may
+ * belong to a writer that is still running. Only `missing` is safe to ignore.
+ */
+type FileInspection =
+  | { readonly state: 'missing' }
+  | { readonly state: 'inspected'; readonly snapshot: LockSnapshot }
+  | { readonly state: 'unreadable'; readonly reason: string };
+
+/**
  * Read a lock through one descriptor: identity, contents and timestamp all come
  * from the same inode, so what is judged cannot be swapped between the reads.
+ *
+ * Failure is reported rather than swallowed, so callers can tell "the file is
+ * gone" from "the file could not be read".
  */
-async function readLockSnapshot(lockPath: string): Promise<LockSnapshot | undefined> {
+async function inspectLockFile(lockPath: string): Promise<FileInspection> {
   let handle;
   try {
     handle = await fs.open(lockPath, 'r');
-  } catch {
-    return undefined;
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === 'ENOENT') {
+      return { state: 'missing' };
+    }
+    return {
+      state: 'unreadable',
+      reason: `${lockPath} exists but cannot be opened (${code ?? 'unknown error'})`,
+    };
   }
   try {
     const stats = await handle.stat();
-    let raw: string | undefined;
+    let raw: string;
     try {
       raw = await handle.readFile('utf8');
-    } catch {
-      raw = undefined;
+    } catch (error) {
+      return {
+        state: 'unreadable',
+        reason: `${lockPath} exists but cannot be read (${errorCode(error) ?? 'unknown error'})`,
+      };
     }
     return {
-      metadata: raw === undefined ? undefined : parseMetadata(raw),
-      device: stats.dev,
-      inode: stats.ino,
-      modifiedMs: stats.mtimeMs,
+      state: 'inspected',
+      snapshot: {
+        metadata: parseMetadata(raw),
+        device: stats.dev,
+        inode: stats.ino,
+        modifiedMs: stats.mtimeMs,
+      },
     };
   } finally {
     await handle.close().catch(() => undefined);
   }
+}
+
+/** Snapshot of a lock, or `undefined` when it is gone or cannot be read. */
+async function readLockSnapshot(lockPath: string): Promise<LockSnapshot | undefined> {
+  const inspection = await inspectLockFile(lockPath);
+  return inspection.state === 'inspected' ? inspection.snapshot : undefined;
 }
 
 /** Age of a snapshot, from its recorded acquisition time or its mtime. */
@@ -316,45 +360,87 @@ function unsafe(message: string): DomainError {
 }
 
 /**
+ * Outcome of checking quarantine files.
+ *
+ * This is fail-closed by construction: there is no value that means "I could not
+ * look, so assume nothing is there". An unreadable directory, or an entry that
+ * exists but cannot be inspected, is `blocked`.
+ */
+type QuarantineResolution =
+  | { readonly outcome: 'clear' }
+  | { readonly outcome: 'blocked'; readonly reason: string };
+
+/**
  * Resolve quarantine files for this lock.
  *
  * Files whose owner is provably dead are deleted (a dead owner cannot be inside
  * the protected section). Files whose owner is alive, or whose state cannot be
  * proven, *block* new writers: that owner may still be writing under a lock that
  * is no longer at its original path.
+ *
+ * A quarantine directory that cannot be listed, or a quarantined file that exists
+ * but cannot be inspected, also blocks entry. Reading nothing is not evidence that
+ * nothing is there, and the one thing this check must never do is wave a writer
+ * into a section that a displaced owner may still be editing.
  */
-async function resolveQuarantine(lockPath: string): Promise<'clear' | 'blocked'> {
+async function resolveQuarantine(
+  lockPath: string,
+  hooks?: LockHooks,
+): Promise<QuarantineResolution> {
   const directory = path.dirname(lockPath);
   const lockName = path.basename(lockPath);
 
   let entries: string[];
   try {
     entries = await fs.readdir(directory);
-  } catch {
-    return 'clear';
+  } catch (error) {
+    const code = errorCode(error);
+    // A missing directory genuinely has no entries; everything else means the
+    // listing failed while files may exist, which is not the same thing.
+    if (code === 'ENOENT') {
+      return { outcome: 'clear' };
+    }
+    return {
+      outcome: 'blocked',
+      reason: `${directory} could not be listed (${code ?? 'unknown error'}), so quarantine files cannot be ruled out`,
+    };
   }
 
-  let blocked = false;
+  const blocking: string[] = [];
   for (const entry of entries) {
     const kind = quarantineKindOf(entry, lockName);
     if (kind === undefined) {
       continue;
     }
     const candidate = path.join(directory, entry);
-    const snapshot = await readLockSnapshot(candidate);
-    if (snapshot === undefined) {
-      continue; // vanished between listing and reading
+    if (hooks?.beforeQuarantineInspect !== undefined) {
+      await hooks.beforeQuarantineInspect(candidate);
     }
-    if (ownerLiveness(snapshot.metadata) === 'dead') {
+
+    const inspection = await inspectLockFile(candidate);
+    if (inspection.state === 'missing') {
+      continue; // genuinely vanished between the listing and the inspection
+    }
+    if (inspection.state === 'unreadable') {
+      // Present but unresolved — of any kind, because even a `release-` file that
+      // cannot be read cannot be shown to be harmless litter.
+      blocking.push(inspection.reason);
+      continue;
+    }
+
+    if (ownerLiveness(inspection.snapshot.metadata) === 'dead') {
       // A dead owner cannot be inside its section: this file is only litter.
       await fs.rm(candidate, { force: true }).catch(() => undefined);
       continue;
     }
     if (blocksEntry(kind)) {
-      blocked = true;
+      blocking.push(`${candidate} belongs to an owner that may still be running`);
     }
   }
-  return blocked ? 'blocked' : 'clear';
+
+  return blocking.length === 0
+    ? { outcome: 'clear' }
+    : { outcome: 'blocked', reason: blocking.join('; ') };
 }
 
 /** Remove quarantine files that carry this process's own token. */
@@ -365,6 +451,8 @@ async function removeOwnQuarantine(lockPath: string, token: string): Promise<voi
   try {
     entries = await fs.readdir(directory);
   } catch {
+    // Release never throws. A failed listing only means our quarantine file (if
+    // any) survives; the next acquisition refuses to enter rather than ignoring it.
     return;
   }
   for (const entry of entries) {
@@ -473,9 +561,10 @@ export async function acquireFileLock(
 
   for (;;) {
     // Cheap pre-check: do not even try while a live owner's lock is displaced.
-    if ((await resolveQuarantine(lockPath)) === 'blocked') {
+    const beforeEntry = await resolveQuarantine(lockPath, hooks);
+    if (beforeEntry.outcome === 'blocked') {
       throw unsafe(
-        `${lockPath} has a displaced lock whose owner may still be active. ` +
+        `${lockPath} cannot be acquired safely: ${beforeEntry.reason}. ` +
           'Refusing to enter the protected section.',
       );
     }
@@ -502,10 +591,11 @@ export async function acquireFileLock(
     if (created) {
       // Binding check, done after we own the name: if a valid owner is displaced,
       // this process gives the lock back instead of becoming a second writer.
-      if ((await resolveQuarantine(lockPath)) === 'blocked') {
+      const afterEntry = await resolveQuarantine(lockPath, hooks);
+      if (afterEntry.outcome === 'blocked') {
         await releaseLock(lockPath, token, hooks);
         throw unsafe(
-          `${lockPath} was acquired but a displaced lock with a live owner exists. ` +
+          `${lockPath} was acquired but cannot be entered safely: ${afterEntry.reason}. ` +
             'Refusing to enter the protected section.',
         );
       }
