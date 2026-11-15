@@ -100,8 +100,18 @@ export {
   LocalProjectScanner,
   MANIFEST_ECOSYSTEMS,
   snapshotDigest,
+  type ScannerHooks,
   type ScannerLimits,
 } from './infrastructure/fs/scanner.ts';
+export {
+  acquireFileLock,
+  releaseLock,
+  DEFAULT_LOCK_TIMEOUT_MS,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_STALE_LOCK_MS,
+  type LockHandle,
+  type LockOptions,
+} from './infrastructure/fs/file-lock.ts';
 export {
   JsonProjectRepository,
   type JsonProjectRepositoryOptions,
