@@ -10,7 +10,8 @@
  * hashed, and closed.
  */
 
-import { promises as fs } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { DomainError } from '../../domain/errors.ts';
@@ -65,6 +66,25 @@ export const MANIFEST_ECOSYSTEMS: ReadonlyMap<string, string> = new Map([
   ['composer.lock', 'composer'],
 ]);
 
+/**
+ * `O_NOFOLLOW` makes `open()` fail with `ELOOP` instead of following a symbolic
+ * link. It exists on POSIX platforms; on Windows the constant is absent, so the
+ * flag degrades to plain `O_RDONLY` and the post-open `fstat` check is what
+ * detects the substitution (see ADR-0012).
+ */
+const O_NOFOLLOW: number =
+  typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0;
+
+/** Test/instrumentation seam; never used by production code. */
+export interface ScannerHooks {
+  /**
+   * Called right before a discovered file is opened. Used by tests to reproduce
+   * a filesystem change between discovery and read. Must not read or modify
+   * anything in production use.
+   */
+  beforeRead?(absolutePath: string, relativePath: string): void | Promise<void>;
+}
+
 export interface ScannerLimits {
   /** Maximum number of regular files in one snapshot. */
   readonly maxFiles: number;
@@ -104,16 +124,30 @@ function describeFailure(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function readFailure(error: unknown, subject: string): DomainError {
+/**
+ * Translate a filesystem error into a domain error.
+ *
+ * `changedCode` is used when the error happens *after* an entry was discovered:
+ * a file that vanished mid-scan is not a missing-path argument error, it is a
+ * project that changed underneath us, and it must be reported as such.
+ */
+function readFailure(error: unknown, subject: string, changedCode?: string): DomainError {
   const code = errorCode(error);
   if (code === 'ENOENT') {
-    return new DomainError('path_not_found', `${subject} does not exist`);
+    return changedCode === undefined
+      ? new DomainError('path_not_found', `${subject} does not exist`)
+      : new DomainError(
+          changedCode,
+          `${subject} disappeared while scanning; the project changed, import it again`,
+        );
   }
   if (code === 'EACCES' || code === 'EPERM') {
     return new DomainError('path_unreadable', `${subject} is not readable (permission denied)`);
   }
   if (code === 'ENOTDIR') {
-    return new DomainError('not_a_directory', `${subject} is not a directory`);
+    return changedCode === undefined
+      ? new DomainError('not_a_directory', `${subject} is not a directory`)
+      : new DomainError(changedCode, `${subject} is no longer a directory`);
   }
   return new DomainError('path_unreadable', `Cannot read ${subject}: ${describeFailure(error)}`);
 }
@@ -147,9 +181,96 @@ export function snapshotDigest(files: readonly ScannedFile[]): string {
 
 export class LocalProjectScanner implements ProjectScanner {
   readonly #limits: ScannerLimits;
+  readonly #hooks: ScannerHooks;
 
-  constructor(limits: Partial<ScannerLimits> = {}) {
+  constructor(limits: Partial<ScannerLimits> = {}, hooks: ScannerHooks = {}) {
     this.#limits = { ...DEFAULT_SCANNER_LIMITS, ...limits };
+    this.#hooks = hooks;
+  }
+
+  /**
+   * Open a file for reading and prove it is still the same regular file that was
+   * discovered, then read it from that handle.
+   *
+   * Checking a path and then reading the path is a time-of-check/time-of-use
+   * window: the entry can be replaced by a symbolic link (pointing anywhere) or by
+   * a different file. Reading from a validated handle closes that window for file
+   * content: the identity (device + inode) and type are checked on the open
+   * descriptor, not on the path, and the bytes come from the same descriptor.
+   */
+  async #readVerifiedFile(absolutePath: string, relativePath: string): Promise<Buffer> {
+    const limits = this.#limits;
+
+    let discovered;
+    try {
+      discovered = await fs.lstat(absolutePath);
+    } catch (error) {
+      throw readFailure(error, relativePath, 'scan_entry_changed');
+    }
+    if (!discovered.isFile()) {
+      throw new DomainError(
+        'scan_entry_changed',
+        `${relativePath} was a regular file when discovered and is no longer one; the ` +
+          'project changed during the scan, import it again',
+      );
+    }
+    if (discovered.size > limits.maxFileBytes) {
+      throw new DomainError(
+        'file_too_large',
+        `${relativePath} is ${discovered.size} bytes, above the ${limits.maxFileBytes}-byte ` +
+          'per-file limit',
+      );
+    }
+
+    if (this.#hooks.beforeRead !== undefined) {
+      await this.#hooks.beforeRead(absolutePath, relativePath);
+    }
+
+    let handle: FileHandle;
+    try {
+      handle = await fs.open(absolutePath, fsConstants.O_RDONLY | O_NOFOLLOW);
+    } catch (error) {
+      if (errorCode(error) === 'ELOOP') {
+        throw new DomainError(
+          'scan_entry_changed',
+          `${relativePath} became a symbolic link while scanning; symbolic links are never ` +
+            'followed, import the project again',
+        );
+      }
+      throw readFailure(error, relativePath, 'scan_entry_changed');
+    }
+
+    try {
+      // Validate the descriptor, not the path: this object cannot be swapped out
+      // from under us the way a path can.
+      const opened = await handle.stat();
+      if (!opened.isFile()) {
+        throw new DomainError(
+          'scan_entry_changed',
+          `${relativePath} is no longer a regular file; the project changed during the scan`,
+        );
+      }
+      // Inode identity is unavailable on some platforms (reported as 0). When it
+      // is available, a mismatch means the path was re-pointed at another file.
+      const identityComparable = discovered.ino !== 0 && opened.ino !== 0;
+      if (identityComparable && (discovered.ino !== opened.ino || discovered.dev !== opened.dev)) {
+        throw new DomainError(
+          'scan_entry_changed',
+          `${relativePath} was replaced while scanning; import the project again`,
+        );
+      }
+      if (opened.size > limits.maxFileBytes) {
+        throw new DomainError(
+          'file_too_large',
+          `${relativePath} is ${opened.size} bytes, above the ${limits.maxFileBytes}-byte ` +
+            'per-file limit',
+        );
+      }
+
+      return await handle.readFile();
+    } finally {
+      await handle.close().catch(() => undefined);
+    }
   }
 
   async scan(directoryPath: string): Promise<ProjectScan> {
@@ -224,11 +345,28 @@ export class LocalProjectScanner implements ProjectScanner {
       const absoluteDirectory =
         relativeDirectory === '' ? root : path.join(root, ...relativeDirectory.split('/'));
 
+      // Confirm the directory is still a real directory immediately before
+      // reading it. Node has no `openat`/`fdopendir`, so this narrows the window
+      // without closing it; file contents are protected by `#readVerifiedFile`.
+      const directoryLabel = relativeDirectory === '' ? root : relativeDirectory;
+      let directoryStats;
+      try {
+        directoryStats = await fs.lstat(absoluteDirectory);
+      } catch (error) {
+        throw readFailure(error, directoryLabel, 'scan_entry_changed');
+      }
+      if (!directoryStats.isDirectory()) {
+        throw new DomainError(
+          'scan_entry_changed',
+          `${directoryLabel} is no longer a directory; the project changed during the scan`,
+        );
+      }
+
       let entries;
       try {
         entries = await fs.readdir(absoluteDirectory, { withFileTypes: true });
       } catch (error) {
-        throw readFailure(error, relativeDirectory === '' ? root : relativeDirectory);
+        throw readFailure(error, directoryLabel, 'scan_entry_changed');
       }
 
       entries.sort((left, right) => compareNames(left.name, right.name));
@@ -258,38 +396,22 @@ export class LocalProjectScanner implements ProjectScanner {
 
         const absolutePath = path.join(absoluteDirectory, entry.name);
 
-        let size: number;
-        try {
-          size = (await fs.lstat(absolutePath)).size;
-        } catch (error) {
-          throw readFailure(error, relativePath);
-        }
-        if (size > limits.maxFileBytes) {
-          throw new DomainError(
-            'file_too_large',
-            `${relativePath} is ${size} bytes, above the ${limits.maxFileBytes}-byte ` +
-              'per-file limit',
-          );
-        }
         if (files.length >= limits.maxFiles) {
           throw new DomainError(
             'scan_limit_exceeded',
             `Project has more than the ${limits.maxFiles} files this import supports`,
           );
         }
-        totalBytes += size;
+
+        // Sizes and bytes come from an opened, validated descriptor.
+        const bytes = await this.#readVerifiedFile(absolutePath, relativePath);
+
+        totalBytes += bytes.byteLength;
         if (totalBytes > limits.maxTotalBytes) {
           throw new DomainError(
             'scan_limit_exceeded',
             `Project exceeds the ${limits.maxTotalBytes}-byte total scan limit`,
           );
-        }
-
-        let bytes: Buffer;
-        try {
-          bytes = await fs.readFile(absolutePath);
-        } catch (error) {
-          throw readFailure(error, relativePath);
         }
 
         files.push({ relPath: relativePath, size: bytes.byteLength, digest: sha256Hex(bytes) });
