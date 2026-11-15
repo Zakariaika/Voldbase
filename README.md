@@ -142,8 +142,10 @@ that no longer exists — never merely because the lock is old. A paused, stalle
 long-running writer therefore keeps its exclusion. If a lock is ever displaced while
 its owner is alive, the displaced file blocks every other writer
 (`storage_lock_unsafe`) until that owner releases, instead of admitting a second
-writer; release never deletes or moves a lock it does not own. Limits that matter: a
-PID check cannot prove death across PID namespaces/containers or reused PIDs (the
+writer; release never deletes or moves a lock it does not own. The quarantine check
+fails closed: a lock directory that cannot be listed, or a quarantined file that
+cannot be read, refuses entry rather than being treated as empty. Limits that matter:
+a PID check cannot prove death across PID namespaces/containers or reused PIDs (the
 store then stays locked until a human removes the file), the check is POSIX-verified
 only, and this is cooperative locking for local filesystems — a tool that ignores
 the lock can still overwrite the store. See
