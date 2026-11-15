@@ -65,16 +65,24 @@ unreadable file or directory, and an empty result all fail with a code
 (`path_not_found`, `not_a_directory`, `path_unreadable`, `empty_project`) instead
 of producing an empty or partial snapshot.
 
-**Verified reads (TOCTOU).** Discovery and read are separated in time, so the
-scanner does not trust the path twice. Files are opened with `O_NOFOLLOW`, the
-open descriptor is validated (`fstat`: still a regular file, same `dev`/`ino` as
-discovered, within the size limit), and the bytes are read from that same
-descriptor. A symlink substituted after discovery fails with `ELOOP`; a file
-swapped for another one fails the identity check. Either way the whole import
+**Verified, bounded reads (TOCTOU).** Discovery and read are separated in time, so
+the scanner does not trust the path twice. Files are opened with `O_NOFOLLOW`
+(where the platform provides it), the open descriptor is validated (`fstat`: still
+a regular file, same `dev`/`ino` as discovered, within the allowance), the bytes are
+read from that same descriptor in 64 KiB chunks with the limits enforced on what is
+actually read, and the path is re-checked with `lstat` after the read. A symlink
+substituted at any point fails (`ELOOP` at the open, or the symlink seen by the
+post-read `lstat` — the case that protects Windows, which has no `O_NOFOLLOW`); a
+file swapped for another fails the identity check. Either way the whole import
 aborts with `scan_entry_changed` rather than hashing something the user did not
 import. Directories are `lstat`-ed immediately before `readdir` for the same
-reason. See [ADR-0012](../adr/0012-scan-time-filesystem-validation.md) for the
-remaining directory-level window.
+reason. See [ADR-0014](../adr/0014-bounded-reads-and-path-revalidation.md) for the
+remaining limitations, including the directory-level window.
+
+**Limits are enforced on bytes read, not on a remembered size.** The allowance for
+a file is `min(maxFileBytes, remaining total budget)`; the read stops at the first
+chunk that crosses it, so a file that grows after the `fstat` is never buffered in
+full. `file_too_large` and `scan_limit_exceeded` both abort the import.
 
 **Path handling.** Relative paths are resolved against the process working
 directory, then canonicalized with `realpath`, so the stored `source.location` is
@@ -161,8 +169,12 @@ Guarantees (see [ADR-0009](../adr/0009-local-storage-format.md)):
 - **Writes are serialized across processes** by a lock file
   (`projects.json.lock`, created with `O_EXCL`, default timeout 5 s, abandoned
   after 30 s). The document is re-read while the lock is held, so a concurrent
-  writer cannot be overwritten by a stale in-memory copy. See
-  [ADR-0011](../adr/0011-storage-write-locking.md).
+  writer cannot be overwritten by a stale in-memory copy.
+- **A live lock cannot be deleted by another process.** Release and stale reclaim
+  capture the lock with an atomic `rename` to a private `*.quarantine` name, verify
+  the captured file, then delete it — restoring it with `link` (which never
+  overwrites) if it belonged to someone else. See
+  [ADR-0013](../adr/0013-lock-capture-and-restore.md).
 
 The storage document holds no file contents, only paths and digests.
 
@@ -187,7 +199,7 @@ The storage document holds no file contents, only paths and digests.
   VOLDBASE's own environment is read only for `VOLDBASE_HOME`.
 - **No network.** The CLI makes no network calls and requires no account.
 - **Containment.** Symbolic links are not followed; excluded directories are not
-  traversed; limits bound the work.
+  traversed; limits bound the work and the bytes read.
 - **Read-only on the imported tree.** Import mutates nothing outside
   `$VOLDBASE_HOME`.
 
@@ -195,8 +207,10 @@ Known limits of this model: the digest covers file contents, not file modes or
 ownership; a project that changes *during* a scan now aborts the import
 (`scan_entry_changed`) instead of producing a snapshot of an inconsistent moment;
 two VOLDBASE processes writing the store are serialized by the lock file, but an
-external editor or a tool that ignores the lock can still overwrite it; and the
-lock's exclusivity assumes a local filesystem, not NFS/SMB.
+external editor or a tool that ignores the lock can still overwrite it; the lock's
+exclusivity assumes a local filesystem, not NFS/SMB; and on a filesystem that
+reports no inode numbers, a same-size regular-file swap cannot be distinguished
+from the file that was validated (symbolic-link substitution still is).
 
 ## 7. CLI
 

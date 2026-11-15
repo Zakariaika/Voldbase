@@ -136,9 +136,14 @@ newer VOLDBASE is refused rather than partially read. Format details:
 `O_EXCL` around each read-modify-write; the store is re-read while the lock is held,
 so two `voldbase` processes cannot lose each other's projects. Waiting is bounded
 (5 s by default) and a lock abandoned by a crashed process is reclaimed after 30 s.
-This is cooperative locking for local filesystems: an external editor, or a tool
-that ignores the lock, can still overwrite the file. See
-[ADR-0011](docs/adr/0011-storage-write-locking.md).
+
+The lock is never deleted after merely being inspected: removal first *captures* it
+with an atomic rename to a private `*.quarantine` name, verifies the captured file,
+and only then deletes it — restoring it (never overwriting a newer lock) if it turns
+out to belong to someone else. A live lock therefore cannot be deleted by another
+process's release or stale reclaim. This is cooperative locking for local
+filesystems: an external editor, or a tool that ignores the lock, can still
+overwrite the file. See [ADR-0013](docs/adr/0013-lock-capture-and-restore.md).
 
 ## Supported dependency manifests
 
@@ -174,15 +179,20 @@ share a revision) and sensitive to any content, addition or removal. See
   `.next`, `.nuxt`, `.turbo`, `.venv`, `venv`, `__pycache__`, `.pytest_cache`,
   `.mypy_cache`, `.ruff_cache`, `.gradle`, `.terraform`.
 - **Symbolic links are skipped**, never followed (they are reported in the
-  import summary). Files are opened with `O_NOFOLLOW` and validated on the open
-  descriptor (type, device/inode, size) before any byte is hashed, so an entry
-  swapped for a link or another file mid-scan aborts the import with
-  `scan_entry_changed` instead of hashing the wrong content. Directory entries
-  are re-checked immediately before traversal; that check cannot be made atomic
-  with Node's standard library, so a directory replaced *during* the scan is a
-  documented residual window ([ADR-0012](docs/adr/0012-scan-time-filesystem-validation.md)).
+  import summary). Files are opened with `O_NOFOLLOW` where the platform has it,
+  the open descriptor is validated (type, device/inode, size), and the path is
+  checked again after the read, so an entry swapped for a link or another file
+  mid-scan aborts the import with `scan_entry_changed` instead of hashing the wrong
+  content. That post-read check is what protects Windows, where `O_NOFOLLOW` does
+  not exist; the one case it cannot prove is a same-size regular-file swap on a
+  filesystem that reports no inode numbers. Directory entries are re-checked
+  immediately before traversal; that check cannot be made atomic with Node's
+  standard library, so a directory replaced *during* the scan is a documented
+  residual window ([ADR-0014](docs/adr/0014-bounded-reads-and-path-revalidation.md)).
 - **Limits**: 20 000 files, 256 MiB total, 8 MiB per file by default. Exceeding a
-  limit aborts the import rather than storing a partial snapshot.
+  limit aborts the import rather than storing a partial snapshot. Limits are
+  enforced on the bytes actually read (in 64 KiB chunks), so a file that grows
+  after the size check aborts the scan instead of being read in full.
 - An empty directory (or one containing only excluded entries) is rejected with
   `empty_project`.
 - File modes, ownership, and empty directories are not represented; only regular
