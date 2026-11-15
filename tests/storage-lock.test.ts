@@ -65,6 +65,23 @@ async function writeLock(
   return lockPath;
 }
 
+/**
+ * A pid that belongs to no running process: candidates above the default
+ * `pid_max` are never allocated, so recovery has a provably dead owner.
+ */
+function deadPid(): number {
+  for (let candidate = 4_000_001; candidate < 4_000_101; candidate += 1) {
+    try {
+      process.kill(candidate, 0);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'ESRCH') {
+        return candidate;
+      }
+    }
+  }
+  throw new Error('could not find a free pid');
+}
+
 async function runWriter(
   helperPath: string,
   storagePath: string,
@@ -160,26 +177,46 @@ describe('storage write locking', () => {
     assert.equal((await fs.stat(path.join(directory, 'projects.json.lock'))).isFile(), true);
   });
 
-  it('recovers from a stale lock left by a crashed process', async (t) => {
-    const directory = await makeTempDir(t);
-    await writeLock(directory, 60_000);
+  it(
+    'recovers from a stale lock left by a crashed process',
+    { skip: process.platform === 'win32' ? 'pid liveness is POSIX-verified' : false },
+    async (t) => {
+      const directory = await makeTempDir(t);
+      // Recovery now needs proof that the owner is gone: same host, dead pid.
+      await fs.writeFile(
+        path.join(directory, 'projects.json.lock'),
+        `${JSON.stringify({
+          token: 'crashed-owner',
+          pid: deadPid(),
+          hostname: os.hostname(),
+          acquiredAt: new Date(Date.now() - 60_000).toISOString(),
+        })}\n`,
+        'utf8',
+      );
 
-    await repositoryAt(directory).save(buildProject('proj-1'));
+      await repositoryAt(directory).save(buildProject('proj-1'));
 
-    const projects = await repositoryAt(directory).list();
-    assert.equal(projects.length, 1);
-    await assert.rejects(fs.stat(path.join(directory, 'projects.json.lock')), { code: 'ENOENT' });
-  });
+      const projects = await repositoryAt(directory).list();
+      assert.equal(projects.length, 1);
+      await assert.rejects(fs.stat(path.join(directory, 'projects.json.lock')), {
+        code: 'ENOENT',
+      });
+    },
+  );
 
-  it('recovers from a truncated lock file that has aged out', async (t) => {
+  it('never reclaims a lock whose owner cannot be identified', async (t) => {
     const directory = await makeTempDir(t);
     const lockPath = await writeLock(directory, 0, '{"token": "half-writ');
     const old = new Date(Date.now() - 60_000);
     await fs.utimes(lockPath, old, old);
 
-    await repositoryAt(directory).save(buildProject('proj-1'));
-
-    assert.equal((await repositoryAt(directory).list()).length, 1);
+    // No owner identity means no proof of death, so the safe behaviour is to
+    // refuse rather than to risk writing alongside a live process.
+    await assert.rejects(
+      () => repositoryAt(directory, 150).save(buildProject('proj-1')),
+      isDomainError('storage_lock_timeout'),
+    );
+    assert.equal((await fs.stat(lockPath)).isFile(), true);
   });
 
   it('releases the lock when the write fails', async (t) => {
