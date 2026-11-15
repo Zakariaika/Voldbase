@@ -9,7 +9,11 @@
 import type { Experiment } from '../../domain/experiment.ts';
 import { DomainError } from '../../domain/errors.ts';
 import type { ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
-import { assertProjectSnapshotCompatible, type Project } from '../../domain/project.ts';
+import {
+  assertProjectSnapshotCompatible,
+  cloneProject,
+  type Project,
+} from '../../domain/project.ts';
 import { isTerminal, type Run } from '../../domain/run.ts';
 import type {
   Clock,
@@ -28,19 +32,28 @@ export class InMemoryProjectRepository implements ProjectRepository {
       // A snapshot is immutable: re-pointing an id at other content would
       // detach every existing run from the code it verified.
       assertProjectSnapshotCompatible(existing, project);
-      // Content is unchanged, so keep the original provenance.
-      this.#byId.set(project.id, { ...project, createdAt: existing.createdAt });
+      // Content is unchanged, so keep the original provenance. The copy stops
+      // the caller's object graph from aliasing what is stored.
+      this.#byId.set(project.id, {
+        ...cloneProject(project),
+        createdAt: new Date(existing.createdAt.getTime()),
+      });
       return;
     }
-    this.#byId.set(project.id, project);
+    // Store a copy: `readonly` does not survive at runtime, so keeping the
+    // caller's references would let them mutate the snapshot behind the guard.
+    this.#byId.set(project.id, cloneProject(project));
   }
 
   async findById(id: ProjectId): Promise<Project | undefined> {
-    return this.#byId.get(id);
+    const stored = this.#byId.get(id);
+    // Return a copy for the same reason: a reader must not be able to mutate
+    // the stored snapshot through the object it was handed.
+    return stored === undefined ? undefined : cloneProject(stored);
   }
 
   async list(): Promise<Project[]> {
-    return [...this.#byId.values()];
+    return [...this.#byId.values()].map(cloneProject);
   }
 }
 

@@ -29,6 +29,7 @@ export { canonicalize, contentHash, isSha256Hex, sha256Hex } from './domain/inte
 export { createEvidenceRef, type EvidenceRef } from './domain/evidence.ts';
 export {
   assertProjectSnapshotCompatible,
+  cloneProject,
   createProject,
   type DependencySnapshot,
   type Project,

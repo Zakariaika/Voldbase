@@ -72,7 +72,7 @@ export function createProject(input: CreateProjectInput): Project {
   // Rejects floating refs, empty values and malformed identifiers.
   const revision = asRevision(input.revision);
 
-  return {
+  return cloneProject({
     id: input.id,
     name: input.name,
     source: input.source,
@@ -80,7 +80,45 @@ export function createProject(input: CreateProjectInput): Project {
     dependencies: input.dependencies ?? [],
     configuration: input.configuration ?? {},
     createdAt: input.createdAt ?? new Date(),
+  });
+}
+
+/**
+ * Deep copy of a project.
+ *
+ * `readonly` is a compile-time promise only: at runtime a caller still holds
+ * references to the nested `source`, `dependencies` entries, `configuration` and
+ * `createdAt`, and could mutate them after handing the project over. Any adapter
+ * that stores or returns a snapshot must copy it, or the stored snapshot can
+ * drift without ever passing through `assertProjectSnapshotCompatible`. The
+ * strings and the branded revision are primitive and need no copy.
+ */
+export function cloneProject(project: Project): Project {
+  return {
+    id: project.id,
+    name: project.name,
+    source: { ...project.source },
+    revision: project.revision,
+    dependencies: project.dependencies.map((item) => ({ ...item })),
+    configuration: { ...project.configuration },
+    createdAt: new Date(project.createdAt.getTime()),
   };
+}
+
+/**
+ * Source identity includes the requested ref.
+ *
+ * `main` and `v1.0.0` name different upstream states even when they currently
+ * resolve to the same revision, so swapping the ref changes what the snapshot
+ * claims to have been taken from.
+ */
+function isSameSource(left: ProjectSource, right: ProjectSource): boolean {
+  return left.kind === right.kind && left.location === right.location && left.ref === right.ref;
+}
+
+function describeSource(source: ProjectSource): string {
+  const base = `${source.kind}:${source.location}`;
+  return source.ref === undefined ? base : `${base}@${source.ref}`;
 }
 
 /**
@@ -103,8 +141,8 @@ function dependenciesDigest(dependencies: readonly DependencySnapshot[]): string
  * A run records the revision it verified, so silently re-pointing the same
  * project id at different code would detach every historical verdict from what
  * was actually examined. The same reasoning applies to every other recorded
- * observation about the snapshot: name, dependency digests and configuration are
- * part of what was verified, not mutable metadata.
+ * observation about the snapshot: source ref, name, dependency digests and
+ * configuration are part of what was verified, not mutable metadata.
  *
  * `createdAt` is deliberately excluded. It is provenance rather than content, and
  * excluding it keeps an identical re-save idempotent; adapters preserve the
@@ -127,14 +165,11 @@ export function assertProjectSnapshotCompatible(existing: Project, next: Project
         `re-pointed to ${next.revision}; register a new project instead`,
     );
   }
-  if (
-    existing.source.kind !== next.source.kind ||
-    existing.source.location !== next.source.location
-  ) {
+  if (!isSameSource(existing.source, next.source)) {
     throw new DomainError(
       'project_identity_immutable',
-      `Project ${existing.id} belongs to ${existing.source.kind}:${existing.source.location} ` +
-        `and cannot be re-pointed to ${next.source.kind}:${next.source.location}`,
+      `Project ${existing.id} belongs to ${describeSource(existing.source)} ` +
+        `and cannot be re-pointed to ${describeSource(next.source)}`,
     );
   }
   if (existing.name !== next.name) {
