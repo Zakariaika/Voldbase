@@ -28,8 +28,8 @@ export {
 export { canonicalize, contentHash, isSha256Hex, sha256Hex } from './domain/integrity.ts';
 export { createEvidenceRef, type EvidenceRef } from './domain/evidence.ts';
 export {
+  assertProjectSnapshotCompatible,
   createProject,
-  isFloatingRevision,
   type DependencySnapshot,
   type Project,
   type ProjectSource,
@@ -52,6 +52,14 @@ export {
   type Run,
   type RunState,
 } from './domain/run.ts';
+export {
+  asRevision,
+  isFloatingRevision,
+  isRevision,
+  revisionKind,
+  type RevisionId,
+  type RevisionKind,
+} from './domain/revision.ts';
 export type {
   ArtifactStore,
   Clock,
