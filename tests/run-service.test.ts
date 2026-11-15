@@ -198,6 +198,7 @@ describe('RunService', () => {
     const created = createRun({
       id: asRunId('run-1'),
       projectId: asProjectId('proj-1'),
+      projectRevision: 'a'.repeat(40),
       experimentId: asExperimentId('exp-1'),
       experimentDefinitionHash: 'e'.repeat(64),
       environment: ENVIRONMENT,
@@ -214,6 +215,43 @@ describe('RunService', () => {
       () => runs.save({ ...finished, notes: 'rewritten' }),
       /cannot be modified/,
     );
+  });
+
+  it('records the exact project revision the run verified', async () => {
+    const { service } = await seed();
+    const run = await service.createRun({
+      projectId: asProjectId('proj-1'),
+      experimentId: 'exp-1',
+      environment: ENVIRONMENT,
+    });
+
+    assert.equal(run.projectRevision, 'a'.repeat(40));
+  });
+
+  it('refuses to replace a stored project snapshot with a different revision', async () => {
+    const { projects } = await seed();
+
+    const repointed = createProject({
+      id: asProjectId('proj-1'),
+      name: 'example',
+      source: { kind: 'github', location: 'https://github.com/example/example' },
+      revision: 'f'.repeat(40),
+    });
+
+    await assert.rejects(() => projects.save(repointed), /cannot be re-pointed/);
+  });
+
+  it('allows an idempotent save of the same snapshot', async () => {
+    const { projects } = await seed();
+
+    const same = createProject({
+      id: asProjectId('proj-1'),
+      name: 'example',
+      source: { kind: 'github', location: 'https://github.com/example/example' },
+      revision: 'a'.repeat(40),
+    });
+
+    await assert.doesNotReject(() => projects.save(same));
   });
 
   it('lists runs per experiment without leaking other histories', async () => {
