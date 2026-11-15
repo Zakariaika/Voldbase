@@ -328,6 +328,18 @@ describe('revision identifiers', () => {
   });
 });
 
+const DEPENDENCY_A = {
+  ecosystem: 'npm',
+  manifestPath: 'package.json',
+  digest: '1'.repeat(64),
+};
+
+const DEPENDENCY_B = {
+  ecosystem: 'pypi',
+  manifestPath: 'requirements.txt',
+  digest: '2'.repeat(64),
+};
+
 describe('project snapshot immutability', () => {
   it('refuses to re-point an existing snapshot at a different revision', () => {
     const original = sampleProject();
@@ -352,8 +364,88 @@ describe('project snapshot immutability', () => {
     );
   });
 
-  it('accepts an unchanged snapshot', () => {
+  it('refuses to change the project name', () => {
     const original = sampleProject();
+    const renamed = createProject({ ...original, name: 'renamed' });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, renamed),
+      /cannot change to 'renamed'/,
+    );
+  });
+
+  it('refuses to add a dependency to a recorded snapshot', () => {
+    const original = sampleProject();
+    const withDependency = createProject({ ...original, dependencies: [DEPENDENCY_A] });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, withDependency),
+      /dependency snapshot that cannot be replaced/,
+    );
+  });
+
+  it('refuses to change a recorded dependency digest', () => {
+    const original = createProject({ ...sampleProject(), dependencies: [DEPENDENCY_A] });
+    const changed = createProject({
+      ...original,
+      dependencies: [{ ...DEPENDENCY_A, digest: '9'.repeat(64) }],
+    });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, changed),
+      /dependency snapshot that cannot be replaced/,
+    );
+  });
+
+  it('refuses to remove a recorded dependency', () => {
+    const original = createProject({ ...sampleProject(), dependencies: [DEPENDENCY_A] });
+    const emptied = createProject({ ...original, dependencies: [] });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, emptied),
+      /dependency snapshot that cannot be replaced/,
+    );
+  });
+
+  it('refuses to change recorded configuration', () => {
+    const original = createProject({ ...sampleProject(), configuration: { node: '22' } });
+    const changed = createProject({ ...original, configuration: { node: '24' } });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, changed),
+      /configuration that cannot change/,
+    );
+  });
+
+  it('refuses to drop recorded configuration', () => {
+    const original = createProject({ ...sampleProject(), configuration: { node: '22' } });
+    const emptied = createProject({ ...original, configuration: {} });
+
+    assert.throws(
+      () => assertProjectSnapshotCompatible(original, emptied),
+      /configuration that cannot change/,
+    );
+  });
+
+  it('treats reordered dependencies as the same snapshot', () => {
+    const first = createProject({
+      ...sampleProject(),
+      dependencies: [DEPENDENCY_A, DEPENDENCY_B],
+    });
+    const reordered = createProject({
+      ...first,
+      dependencies: [DEPENDENCY_B, DEPENDENCY_A],
+    });
+
+    assert.doesNotThrow(() => assertProjectSnapshotCompatible(first, reordered));
+  });
+
+  it('accepts an unchanged snapshot', () => {
+    const original = createProject({
+      ...sampleProject(),
+      dependencies: [DEPENDENCY_A],
+      configuration: { node: '22' },
+    });
     const same = createProject({ ...original });
 
     assert.doesNotThrow(() => assertProjectSnapshotCompatible(original, same));
