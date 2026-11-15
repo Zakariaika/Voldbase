@@ -1,6 +1,6 @@
 # 0011 — Cross-process write locking for the local store
 
-- Status: Accepted
+- Status: Superseded by [0013](0013-lock-capture-and-restore.md) (removal mechanism; acquisition, timeouts and the in-lock re-read are retained)
 - Date: 2026-11-15
 
 ## Context

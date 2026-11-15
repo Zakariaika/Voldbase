@@ -1,6 +1,6 @@
 # 0012 — Scan-time filesystem validation (TOCTOU)
 
-- Status: Accepted
+- Status: Superseded by [0014](0014-bounded-reads-and-path-revalidation.md) (read path; the no-symlink rule and descriptor validation are retained)
 - Date: 2026-11-15
 
 ## Context
