@@ -10,6 +10,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { DomainError } from '../../domain/errors.ts';
+import { ANALYSES_FILE_NAME } from './analysis-storage-schema.ts';
 import { STORAGE_FILE_NAME } from './storage-schema.ts';
 
 /** Environment variables this build reads. Nothing else is inspected. */
@@ -48,4 +49,14 @@ export function resolveVoldbaseHome(
 /** Path of the project store inside a VOLDBASE home directory. */
 export function projectStorageFilePath(home: string): string {
   return path.join(home, STORAGE_FILE_NAME);
+}
+
+/**
+ * Path of the analysis store inside a VOLDBASE home directory.
+ *
+ * Analyses live in their own document: they are derived records that can be
+ * regenerated, and a corrupted analysis file must never affect project data.
+ */
+export function analysisStorageFilePath(home: string): string {
+  return path.join(home, ANALYSES_FILE_NAME);
 }
