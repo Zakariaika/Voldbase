@@ -23,17 +23,21 @@ should say so.
 
 ## Project status
 
-**Phase 2A — local import, durable snapshots and a static analyzer.** You can
-import a local project, get a reproducible SHA-256 snapshot of its contents, store
-it durably, and then statically analyse its JavaScript and TypeScript: declarations,
-exports, the import graph between analysed files, and a small set of explainable
-syntax-level findings. It runs entirely on your machine: no account, no network, no
-telemetry.
+**Phase 2B — local import, durable snapshots, static analysis and architecture
+intelligence.** You can import a local project, get a reproducible SHA-256 snapshot
+of its contents, store it durably, statically analyse its JavaScript and TypeScript
+(declarations, exports, imports, syntax-level findings), and then derive a
+deterministic architectural model from that analysis: the file dependency graph,
+directory modules, cross-module coupling, circular dependencies, fan-in/fan-out and
+explainable structural findings. It runs entirely on your machine: no account, no
+network, no telemetry.
 
 **No project code is ever executed.** There is no executor, no install step and no
 `child_process` in the product; the analyzer parses text, it does not run it, type
-check it or resolve packages. Verifying experiments (Phases 2B–3) is still ahead;
-see the [roadmap](#roadmap) and [ADR-0005](docs/adr/0005-execution-isolation.md).
+check it or resolve packages, and the architecture layer reads only that analysis
+— never the project files again. Verifying experiments (Phases 2C–3) is still
+ahead; see the [roadmap](#roadmap) and
+[ADR-0005](docs/adr/0005-execution-isolation.md).
 
 ## What works today
 
@@ -84,6 +88,33 @@ SEVERITY  RULE    LOCATION                                   EXPLANATION
 WARNING   VB002   src/index.js:1:24                          This relative import does not
                                                              match any analysed file…
           evidence: ./missing
+
+$ voldbase architecture ana_7f31…
+Architecture of analysis ana_7f31…
+  project     proj_df02e24be8d04a2390f3
+  revision    sha256:c5dfb407e8b9…
+  analysis    sha256:8eee98350f90…
+  engine      1.0.0 (schema 1)
+  files       61
+  graph       192 edges, 194 imports merged
+  modules     10
+  cycles      0 (largest 0)
+  isolated    2 files, 1 modules
+  fan-in/out  max 28 / 29
+  findings    17 (0 error, 0 warning, 17 info)
+  digest      sha256:1d78a613b081…
+
+MODULES (10)
+ID                                FILES  FAN-IN  FAN-OUT  ISOLATED
+src/application                   6      5       1        no
+src/domain                        11     6       0        no
+…
+
+FINDINGS (17)
+SEVERITY  RULE   CERTAINTY    SUBJECT              EXPLANATION
+INFO      VA003  conditional  src/cli/main.ts      This file imports 18 other internal files…
+          evidence: src/cli/main.ts -> src/application/ports.ts
+…
 ```
 
 ## Installation
@@ -115,6 +146,8 @@ are equivalent.
 | `voldbase show <project-id>` | Show one project in detail |
 | `voldbase analyze <project-id>` | Statically analyse an imported snapshot (no execution) |
 | `voldbase analysis <analysis-id>` | Show a stored analysis: summary and findings |
+| `voldbase architecture <analysis-id>` | Derive the file/module dependency graph from a stored analysis |
+| `voldbase architecture <analysis-id> --format json` | Same model as canonical JSON |
 | `voldbase help` | Usage (also shown when no arguments are given) |
 
 `<path>` may be absolute or relative to the current directory. Exit codes: `0`
@@ -190,6 +223,12 @@ every snapshot's digest is recomputed when it is loaded — a file that was edit
 hand is refused with `analysis_corrupted` rather than displayed as evidence.
 Writes are atomic and use the same lock as projects. Details:
 [Phase 2A architecture](docs/architecture/phase-2a-static-analysis.md).
+
+**Architecture models are not stored.** `voldbase architecture` derives them from a
+stored analysis on demand and prints them; the result is a pure function of that
+analysis (no timestamp, no generated id), so re-running the command reproduces the
+same model and digest. See
+[ADR-0017](docs/adr/0017-architecture-intelligence.md).
 
 ## Supported dependency manifests
 
@@ -269,6 +308,10 @@ Every limit aborts the analysis; none of them silently produces a partial result
 - **Untrusted input stays data.** Parsed sources are never evaluated; findings are
   syntax-level observations with an explicit certainty, and an analysis with no
   findings is not described as safe.
+- **Architecture is derived, not re-read.** `voldbase architecture` reads only the
+  stored analysis through the repository port: it opens no project file, re-parses
+  no source and resolves nothing. Every model records the analysis id and digest it
+  came from.
 - **No secrets collected.** Only relative paths, byte sizes and SHA-256 digests are
   stored. File contents are hashed in memory and never persisted or logged; the
   imported project's environment variables are never read.
@@ -315,6 +358,7 @@ Further reading:
 - [Domain model](docs/architecture/domain-model.md)
 - [Phase 1 import and storage](docs/architecture/phase-1-import-and-storage.md)
 - [Phase 2A static analysis](docs/architecture/phase-2a-static-analysis.md)
+- [Phase 2B architecture intelligence](docs/architecture/phase-2b-architecture-intelligence.md)
 - [Architecture decision records](docs/adr/README.md)
 
 ### Repository layout
@@ -374,8 +418,9 @@ CI runs build before tests, so nothing is skipped there.
 | --- | --- |
 | 0 — Foundation | Product definition, ADRs, domain model, skeleton, CI |
 | 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
-| **2A — Static analysis** (current) | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
-| 2B — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
+| 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
+| **2B — Architecture intelligence** (current) | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
+| 2C — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
 | 3 — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
 | 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
