@@ -1,9 +1,9 @@
 /**
- * VOLDBASE command-line interface (Phase 1).
+ * VOLDBASE command-line interface (Phase 1, extended in Phase 2A).
  *
  * The CLI is a delivery adapter: it parses arguments, builds the adapters and
- * prints results. All policy lives in `ProjectImportService`, so the same use case
- * can be driven by a future HTTP server without changes.
+ * prints results. All policy lives in the services, so the same use cases can be
+ * driven by a future HTTP server without changes.
  *
  * Exit codes: `0` success, `1` runtime failure (unreadable path, storage error),
  * `2` usage error (bad arguments). Scripts can therefore tell "you typed it
@@ -12,14 +12,29 @@
 
 import * as path from 'node:path';
 
+import { ProjectAnalysisService } from '../application/analyze-project-service.ts';
 import { ProjectImportService } from '../application/project-import-service.ts';
-import type { Clock, IdGenerator, ProjectRepository, ProjectScanner } from '../application/ports.ts';
+import type {
+  AnalysisRepository,
+  Clock,
+  IdGenerator,
+  ProjectAnalyzer,
+  ProjectRepository,
+  ProjectScanner,
+} from '../application/ports.ts';
+import type { AnalysisSnapshot } from '../domain/analysis.ts';
 import { DomainError } from '../domain/errors.ts';
-import { asProjectId } from '../domain/ids.ts';
+import { asAnalysisId, asProjectId } from '../domain/ids.ts';
 import type { Project } from '../domain/project.ts';
+import { JsonAnalysisRepository } from '../infrastructure/fs/json-analysis-repository.ts';
 import { JsonProjectRepository } from '../infrastructure/fs/json-project-repository.ts';
-import { projectStorageFilePath, resolveVoldbaseHome } from '../infrastructure/fs/paths.ts';
+import {
+  analysisStorageFilePath,
+  projectStorageFilePath,
+  resolveVoldbaseHome,
+} from '../infrastructure/fs/paths.ts';
 import { LocalProjectScanner } from '../infrastructure/fs/scanner.ts';
+import { TypeScriptStaticAnalyzer } from '../infrastructure/fs/typescript-analyzer.ts';
 import { RandomIdGenerator, SystemClock } from '../infrastructure/ids.ts';
 import { describeRevision, field, formatBytes, formatDate, pad } from './render.ts';
 
@@ -43,6 +58,10 @@ export interface CliRuntime {
   readonly clock?: Clock;
   readonly scanner?: ProjectScanner;
   readonly repository?: ProjectRepository;
+  readonly analyses?: AnalysisRepository;
+  readonly analyzer?: ProjectAnalyzer;
+  /** Separate from `ids` so analysis ids cannot collide with project ids. */
+  readonly analysisIds?: IdGenerator;
 }
 
 class UsageError extends Error {
@@ -59,12 +78,16 @@ export const USAGE = [
   '  voldbase import <path> [--name "Project Name"]',
   '  voldbase list',
   '  voldbase show <project-id>',
+  '  voldbase analyze <project-id>',
+  '  voldbase analysis <analysis-id>',
   '  voldbase help',
   '',
   'Commands:',
-  '  import   Scan a local project, record its snapshot and store it locally.',
-  '  list     List imported projects.',
-  '  show     Show one imported project in detail.',
+  '  import     Scan a local project, record its snapshot and store it locally.',
+  '  list       List imported projects.',
+  '  show       Show one imported project in detail.',
+  '  analyze    Statically analyse an imported project snapshot (no execution).',
+  '  analysis   Show a stored analysis: summary, files and findings.',
   '',
   'Options:',
   '  --name <name>   Explicit project name (import only).',
@@ -72,7 +95,8 @@ export const USAGE = [
   'Environment:',
   '  VOLDBASE_HOME   Storage root (default: ~/.voldbase).',
   '',
-  'VOLDBASE never executes project code: importing reads and hashes files only.',
+  'VOLDBASE never executes project code: importing reads and hashes files, and',
+  'analysis parses them. Neither installs, builds nor runs anything.',
 ].join('\n');
 
 interface ParsedArguments {
@@ -125,24 +149,38 @@ function parseArguments(argv: readonly string[], allowedOptions: readonly string
 
 interface Services {
   readonly importer: ProjectImportService;
+  readonly analysisService: ProjectAnalysisService;
   readonly projects: ProjectRepository;
+  readonly analyses: AnalysisRepository;
   readonly home: string;
 }
 
 function buildServices(runtime: CliRuntime): Services {
   const home = resolveVoldbaseHome(runtime.env);
+  const clock = runtime.clock ?? new SystemClock();
   const projects =
     runtime.repository ??
     new JsonProjectRepository({ filePath: projectStorageFilePath(home) });
+  const analyses =
+    runtime.analyses ??
+    new JsonAnalysisRepository({ filePath: analysisStorageFilePath(home) });
 
   return {
     home,
     projects,
+    analyses,
     importer: new ProjectImportService({
       projects,
       scanner: runtime.scanner ?? new LocalProjectScanner(),
-      clock: runtime.clock ?? new SystemClock(),
+      clock,
       ids: runtime.ids ?? new RandomIdGenerator('proj'),
+    }),
+    analysisService: new ProjectAnalysisService({
+      projects,
+      analyses,
+      analyzer: runtime.analyzer ?? new TypeScriptStaticAnalyzer(),
+      clock,
+      ids: runtime.analysisIds ?? new RandomIdGenerator('ana'),
     }),
   };
 }
@@ -160,6 +198,112 @@ function renderProject(project: Project, streams: CliStreams): void {
         describeRevision(dependency.digest, 64),
     );
   }
+}
+
+function renderAnalysisSummary(snapshot: AnalysisSnapshot, streams: CliStreams): void {
+  const { summary } = snapshot;
+  streams.stdout(field('project', String(snapshot.projectId)));
+  streams.stdout(field('revision', describeRevision(snapshot.projectRevision, 64)));
+  streams.stdout(field('analyzer', snapshot.analyzerVersion));
+  streams.stdout(field('analysed', snapshot.createdAt.toISOString()));
+  streams.stdout(
+    field(
+      'source',
+      `${summary.sourceFileCount} files` +
+        (summary.languages.length === 0 ? '' : ` (${summary.languages.join(', ')})`),
+    ),
+  );
+  streams.stdout(field('declarations', String(summary.declarationCount)));
+  streams.stdout(
+    field('imports', `${summary.importCount} (${summary.resolvedImportCount} resolved)`),
+  );
+  streams.stdout(
+    field(
+      'findings',
+      `${summary.findingCount} (` +
+        `${summary.findingsBySeverity.error} error, ` +
+        `${summary.findingsBySeverity.warning} warning, ` +
+        `${summary.findingsBySeverity.info} info)`,
+    ),
+  );
+  streams.stdout(field('digest', describeRevision(snapshot.digest, 64)));
+}
+
+async function runAnalyze(argv: readonly string[], runtime: CliRuntime): Promise<number> {
+  const { positionals } = parseArguments(argv, []);
+  if (positionals.length !== 1) {
+    throw new UsageError('analyze needs exactly one project id');
+  }
+  const requestedId = positionals[0] as string;
+  if (requestedId.trim() === '') {
+    throw new UsageError('analyze needs a non-empty project id');
+  }
+
+  const { analysisService } = buildServices(runtime);
+  const { project, analysis } = await analysisService.analyze({ projectId: requestedId });
+
+  runtime.streams.stdout(`Analysed project ${project.id} (${project.name})`);
+  renderAnalysisSummary(analysis, runtime.streams);
+  // A quiet result is a reading, not a clearance: say so every time.
+  runtime.streams.stdout(
+    '  Note: syntax-level analysis only. No findings does not mean the code is safe.',
+  );
+  runtime.streams.stdout(`  voldbase analysis ${analysis.analysisId}   # findings in detail`);
+  return EXIT_OK;
+}
+
+async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promise<number> {
+  const { positionals } = parseArguments(argv, []);
+  if (positionals.length !== 1) {
+    throw new UsageError('analysis needs exactly one analysis id');
+  }
+  const requestedId = positionals[0] as string;
+  if (requestedId.trim() === '') {
+    throw new UsageError('analysis needs a non-empty analysis id');
+  }
+
+  const { analyses } = buildServices(runtime);
+  const snapshot = await analyses.findById(asAnalysisId(requestedId));
+  if (snapshot === undefined) {
+    runtime.streams.stderr(`error: no analysis with id '${requestedId}'`);
+    runtime.streams.stderr('Run `voldbase analyze <project-id>` to create one.');
+    return EXIT_FAILURE;
+  }
+
+  runtime.streams.stdout(`Analysis ${snapshot.analysisId}`);
+  renderAnalysisSummary(snapshot, runtime.streams);
+
+  if (snapshot.findings.length === 0) {
+    runtime.streams.stdout('');
+    runtime.streams.stdout('No syntax-level findings.');
+    runtime.streams.stdout(
+      '  This is not a statement that the project is correct, safe or secure.',
+    );
+    return EXIT_OK;
+  }
+
+  runtime.streams.stdout('');
+  runtime.streams.stdout(
+    `${pad('SEVERITY', 10)}${pad('RULE', 8)}${pad('LOCATION', 44)}EXPLANATION`,
+  );
+  for (const finding of snapshot.findings) {
+    const location =
+      finding.location === undefined
+        ? finding.path
+        : `${finding.path}:${finding.location.line}:${finding.location.column}`;
+    runtime.streams.stdout(
+      `${pad(finding.severity.toUpperCase(), 10)}${pad(finding.ruleId, 8)}${pad(location, 44)}` +
+        finding.message,
+    );
+    if (finding.evidence !== '') {
+      runtime.streams.stdout(`          evidence: ${finding.evidence}`);
+    }
+  }
+  runtime.streams.stdout('');
+  runtime.streams.stdout(
+    'Syntax-level observations only: they describe what the parser saw, not runtime behaviour.',
+  );
+  return EXIT_OK;
 }
 
 async function runImport(argv: readonly string[], runtime: CliRuntime): Promise<number> {
@@ -300,6 +444,12 @@ export async function main(argv: readonly string[], runtime: CliRuntime): Promis
       }
       case 'show': {
         return await runShow(rest, runtime);
+      }
+      case 'analyze': {
+        return await runAnalyze(rest, runtime);
+      }
+      case 'analysis': {
+        return await runAnalysis(rest, runtime);
       }
       default: {
         throw new UsageError(`Unknown command '${command}'`);
