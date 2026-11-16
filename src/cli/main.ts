@@ -1,5 +1,5 @@
 /**
- * VOLDBASE command-line interface (Phase 1, extended in Phase 2A).
+ * VOLDBASE command-line interface (Phase 1, extended in Phases 2A and 2B).
  *
  * The CLI is a delivery adapter: it parses arguments, builds the adapters and
  * prints results. All policy lives in the services, so the same use cases can be
@@ -12,6 +12,7 @@
 
 import * as path from 'node:path';
 
+import { ArchitectureService } from '../application/architecture-service.ts';
 import { ProjectAnalysisService } from '../application/analyze-project-service.ts';
 import { ProjectImportService } from '../application/project-import-service.ts';
 import type {
@@ -23,7 +24,9 @@ import type {
   ProjectScanner,
 } from '../application/ports.ts';
 import type { AnalysisSnapshot } from '../domain/analysis.ts';
+import type { ArchitectureFinding, ArchitectureSnapshot } from '../domain/architecture.ts';
 import { DomainError } from '../domain/errors.ts';
+import { canonicalize } from '../domain/integrity.ts';
 import { asAnalysisId, asProjectId } from '../domain/ids.ts';
 import type { Project } from '../domain/project.ts';
 import { JsonAnalysisRepository } from '../infrastructure/fs/json-analysis-repository.ts';
@@ -62,6 +65,8 @@ export interface CliRuntime {
   readonly analyzer?: ProjectAnalyzer;
   /** Separate from `ids` so analysis ids cannot collide with project ids. */
   readonly analysisIds?: IdGenerator;
+  /** Bounds and heuristic thresholds for the architecture derivation. */
+  readonly architecture?: BuildArchitectureOptions;
 }
 
 class UsageError extends Error {
@@ -80,6 +85,7 @@ export const USAGE = [
   '  voldbase show <project-id>',
   '  voldbase analyze <project-id>',
   '  voldbase analysis <analysis-id>',
+  '  voldbase architecture <analysis-id> [--format text|json]',
   '  voldbase help',
   '',
   'Commands:',
@@ -88,9 +94,11 @@ export const USAGE = [
   '  show       Show one imported project in detail.',
   '  analyze    Statically analyse an imported project snapshot (no execution).',
   '  analysis   Show a stored analysis: summary, files and findings.',
+  '  architecture  Derive file and module dependencies from a stored analysis.',
   '',
   'Options:',
-  '  --name <name>   Explicit project name (import only).',
+  '  --name <name>       Explicit project name (import only).',
+  '  --format <format>   Output format for architecture: text (default) or json.',
   '',
   'Environment:',
   '  VOLDBASE_HOME   Storage root (default: ~/.voldbase).',
@@ -150,6 +158,7 @@ function parseArguments(argv: readonly string[], allowedOptions: readonly string
 interface Services {
   readonly importer: ProjectImportService;
   readonly analysisService: ProjectAnalysisService;
+  readonly architectureService: ArchitectureService;
   readonly projects: ProjectRepository;
   readonly analyses: AnalysisRepository;
   readonly home: string;
@@ -182,6 +191,7 @@ function buildServices(runtime: CliRuntime): Services {
       clock,
       ids: runtime.analysisIds ?? new RandomIdGenerator('ana'),
     }),
+    architectureService: new ArchitectureService({ analyses }),
   };
 }
 
@@ -303,6 +313,167 @@ async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promis
   runtime.streams.stdout(
     'Syntax-level observations only: they describe what the parser saw, not runtime behaviour.',
   );
+  return EXIT_OK;
+}
+
+/** Rows the text report shows per section before pointing at `--format json`. */
+const REPORT_ROW_LIMIT = 20;
+const REPORT_FINDING_LIMIT = 30;
+const REPORT_EVIDENCE_LIMIT = 5;
+
+function describeSubject(finding: ArchitectureFinding): string {
+  const firstNode = finding.nodes[0];
+  if (firstNode !== undefined) {
+    return finding.nodes.length > 1 ? `${firstNode} (+${finding.nodes.length - 1})` : firstNode;
+  }
+  const [firstModule, secondModule] = finding.modules;
+  if (firstModule === undefined) {
+    return '-';
+  }
+  return secondModule === undefined ? `module ${firstModule}` : `${firstModule} -> ${secondModule}`;
+}
+
+function renderArchitectureReport(
+  analysis: AnalysisSnapshot,
+  snapshot: ArchitectureSnapshot,
+  streams: CliStreams,
+): void {
+  const { metrics, summary } = snapshot;
+  streams.stdout(`Architecture of analysis ${snapshot.analysisId}`);
+  streams.stdout(field('project', String(snapshot.projectId)));
+  streams.stdout(field('revision', describeRevision(snapshot.projectRevision, 64)));
+  streams.stdout(field('analysis', describeRevision(snapshot.analysisDigest, 64)));
+  streams.stdout(field('engine', `${snapshot.engineVersion} (schema ${snapshot.schemaVersion})`));
+  streams.stdout(field('files', String(metrics.nodeCount)));
+  streams.stdout(
+    field('graph', `${metrics.edgeCount} edges, ${metrics.internalImportCount} imports merged`),
+  );
+  streams.stdout(field('modules', String(metrics.moduleCount)));
+  streams.stdout(field('cycles', `${metrics.cycleCount} (largest ${metrics.largestCycleSize})`));
+  streams.stdout(
+    field('isolated', `${metrics.isolatedFileCount} files, ${metrics.isolatedModuleCount} modules`),
+  );
+  streams.stdout(field('fan-in/out', `max ${metrics.maxFanIn} / ${metrics.maxFanOut}`));
+  streams.stdout(
+    field(
+      'findings',
+      `${summary.findingCount} (` +
+        `${summary.findingsBySeverity.error} error, ` +
+        `${summary.findingsBySeverity.warning} warning, ` +
+        `${summary.findingsBySeverity.info} info)`,
+    ),
+  );
+  streams.stdout(field('digest', describeRevision(snapshot.digest, 64)));
+
+  // Modules: most connected first, so a reader sees the shape of the project.
+  streams.stdout('');
+  streams.stdout(`MODULES (${snapshot.modules.length})`);
+  if (snapshot.modules.length > 0) {
+    streams.stdout(
+      `${pad('ID', 34)}${pad('FILES', 7)}${pad('FAN-IN', 8)}${pad('FAN-OUT', 9)}ISOLATED`,
+    );
+  }
+  const modules = [...snapshot.modules]
+    .sort(
+      (left, right) =>
+        right.fanIn + right.fanOut - (left.fanIn + left.fanOut) ||
+        (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+    )
+    .slice(0, REPORT_ROW_LIMIT);
+  for (const module of modules) {
+    streams.stdout(
+      `${pad(module.id, 34)}${pad(String(module.files.length), 7)}` +
+        `${pad(String(module.fanIn), 8)}${pad(String(module.fanOut), 9)}` +
+        `${module.isolated ? 'yes' : 'no'}`,
+    );
+  }
+  if (snapshot.modules.length > modules.length) {
+    streams.stdout(`  … ${snapshot.modules.length - modules.length} more modules (--format json)`);
+  }
+
+  streams.stdout('');
+  streams.stdout(`CYCLES (${snapshot.cycles.length})`);
+  if (snapshot.cycles.length === 0) {
+    streams.stdout('  No circular dependencies between analysed files.');
+  }
+  for (const cycle of snapshot.cycles.slice(0, REPORT_ROW_LIMIT)) {
+    const label = cycle.selfLoop ? 'self' : `${cycle.nodes.length} files`;
+    streams.stdout(`  ${pad(label, 10)}${cycle.nodes.join(' -> ')}`);
+  }
+  if (snapshot.cycles.length > REPORT_ROW_LIMIT) {
+    streams.stdout(`  … ${snapshot.cycles.length - REPORT_ROW_LIMIT} more cycles (--format json)`);
+  }
+
+  streams.stdout('');
+  streams.stdout(`FINDINGS (${snapshot.findings.length})`);
+  if (snapshot.findings.length === 0) {
+    streams.stdout('  No structural observations.');
+  } else {
+    streams.stdout(
+      `${pad('SEVERITY', 10)}${pad('RULE', 7)}${pad('CERTAINTY', 13)}` +
+        `${pad('SUBJECT', 34)}EXPLANATION`,
+    );
+  }
+  for (const finding of snapshot.findings.slice(0, REPORT_FINDING_LIMIT)) {
+    streams.stdout(
+      `${pad(finding.severity.toUpperCase(), 10)}${pad(finding.ruleId, 7)}` +
+        `${pad(finding.certainty, 13)}${pad(describeSubject(finding), 34)}${finding.message}`,
+    );
+    for (const ref of finding.evidence.slice(0, REPORT_EVIDENCE_LIMIT)) {
+      streams.stdout(`          evidence: ${ref.from} -> ${ref.to}`);
+    }
+    if (finding.evidence.length > REPORT_EVIDENCE_LIMIT) {
+      streams.stdout(
+        `          … ${finding.evidence.length - REPORT_EVIDENCE_LIMIT} more edges of evidence`,
+      );
+    }
+  }
+  if (snapshot.findings.length > REPORT_FINDING_LIMIT) {
+    streams.stdout(
+      `  … ${snapshot.findings.length - REPORT_FINDING_LIMIT} more findings (--format json)`,
+    );
+  }
+
+  streams.stdout('');
+  streams.stdout(
+    'Static structural intelligence only: derived from syntax-level imports in analysis ' +
+      `${analysis.analysisId}.`,
+  );
+  streams.stdout(
+    'It describes the dependency graph; it does not verify runtime behaviour, correctness or security.',
+  );
+}
+
+async function runArchitecture(argv: readonly string[], runtime: CliRuntime): Promise<number> {
+  const { positionals, options } = parseArguments(argv, ['format']);
+  if (positionals.length !== 1) {
+    throw new UsageError('architecture needs exactly one analysis id');
+  }
+  const requestedId = positionals[0] as string;
+  if (requestedId.trim() === '') {
+    throw new UsageError('architecture needs a non-empty analysis id');
+  }
+
+  const format = options.get('format') ?? 'text';
+  if (format !== 'text' && format !== 'json') {
+    throw new UsageError(`--format must be 'text' or 'json', received '${format}'`);
+  }
+
+  const { architectureService } = buildServices(runtime);
+  const { analysis, architecture } = await architectureService.build({
+    analysisId: requestedId,
+    ...(runtime.architecture === undefined ? {} : { limits: runtime.architecture.limits }),
+    ...(runtime.architecture === undefined ? {} : { thresholds: runtime.architecture.thresholds }),
+  });
+
+  if (format === 'json') {
+    // Canonical JSON: keys sorted, no timestamps, no ids invented here, so two
+    // runs over the same analysis produce byte-identical output.
+    runtime.streams.stdout(JSON.stringify(JSON.parse(canonicalize(architecture)), null, 2));
+    return EXIT_OK;
+  }
+
+  renderArchitectureReport(analysis, architecture, runtime.streams);
   return EXIT_OK;
 }
 
@@ -450,6 +621,9 @@ export async function main(argv: readonly string[], runtime: CliRuntime): Promis
       }
       case 'analysis': {
         return await runAnalysis(rest, runtime);
+      }
+      case 'architecture': {
+        return await runArchitecture(rest, runtime);
       }
       default: {
         throw new UsageError(`Unknown command '${command}'`);
