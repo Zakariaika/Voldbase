@@ -46,3 +46,4 @@ Rules:
 | [0014](0014-bounded-reads-and-path-revalidation.md) | Bounded reads and post-read path revalidation | Accepted |
 | [0015](0015-liveness-based-lock-recovery.md) | Lock safety: liveness-based recovery and the displaced-owner guard | Accepted |
 | [0016](0016-static-analysis-boundary.md) | Static analysis: parser choice and the syntax-only boundary | Accepted |
+| [0017](0017-architecture-intelligence.md) | Architecture intelligence: a derived, non-persisted projection | Accepted |
