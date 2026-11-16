@@ -13,6 +13,7 @@ declare const brand: unique symbol;
 type Brand<T, B extends string> = T & { readonly [brand]: B };
 
 export type ProjectId = Brand<string, 'ProjectId'>;
+export type AnalysisId = Brand<string, 'AnalysisId'>;
 export type ExperimentId = Brand<string, 'ExperimentId'>;
 export type RunId = Brand<string, 'RunId'>;
 export type ArtifactId = Brand<string, 'ArtifactId'>;
@@ -26,6 +27,10 @@ function requireNonEmpty(value: string, field: string): string {
 
 export function asProjectId(value: string): ProjectId {
   return requireNonEmpty(value, 'ProjectId') as ProjectId;
+}
+
+export function asAnalysisId(value: string): AnalysisId {
+  return requireNonEmpty(value, 'AnalysisId') as AnalysisId;
 }
 
 export function asExperimentId(value: string): ExperimentId {

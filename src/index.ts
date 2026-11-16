@@ -9,15 +9,51 @@
 
 export { DomainError, invariant } from './domain/errors.ts';
 export {
+  asAnalysisId,
   asArtifactId,
   asExperimentId,
   asProjectId,
   asRunId,
+  type AnalysisId,
   type ArtifactId,
   type ExperimentId,
   type ProjectId,
   type RunId,
 } from './domain/ids.ts';
+export {
+  ANALYSIS_LANGUAGES,
+  ANALYSIS_SCHEMA_VERSION,
+  ANALYZER_VERSION,
+  analysisContentDigest,
+  assertAnalysisDigest,
+  cloneAnalysisSnapshot,
+  createAnalysisSnapshot,
+  DECLARATION_KINDS,
+  describeAnalysisFinding,
+  FINDING_CERTAINTIES,
+  FINDING_SEVERITIES,
+  IMPORT_KINDS,
+  IMPORT_RESOLUTIONS,
+  isSafeRelativePath,
+  normalizeAnalysisContent,
+  summarizeAnalysis,
+  type AnalysisContent,
+  type AnalysisLanguage,
+  type AnalysisSettings,
+  type AnalysisSnapshot,
+  type AnalysisSummary,
+  type AnalyzedFile,
+  type CreateAnalysisSnapshotInput,
+  type Declaration,
+  type DeclarationKind,
+  type Finding,
+  type FindingCertainty,
+  type FindingSeverity,
+  type ImportEdge,
+  type ImportKind,
+  type ImportResolution,
+  type SourceLocation,
+} from './domain/analysis.ts';
 export {
   RESULT_STATUSES,
   RESULT_STATUS_DESCRIPTIONS,
@@ -62,6 +98,9 @@ export {
   type RevisionKind,
 } from './domain/revision.ts';
 export type {
+  AnalysisLimits,
+  AnalysisRepository,
+  AnalyzerResult,
   ArtifactStore,
   Clock,
   DetectedManifest,
@@ -70,11 +109,18 @@ export type {
   Executor,
   ExperimentRepository,
   IdGenerator,
+  ProjectAnalyzer,
   ProjectRepository,
   ProjectScan,
   ProjectScanner,
   RunRepository,
 } from './application/ports.ts';
+export {
+  ProjectAnalysisService,
+  type AnalyzeProjectCommand,
+  type AnalyzeProjectResult,
+  type ProjectAnalysisDeps,
+} from './application/analyze-project-service.ts';
 export {
   ProjectImportService,
   type ImportProjectCommand,
@@ -89,6 +135,7 @@ export {
 } from './application/run-service.ts';
 export {
   FixedClock,
+  InMemoryAnalysisRepository,
   InMemoryExperimentRepository,
   InMemoryProjectRepository,
   InMemoryRunRepository,
@@ -118,6 +165,42 @@ export {
   type JsonProjectRepositoryOptions,
 } from './infrastructure/fs/json-project-repository.ts';
 export {
+  collectProjectTree,
+  type CollectedTree,
+  type TreeLimits,
+} from './infrastructure/fs/project-tree.ts';
+export {
+  assertEntryUnchanged,
+  readVerifiedBytes,
+  type ChangedCode,
+  type ReadHooks,
+  type ReadLimits,
+} from './infrastructure/fs/safe-read.ts';
+export {
+  ANALYSIS_RULES as STATIC_ANALYSIS_RULES,
+  DEFAULT_ANALYSIS_LIMITS,
+  isSupportedSourcePath,
+  resolveImportSpecifier,
+  TypeScriptStaticAnalyzer,
+  type StaticAnalyzerOptions,
+} from './infrastructure/fs/typescript-analyzer.ts';
+export {
+  analysesToDocument,
+  analysisToStored,
+  ANALYSES_FILE_NAME,
+  ANALYSES_STORAGE_SCHEMA_VERSION,
+  documentToAnalyses,
+  migrateAnalysesDocument,
+  storedToAnalysis,
+  type AnalysesDocumentV1,
+  type StoredAnalysis,
+} from './infrastructure/fs/analysis-storage-schema.ts';
+export {
+  JsonAnalysisRepository,
+  type JsonAnalysisRepositoryOptions,
+} from './infrastructure/fs/json-analysis-repository.ts';
+export {
+  analysisStorageFilePath,
   HOME_ENV_VAR,
   projectStorageFilePath,
   resolveVoldbaseHome,
