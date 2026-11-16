@@ -789,6 +789,23 @@ export function createArchitectureSnapshot(
   }
 
   const normalized = normalizeArchitectureContent({
+    schemaVersion,
+    engineVersion,
+    analysisId,
+    analysisDigest: input.analysisDigest,
+    projectId: input.projectId as ProjectId,
+    projectRevision,
+    limits: {
+      maxNodes: limits.maxNodes,
+      maxEdges: limits.maxEdges,
+      maxModules: limits.maxModules,
+      maxFindings: limits.maxFindings,
+    },
+    thresholds: {
+      fanIn: input.thresholds.fanIn,
+      fanOut: input.thresholds.fanOut,
+      concentration: input.thresholds.concentration,
+    },
     nodes: input.nodes,
     edges: input.edges,
     modules: input.modules,
