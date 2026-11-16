@@ -13,6 +13,7 @@
 import * as path from 'node:path';
 
 import { ArchitectureService } from '../application/architecture-service.ts';
+import type { BuildArchitectureOptions } from '../application/architecture-builder.ts';
 import { ProjectAnalysisService } from '../application/analyze-project-service.ts';
 import { ProjectImportService } from '../application/project-import-service.ts';
 import type {
@@ -349,9 +350,14 @@ function renderArchitectureReport(
     field('graph', `${metrics.edgeCount} edges, ${metrics.internalImportCount} imports merged`),
   );
   streams.stdout(field('modules', String(metrics.moduleCount)));
-  streams.stdout(field('cycles', `${metrics.cycleCount} (largest ${metrics.largestCycleSize})`));
   streams.stdout(
-    field('isolated', `${metrics.isolatedFileCount} files, ${metrics.isolatedModuleCount} modules`),
+    field('cycles', `${metrics.cycleCount} (largest ${metrics.largestCycleSize})`),
+  );
+  streams.stdout(
+    field(
+      'isolated',
+      `${metrics.isolatedFileCount} files, ${metrics.isolatedModuleCount} modules`,
+    ),
   );
   streams.stdout(field('fan-in/out', `max ${metrics.maxFanIn} / ${metrics.maxFanOut}`));
   streams.stdout(
