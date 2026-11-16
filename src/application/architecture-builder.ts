@@ -1,22 +1,33 @@
 /**
  * Architecture derivation (Phase 2B).
  *
- * Turns one AnalysisSnapshot into an ArchitectureSnapshot. This is a *pure*
- * function of the analysis: it reads no file, parses no source, resolves no
- * specifier, executes nothing. Every edge it emits is an import the analysis
- * already classified `resolved-relative`, i.e. one that names another analysed
- * file, so the graph cannot contain an edge nobody can trace back.
+ * A pure function from one `AnalysisSnapshot` to one `ArchitectureSnapshot`.
+ * It reads no files, opens no sockets, spawns nothing and imports nothing from
+ * the filesystem: the only input is the analysis that Phase 2A already produced
+ * and the only output is a validated domain model.
  *
- * Pipeline: collect edges -> fold self/parallel imports -> modules -> metrics ->
- * strongly connected components -> findings -> validated model.
+ * Three different kinds of statement live here, and they are kept apart:
+ *
+ * 1. **Facts copied from the analysis** — a file exists, an import resolved to
+ *    another analysed file, with the specifier the parser saw.
+ * 2. **Calculations over that graph** — fan-in, fan-out, strongly connected
+ *    components, cross-module coupling. These are arithmetic on facts: exact,
+ *    reproducible, and not opinions.
+ * 3. **Heuristic signals** — anything produced from a configurable threshold.
+ *    Those findings are marked `conditional` and say so in their own message.
+ *
+ * Module grouping is a stated *policy* (the directory a file lives in), never an
+ * inference about intended layering. Nothing here claims that `services/` is a
+ * service layer, or that a cycle will break at runtime.
  */
 
+import type { AnalysisSnapshot, ImportKind } from '../domain/analysis.ts';
 import {
   ARCHITECTURE_RULES,
+  createArchitectureSnapshot,
   DEFAULT_ARCHITECTURE_LIMITS,
   DEFAULT_ARCHITECTURE_THRESHOLDS,
   ROOT_MODULE_ID,
-  createArchitectureSnapshot,
   type ArchitectureCycle,
   type ArchitectureEdge,
   type ArchitectureEdgeRef,
@@ -27,19 +38,20 @@ import {
   type ArchitectureSnapshot,
   type ArchitectureThresholds,
 } from '../domain/architecture.ts';
-import type { AnalysisSnapshot, ImportKind } from '../domain/analysis.ts';
-import { invariant } from '../domain/errors.ts';
+import { DomainError } from '../domain/errors.ts';
 
 export interface BuildArchitectureOptions {
   readonly limits?: Partial<ArchitectureLimits>;
   readonly thresholds?: Partial<ArchitectureThresholds>;
 }
 
-/** Separator for composite map keys; never appears in a path or module id. */
+/** Separator for composite map keys; cannot occur in a POSIX relative path. */
 const KEY_SEPARATOR = '\u0000';
 
 function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 function edgeKey(from: string, to: string): string {
@@ -47,90 +59,108 @@ function edgeKey(from: string, to: string): string {
 }
 
 /**
- * Module id of a file path: its directory, or `.` for a root file.
+ * The module a file belongs to: its directory, or `.` at the project root.
  *
- * This is the whole module policy. A directory name is data, never a signal:
- * `services`, `utils` and `core` get exactly the same treatment as any other
- * folder, and nothing here infers a layer, an owner or an intent.
+ * This is the whole grouping policy. It is deterministic, needs no configuration
+ * and claims nothing about intent.
  */
 export function moduleIdForPath(filePath: string): string {
   const separator = filePath.lastIndexOf('/');
-  if (separator <= 0) {
-    return ROOT_MODULE_ID;
-  }
-  return filePath.slice(0, separator);
+  return separator === -1 ? ROOT_MODULE_ID : filePath.slice(0, separator);
 }
 
 interface EdgeAccumulator {
   readonly from: string;
   readonly to: string;
-  kinds: Set<ImportKind>;
-  specifiers: Set<string>;
+  readonly kinds: Set<ImportKind>;
+  readonly specifiers: Set<string>;
   importCount: number;
 }
 
 /**
- * Fold every `resolved-relative` import into at most one edge per file pair.
+ * Collapse every resolved import into at most one edge per file pair.
  *
- * Duplicate imports do not create duplicate edges, but the kinds, the specifiers
- * and the number of statements are kept, so "imported twice, statically and
- * dynamically" stays visible.
+ * Nothing is invented and nothing is dropped: unresolved, external and
+ * out-of-root imports never become edges (they name no internal file), and a pair
+ * imported several times keeps every kind, every specifier and the number of
+ * statements that produced it.
  */
-function collectEdges(analysis: AnalysisSnapshot): Map<string, EdgeAccumulator> {
+function collectEdges(
+  analysis: AnalysisSnapshot,
+  knownPaths: ReadonlySet<string>,
+  limits: ArchitectureLimits,
+): Map<string, EdgeAccumulator> {
   const edges = new Map<string, EdgeAccumulator>();
+
   for (const file of analysis.files) {
-    for (const dependency of file.imports) {
-      if (dependency.resolution !== 'resolved-relative' || dependency.target === null) {
+    for (const importEdge of file.imports) {
+      if (importEdge.resolution !== 'resolved-relative') {
         continue;
       }
-      const key = edgeKey(file.path, dependency.target);
+      const target = importEdge.resolvedPath;
+      if (target === undefined || !knownPaths.has(target)) {
+        // The analysis domain forbids this, so seeing it means the snapshot was
+        // hand-built or damaged: refuse instead of drawing an edge to nowhere.
+        throw new DomainError(
+          'architecture_invalid_analysis',
+          `Analysis ${analysis.analysisId} resolves '${importEdge.specifier}' in ${file.path} to ` +
+            `${String(target)}, which is not an analysed file`,
+        );
+      }
+
+      const key = edgeKey(file.path, target);
       const existing = edges.get(key);
       if (existing === undefined) {
         edges.set(key, {
           from: file.path,
-          to: dependency.target,
-          kinds: new Set([dependency.kind]),
-          specifiers: new Set([dependency.specifier]),
+          to: target,
+          kinds: new Set([importEdge.kind]),
+          specifiers: new Set([importEdge.specifier]),
           importCount: 1,
         });
-        continue;
+      } else {
+        existing.kinds.add(importEdge.kind);
+        existing.specifiers.add(importEdge.specifier);
+        existing.importCount += 1;
       }
-      existing.kinds.add(dependency.kind);
-      existing.specifiers.add(dependency.specifier);
-      existing.importCount += 1;
+
+      if (edges.size > limits.maxEdges) {
+        throw new DomainError(
+          'architecture_limit_exceeded',
+          `Architecture graph exceeds the ${limits.maxEdges}-edge limit; the project is too ` +
+            'large for this phase, and a truncated graph would misdescribe it',
+        );
+      }
     }
   }
+
   return edges;
 }
 
-function materializeEdges(accumulated: Iterable<EdgeAccumulator>): ArchitectureEdge[] {
-  const edges: ArchitectureEdge[] = [];
-  for (const edge of accumulated) {
-    edges.push({
+function materializeEdges(accumulated: ReadonlyMap<string, EdgeAccumulator>): ArchitectureEdge[] {
+  return [...accumulated.values()]
+    .map((edge) => ({
       from: edge.from,
       to: edge.to,
       kinds: [...edge.kinds].sort(compareStrings),
       specifiers: [...edge.specifiers].sort(compareStrings),
       importCount: edge.importCount,
-    });
-  }
-  return edges.sort(
-    (left, right) => compareStrings(left.from, right.from) || compareStrings(left.to, right.to),
-  );
+    }))
+    .sort((left, right) => compareStrings(left.from, right.from) || compareStrings(left.to, right.to));
 }
 
 /**
- * Strongly connected components of the file graph (iterative Tarjan).
+ * Iterative Tarjan strongly connected components.
  *
- * Iterative on purpose: a dependency chain deep enough to blow the JavaScript
- * call stack would turn a code review into a crash, so the algorithm carries its
- * own frame stack and never recurses. Cost is O(V + E).
+ * Iterative on purpose: a recursive implementation would overflow the stack on a
+ * deep dependency chain, and the graph is attacker-influenced data. Each frame
+ * holds its own edge cursor, so the recursion depth of the algorithm becomes
+ * heap-allocated state.
  *
- * Returns only the components that are cycles: size > 1, or a single file that
- * imports itself.
+ * A component of one node is a cycle only when that node imports itself.
  */
 export function findCycleComponents(
-  paths: readonly string[],
+  nodePaths: readonly string[],
   adjacency: ReadonlyMap<string, readonly string[]>,
 ): ArchitectureCycle[] {
   const index = new Map<string, number>();
@@ -138,279 +168,238 @@ export function findCycleComponents(
   const onStack = new Set<string>();
   const stack: string[] = [];
   const cycles: ArchitectureCycle[] = [];
-  let nextIndex = 0;
+  let counter = 0;
 
-  const ordered = [...paths].sort(compareStrings);
+  interface Frame {
+    readonly node: string;
+    readonly edges: readonly string[];
+    next: number;
+  }
 
-  for (const root of ordered) {
+  for (const root of nodePaths) {
     if (index.has(root)) {
       continue;
     }
-    const frames: { node: string; edgeIndex: number; neighbours: readonly string[] }[] = [];
-    frames.push({ node: root, edgeIndex: 0, neighbours: adjacency.get(root) ?? [] });
-    index.set(root, nextIndex);
-    lowLink.set(root, nextIndex);
-    nextIndex += 1;
+
+    index.set(root, counter);
+    lowLink.set(root, counter);
+    counter += 1;
     stack.push(root);
     onStack.add(root);
 
+    const frames: Frame[] = [{ node: root, edges: adjacency.get(root) ?? [], next: 0 }];
+
     while (frames.length > 0) {
-      const frame = frames[frames.length - 1] as {
-        node: string;
-        edgeIndex: number;
-        neighbours: readonly string[];
-      };
+      const frame = frames[frames.length - 1] as Frame;
 
-      if (frame.edgeIndex < frame.neighbours.length) {
-        const neighbour = frame.neighbours[frame.edgeIndex] as string;
-        frame.edgeIndex += 1;
+      if (frame.next < frame.edges.length) {
+        const target = frame.edges[frame.next] as string;
+        frame.next += 1;
 
-        if (!index.has(neighbour)) {
-          index.set(neighbour, nextIndex);
-          lowLink.set(neighbour, nextIndex);
-          nextIndex += 1;
-          stack.push(neighbour);
-          onStack.add(neighbour);
-          frames.push({ node: neighbour, edgeIndex: 0, neighbours: adjacency.get(neighbour) ?? [] });
-          continue;
-        }
-        if (onStack.has(neighbour)) {
-          lowLink.set(
-            frame.node,
-            Math.min(lowLink.get(frame.node) as number, index.get(neighbour) as number),
-          );
+        if (!index.has(target)) {
+          index.set(target, counter);
+          lowLink.set(target, counter);
+          counter += 1;
+          stack.push(target);
+          onStack.add(target);
+          frames.push({ node: target, edges: adjacency.get(target) ?? [], next: 0 });
+        } else if (onStack.has(target)) {
+          const targetIndex = index.get(target) as number;
+          lowLink.set(frame.node, Math.min(lowLink.get(frame.node) as number, targetIndex));
         }
         continue;
       }
 
       frames.pop();
-      const parent = frames[frames.length - 1];
-      if (parent !== undefined) {
+      if (frames.length > 0) {
+        const parent = frames[frames.length - 1] as Frame;
         lowLink.set(
           parent.node,
           Math.min(lowLink.get(parent.node) as number, lowLink.get(frame.node) as number),
         );
-        continue;
       }
 
       if (lowLink.get(frame.node) === index.get(frame.node)) {
         const component: string[] = [];
-        while (stack.length > 0) {
-          const member = stack.pop() as string;
+        for (;;) {
+          const member = stack.pop();
+          if (member === undefined) {
+            break;
+          }
           onStack.delete(member);
           component.push(member);
           if (member === frame.node) {
             break;
           }
         }
-        component.sort(compareStrings);
-        if (component.length > 1) {
-          cycles.push({ nodes: component, selfLoop: false });
-        } else {
-          const only = component[0] as string;
-          if ((adjacency.get(only) ?? []).includes(only)) {
-            cycles.push({ nodes: [only], selfLoop: true });
-          }
+        const isSelfLoop =
+          component.length === 1 &&
+          (adjacency.get(component[0] as string) ?? []).includes(component[0] as string);
+        if (component.length > 1 || isSelfLoop) {
+          cycles.push({
+            nodes: [...component].sort(compareStrings),
+            selfLoop: component.length === 1,
+          });
         }
       }
     }
   }
 
-  return cycles.sort(
-    (left, right) =>
-      right.nodes.length - left.nodes.length ||
-      compareStrings(left.nodes[0] ?? '', right.nodes[0] ?? ''),
-  );
+  // Largest cycles first, then lexicographic: a stable, reviewable order.
+  return cycles.sort((left, right) => {
+    if (left.nodes.length !== right.nodes.length) {
+      return right.nodes.length - left.nodes.length;
+    }
+    return compareStrings(left.nodes[0] ?? '', right.nodes[0] ?? '');
+  });
 }
 
-function resolveOptions(options: BuildArchitectureOptions): {
-  limits: ArchitectureLimits;
-  thresholds: ArchitectureThresholds;
-} {
-  const limits = { ...DEFAULT_ARCHITECTURE_LIMITS, ...options.limits };
-  const thresholds = { ...DEFAULT_ARCHITECTURE_THRESHOLDS, ...options.thresholds };
-  return { limits, thresholds };
+function sortedEvidence(refs: Iterable<ArchitectureEdgeRef>): ArchitectureEdgeRef[] {
+  const seen = new Map<string, ArchitectureEdgeRef>();
+  for (const ref of refs) {
+    seen.set(edgeKey(ref.from, ref.to), ref);
+  }
+  return [...seen.entries()]
+    .sort((left, right) => compareStrings(left[0], right[0]))
+    .map(([, ref]) => ref);
 }
 
 /**
- * Derive the architecture model of an analysis.
+ * Derive the architecture model for one analysis.
  *
- * Throws `architecture_invalid_analysis` when the analysis is not a coherent
- * snapshot (an import naming a file that is not analysed, a duplicate file, an
- * empty path), and `architecture_limit_exceeded` when the graph is larger than
- * the configured bounds. Nothing is ever silently dropped.
+ * @throws DomainError `architecture_invalid_analysis` when the analysis points at
+ * a file it does not contain, and `architecture_limit_exceeded` when a graph or
+ * finding bound is exceeded. It never returns a partial model.
  */
 export function buildArchitecture(
   analysis: AnalysisSnapshot,
   options: BuildArchitectureOptions = {},
 ): ArchitectureSnapshot {
-  const { limits, thresholds } = resolveOptions(options);
+  const limits: ArchitectureLimits = { ...DEFAULT_ARCHITECTURE_LIMITS, ...options.limits };
+  const thresholds: ArchitectureThresholds = {
+    ...DEFAULT_ARCHITECTURE_THRESHOLDS,
+    ...options.thresholds,
+  };
 
-  invariant(
-    typeof analysis === 'object' && analysis !== null && Array.isArray(analysis.files),
-    'architecture_invalid_analysis',
-    'Architecture needs an analysis snapshot with a file list',
-  );
-  invariant(
-    typeof analysis.digest === 'string' && analysis.digest !== '',
-    'architecture_invalid_analysis',
-    'Architecture needs the digest of the analysis it is derived from',
-  );
-
-  const paths: string[] = [];
-  const seen = new Set<string>();
-  for (const file of analysis.files) {
-    invariant(
-      typeof file?.path === 'string' && file.path !== '',
-      'architecture_invalid_analysis',
-      'Every analysed file must record a path',
-    );
-    invariant(
-      !seen.has(file.path),
-      'architecture_invalid_analysis',
-      `Analysis lists ${file.path} more than once`,
-    );
-    seen.add(file.path);
-    paths.push(file.path);
-  }
-
-  paths.sort(compareStrings);
-
-  invariant(
-    paths.length <= limits.maxNodes,
-    'architecture_limit_exceeded',
-    `Analysis has ${paths.length} analysed files, above the ${limits.maxNodes}-node architecture limit`,
-  );
-
-  const accumulated = collectEdges(analysis);
-  for (const edge of accumulated.values()) {
-    invariant(
-      seen.has(edge.to),
-      'architecture_invalid_analysis',
-      `Import from ${edge.from} resolves to ${edge.to}, which is not an analysed file`,
+  const knownPaths = new Set(analysis.files.map((file) => file.path));
+  if (knownPaths.size > limits.maxNodes) {
+    throw new DomainError(
+      'architecture_limit_exceeded',
+      `Analysis ${analysis.analysisId} has ${knownPaths.size} files, above the ` +
+        `${limits.maxNodes}-node architecture limit`,
     );
   }
-  invariant(
-    accumulated.size <= limits.maxEdges,
-    'architecture_limit_exceeded',
-    `Graph has ${accumulated.size} edges, above the ${limits.maxEdges}-edge architecture limit`,
-  );
 
-  const edges = materializeEdges(accumulated.values());
+  const accumulated = collectEdges(analysis, knownPaths, limits);
+  const edges = materializeEdges(accumulated);
 
-  const adjacency = new Map<string, string[]>();
-  const reverseAdjacency = new Map<string, string[]>();
-  const selfLoops = new Set<string>();
-  for (const path of paths) {
-    adjacency.set(path, []);
-    reverseAdjacency.set(path, []);
-  }
+  // Fan-in and fan-out count *distinct other files*. A self-import is a real edge
+  // and a real cycle, but it is not a dependency on another file, so it must not
+  // inflate either count — it is reported separately (VA002).
+  const outgoing = new Map<string, Set<string>>();
+  const incoming = new Map<string, Set<string>>();
   for (const edge of edges) {
     if (edge.from === edge.to) {
-      selfLoops.add(edge.from);
       continue;
     }
-    (adjacency.get(edge.from) as string[]).push(edge.to);
-    (reverseAdjacency.get(edge.to) as string[]).push(edge.from);
+    const targets = outgoing.get(edge.from) ?? new Set<string>();
+    targets.add(edge.to);
+    outgoing.set(edge.from, targets);
+
+    const sources = incoming.get(edge.to) ?? new Set<string>();
+    sources.add(edge.from);
+    incoming.set(edge.to, sources);
   }
 
-  const nodes: ArchitectureNode[] = [];
-  const languageOf = new Map<string, ArchitectureNode['language']>();
-  const moduleOf = new Map<string, string>();
-  for (const file of analysis.files) {
-    languageOf.set(file.path, file.language);
-    moduleOf.set(file.path, moduleIdForPath(file.path));
-  }
-
-  // Fan-in and fan-out count distinct *other* files. Self-imports are excluded:
-  // a file importing itself is a cycle, not a dependency on something else.
-  for (const path of paths) {
-    const fanIn = new Set(reverseAdjacency.get(path) ?? []).size;
-    const fanOut = new Set(adjacency.get(path) ?? []).size;
-    nodes.push({
-      path,
-      moduleId: moduleOf.get(path) as string,
-      language: languageOf.get(path) as ArchitectureNode['language'],
-      fanIn,
-      fanOut,
-      isolated: fanIn === 0 && fanOut === 0 && !selfLoops.has(path),
-    });
-  }
+  const nodes: ArchitectureNode[] = analysis.files
+    .map((file) => {
+      const fanIn = (incoming.get(file.path) ?? new Set<string>()).size;
+      const fanOut = (outgoing.get(file.path) ?? new Set<string>()).size;
+      const hasSelfLoop = accumulated.has(edgeKey(file.path, file.path));
+      return {
+        path: file.path,
+        moduleId: moduleIdForPath(file.path),
+        language: file.language,
+        fanIn,
+        fanOut,
+        isolated: fanIn === 0 && fanOut === 0 && !hasSelfLoop,
+      };
+    })
+    .sort((left, right) => compareStrings(left.path, right.path));
 
   const moduleFiles = new Map<string, string[]>();
-  for (const path of paths) {
-    const moduleId = moduleOf.get(path) as string;
-    const files = moduleFiles.get(moduleId);
-    if (files === undefined) {
-      moduleFiles.set(moduleId, [path]);
-    } else {
-      files.push(path);
-    }
+  for (const node of nodes) {
+    const files = moduleFiles.get(node.moduleId) ?? [];
+    files.push(node.path);
+    moduleFiles.set(node.moduleId, files);
   }
-  invariant(
-    moduleFiles.size <= limits.maxModules,
-    'architecture_limit_exceeded',
-    `Graph has ${moduleFiles.size} modules, above the ${limits.maxModules}-module architecture limit`,
+  if (moduleFiles.size > limits.maxModules) {
+    throw new DomainError(
+      'architecture_limit_exceeded',
+      `Architecture graph exceeds the ${limits.maxModules}-module limit`,
+    );
+  }
+
+  const moduleOutgoing = new Map<string, Set<string>>();
+  const moduleIncoming = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    const fromModule = moduleIdForPath(edge.from);
+    const toModule = moduleIdForPath(edge.to);
+    if (fromModule === toModule) {
+      continue;
+    }
+    const targets = moduleOutgoing.get(fromModule) ?? new Set<string>();
+    targets.add(toModule);
+    moduleOutgoing.set(fromModule, targets);
+
+    const sources = moduleIncoming.get(toModule) ?? new Set<string>();
+    sources.add(fromModule);
+    moduleIncoming.set(toModule, sources);
+  }
+
+  // A module is "isolated" only when the project has more than one module: in a
+  // single-module project nothing is disconnected from anything, and calling the
+  // only module isolated would be noise dressed as a finding.
+  const moduleCount = moduleFiles.size;
+  const modules: ArchitectureModule[] = [...moduleFiles.entries()]
+    .map(([id, files]) => {
+      const fanIn = (moduleIncoming.get(id) ?? new Set<string>()).size;
+      const fanOut = (moduleOutgoing.get(id) ?? new Set<string>()).size;
+      return {
+        id,
+        files: [...files].sort(compareStrings),
+        fanIn,
+        fanOut,
+        isolated: moduleCount > 1 && fanIn === 0 && fanOut === 0,
+      };
+    })
+    .sort((left, right) => compareStrings(left.id, right.id));
+
+  const adjacency = new Map<string, string[]>();
+  for (const node of nodes) {
+    const targets = [...(outgoing.get(node.path) ?? new Set<string>())].sort(compareStrings);
+    const selfLoop = accumulated.has(edgeKey(node.path, node.path)) ? [node.path] : [];
+    adjacency.set(node.path, [...selfLoop, ...targets].sort(compareStrings));
+  }
+  const cycles = findCycleComponents(
+    nodes.map((node) => node.path),
+    adjacency,
   );
 
-  const moduleOut = new Map<string, Set<string>>();
-  const moduleIn = new Map<string, Set<string>>();
-  for (const moduleId of moduleFiles.keys()) {
-    moduleOut.set(moduleId, new Set());
-    moduleIn.set(moduleId, new Set());
-  }
-  for (const edge of edges) {
-    const from = moduleOf.get(edge.from) as string;
-    const to = moduleOf.get(edge.to) as string;
-    if (from === to) {
-      continue;
-    }
-    (moduleOut.get(from) as Set<string>).add(to);
-    (moduleIn.get(to) as Set<string>).add(from);
-  }
-
-  const modules: ArchitectureModule[] = [];
-  const sortedModuleIds = [...moduleFiles.keys()].sort(compareStrings);
-  const multipleModules = sortedModuleIds.length > 1;
-  for (const moduleId of sortedModuleIds) {
-    const fanIn = (moduleIn.get(moduleId) as Set<string>).size;
-    const fanOut = (moduleOut.get(moduleId) as Set<string>).size;
-    modules.push({
-      id: moduleId,
-      files: [...(moduleFiles.get(moduleId) as string[])].sort(compareStrings),
-      fanIn,
-      fanOut,
-      // A project with a single module is not "disconnected": marking the only
-      // module isolated would say nothing about the code.
-      isolated: multipleModules && fanIn === 0 && fanOut === 0,
-    });
-  }
-
-  const cycles = findCycleComponents(paths, adjacency);
   const findings: ArchitectureFinding[] = [];
 
-  const edgeRef = (from: string, to: string): ArchitectureEdgeRef => ({ from, to });
-  const edgesInside = (members: ReadonlySet<string>): ArchitectureEdgeRef[] =>
-    edges
-      .filter((edge) => members.has(edge.from) && members.has(edge.to))
-      .map((edge) => edgeRef(edge.from, edge.to));
-
+  // VA001 — circular dependencies. The cycle is a fact about imports; the finding
+  // says exactly that and nothing about runtime behaviour.
   for (const cycle of cycles) {
-    const members = new Set(cycle.nodes);
     if (cycle.selfLoop) {
-      findings.push({
-        ruleId: ARCHITECTURE_RULES.selfImport,
-        severity: 'warning',
-        certainty: 'certain',
-        nodes: cycle.nodes,
-        modules: [],
-        message:
-          'This file imports itself. The self-import is kept in the graph as a one-file cycle; ' +
-          'whether it has any runtime effect depends on how the code is loaded.',
-        evidence: [edgeRef(cycle.nodes[0] as string, cycle.nodes[0] as string)],
-      });
       continue;
     }
+    const members = new Set(cycle.nodes);
+    const evidence = sortedEvidence(
+      edges
+        .filter((edge) => members.has(edge.from) && members.has(edge.to))
+        .map((edge) => ({ from: edge.from, to: edge.to })),
+    );
     findings.push({
       ruleId: ARCHITECTURE_RULES.circularDependency,
       severity: 'warning',
@@ -418,19 +407,38 @@ export function buildArchitecture(
       nodes: cycle.nodes,
       modules: [],
       message:
-        `${cycle.nodes.length} files depend on each other in a cycle. The cycle is a fact about ` +
-        'imports; it does not by itself mean the code fails or misbehaves at runtime.',
-      evidence: edgesInside(members),
+        `${cycle.nodes.length} files form a circular dependency: each can reach the others by ` +
+        'following internal imports. This is a fact about the import graph; it does not by ' +
+        'itself mean the code fails, loops or misbehaves at runtime.',
+      evidence,
     });
   }
 
-  const moduleById = new Map<string, ArchitectureModule>();
-  for (const module of modules) {
-    moduleById.set(module.id, module);
+  // VA002 — a file importing itself.
+  for (const node of nodes) {
+    if (!accumulated.has(edgeKey(node.path, node.path))) {
+      continue;
+    }
+    findings.push({
+      ruleId: ARCHITECTURE_RULES.selfImport,
+      severity: 'warning',
+      certainty: 'certain',
+      nodes: [node.path],
+      modules: [],
+      message:
+        'This file imports itself. The import edge exists in the parsed source; whether it is ' +
+        'intended, and what it does at runtime, is outside what an import graph can tell.',
+      evidence: [{ from: node.path, to: node.path }],
+    });
   }
 
+  // VA003 / VA004 — fan-out and fan-in. Measured counts; the threshold is the
+  // heuristic part, which is why these are `conditional`.
   for (const node of nodes) {
     if (node.fanOut >= thresholds.fanOut) {
+      const evidence = sortedEvidence(
+        edges.filter((edge) => edge.from === node.path).map((edge) => ({ from: edge.from, to: edge.to })),
+      );
       findings.push({
         ruleId: ARCHITECTURE_RULES.highFanOut,
         severity: 'info',
@@ -439,14 +447,15 @@ export function buildArchitecture(
         modules: [],
         message:
           `This file imports ${node.fanOut} other internal files, at or above the configured ` +
-          `fan-out threshold of ${thresholds.fanOut}. The count is measured; that a high fan-out ` +
-          'is a problem is a heuristic, not a rule.',
-        evidence: edges
-          .filter((edge) => edge.from === node.path)
-          .map((edge) => edgeRef(edge.from, edge.to)),
+          `fan-out threshold of ${thresholds.fanOut}. The count is measured; that a high ` +
+          'fan-out is a problem is a heuristic, not a rule.',
+        evidence,
       });
     }
     if (node.fanIn >= thresholds.fanIn) {
+      const evidence = sortedEvidence(
+        edges.filter((edge) => edge.to === node.path).map((edge) => ({ from: edge.from, to: edge.to })),
+      );
       findings.push({
         ruleId: ARCHITECTURE_RULES.highFanIn,
         severity: 'info',
@@ -454,97 +463,98 @@ export function buildArchitecture(
         nodes: [node.path],
         modules: [],
         message:
-          `${node.fanIn} other internal files import this one, at or above the configured ` +
-          `fan-in threshold of ${thresholds.fanIn}. A widely imported file may be a shared ` +
-          'utility or a coupling point; the graph cannot tell which.',
-        evidence: edges
-          .filter((edge) => edge.to === node.path)
-          .map((edge) => edgeRef(edge.from, edge.to)),
-      });
-    }
-    if (node.isolated) {
-      findings.push({
-        ruleId: ARCHITECTURE_RULES.isolatedFile,
-        severity: 'info',
-        certainty: 'certain',
-        nodes: [node.path],
-        modules: [],
-        message:
-          'No other analysed file imports this file and it imports nothing: it is not part of ' +
-          'the internal dependency graph. It may be an entry point, a test or unused code.',
-        evidence: [],
+          `This file is imported by ${node.fanIn} other internal files, at or above the ` +
+          `configured fan-in threshold of ${thresholds.fanIn}. Being widely depended on is a ` +
+          'measured fact; calling it a bottleneck would be an interpretation.',
+        evidence,
       });
     }
   }
 
-  for (const module of modules) {
-    if (module.isolated) {
-      findings.push({
-        ruleId: ARCHITECTURE_RULES.isolatedModule,
-        severity: 'info',
-        certainty: 'certain',
-        nodes: [],
-        modules: [module.id],
-        message:
-          `Module ${module.id} has no dependency in either direction with another module. ` +
-          'Its files may still be connected inside the module; nothing outside it imports them.',
-        evidence: [],
-      });
-    }
-  }
-
-  // Cross-module concentration: how many merged import statements a module pair
-  // exchanges. Counted per statement, so ten imports from one file weigh the same
-  // as ten imports from ten files — the metric is about coupling, not fan-out.
-  const pairCounts = new Map<string, { from: string; to: string; count: number }>();
-  for (const edge of edges) {
-    const from = moduleOf.get(edge.from) as string;
-    const to = moduleOf.get(edge.to) as string;
-    if (from === to) {
+  // VA005 — files with no internal dependency in either direction.
+  for (const node of nodes) {
+    if (!node.isolated) {
       continue;
     }
-    const key = edgeKey(from, to);
-    const existing = pairCounts.get(key);
-    if (existing === undefined) {
-      pairCounts.set(key, { from, to, count: edge.importCount });
-    } else {
-      existing.count += edge.importCount;
-    }
+    findings.push({
+      ruleId: ARCHITECTURE_RULES.isolatedFile,
+      severity: 'info',
+      certainty: 'certain',
+      nodes: [node.path],
+      modules: [],
+      message:
+        'Nothing analysed imports this file, and it imports nothing analysed. For an entry ' +
+        'point or a test that is expected; the graph cannot tell which it is.',
+      evidence: [],
+    });
   }
-  const concentrated = [...pairCounts.values()]
-    .filter((pair) => pair.count >= thresholds.concentration)
-    .sort(
-      (left, right) =>
-        right.count - left.count ||
-        compareStrings(left.from, right.from) ||
-        compareStrings(left.to, right.to),
+
+  // VA006 — modules with no cross-module dependency at all.
+  for (const module of modules) {
+    if (!module.isolated) {
+      continue;
+    }
+    findings.push({
+      ruleId: ARCHITECTURE_RULES.isolatedModule,
+      severity: 'info',
+      certainty: 'certain',
+      nodes: [],
+      modules: [module.id],
+      message:
+        `Module ${module.id} has no imports to or from any other module in this project. Its ` +
+        'files may still depend on each other.',
+      evidence: [],
+    });
+  }
+
+  // VA007 — concentration between one pair of modules.
+  const pairCounts = new Map<string, number>();
+  for (const edge of edges) {
+    const fromModule = moduleIdForPath(edge.from);
+    const toModule = moduleIdForPath(edge.to);
+    if (fromModule === toModule) {
+      continue;
+    }
+    const key = edgeKey(fromModule, toModule);
+    pairCounts.set(key, (pairCounts.get(key) ?? 0) + edge.importCount);
+  }
+  for (const [key, count] of [...pairCounts.entries()].sort((left, right) =>
+    compareStrings(left[0], right[0]),
+  )) {
+    if (count < thresholds.concentration) {
+      continue;
+    }
+    const [fromModule, toModule] = key.split(KEY_SEPARATOR) as [string, string];
+    const evidence = sortedEvidence(
+      edges
+        .filter(
+          (edge) =>
+            moduleIdForPath(edge.from) === fromModule && moduleIdForPath(edge.to) === toModule,
+        )
+        .map((edge) => ({ from: edge.from, to: edge.to })),
     );
-  for (const pair of concentrated) {
     findings.push({
       ruleId: ARCHITECTURE_RULES.dependencyConcentration,
       severity: 'info',
       certainty: 'conditional',
       nodes: [],
-      modules: [pair.from, pair.to],
+      modules: [fromModule, toModule],
       message:
-        `${pair.from} imports ${pair.count} times from ${pair.to} (merged import statements), ` +
-        `at or above the configured concentration threshold of ${thresholds.concentration}. ` +
-        'Heavy coupling in one direction is a signal to look, not a defect.',
-      evidence: edges
-        .filter(
-          (edge) =>
-            moduleOf.get(edge.from) === pair.from && moduleOf.get(edge.to) === pair.to,
-        )
-        .map((edge) => edgeRef(edge.from, edge.to)),
+        `${fromModule} imports ${toModule} through ${count} import statements between ` +
+        `${evidence.length} file pairs, at or above the configured concentration threshold of ` +
+        `${thresholds.concentration}. This measures coupling; it is not a claim that the ` +
+        'coupling is wrong.',
+      evidence,
     });
   }
 
-  invariant(
-    findings.length <= limits.maxFindings,
-    'architecture_limit_exceeded',
-    `Architecture produced ${findings.length} findings, above the ` +
-      `${limits.maxFindings}-finding limit`,
-  );
+  if (findings.length > limits.maxFindings) {
+    throw new DomainError(
+      'architecture_limit_exceeded',
+      `Architecture derivation produced ${findings.length} findings, above the ` +
+        `${limits.maxFindings}-finding limit; the project is too large for a readable report`,
+    );
+  }
 
   return createArchitectureSnapshot({
     analysisId: analysis.analysisId,
