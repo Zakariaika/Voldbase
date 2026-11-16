@@ -55,6 +55,36 @@ export {
   type SourceLocation,
 } from './domain/analysis.ts';
 export {
+  ARCHITECTURE_ENGINE_VERSION,
+  ARCHITECTURE_RULES,
+  ARCHITECTURE_SCHEMA_VERSION,
+  architectureContentDigest,
+  assertArchitectureDigest,
+  cloneArchitectureSnapshot,
+  computeArchitectureMetrics,
+  createArchitectureSnapshot,
+  DEFAULT_ARCHITECTURE_LIMITS,
+  DEFAULT_ARCHITECTURE_THRESHOLDS,
+  describeArchitectureFinding,
+  isArchitectureModuleId,
+  normalizeArchitectureContent,
+  ROOT_MODULE_ID,
+  summarizeArchitecture,
+  type ArchitectureContent,
+  type ArchitectureCycle,
+  type ArchitectureEdge,
+  type ArchitectureEdgeRef,
+  type ArchitectureFinding,
+  type ArchitectureLimits,
+  type ArchitectureMetrics,
+  type ArchitectureModule,
+  type ArchitectureNode,
+  type ArchitectureSnapshot,
+  type ArchitectureSummary,
+  type ArchitectureThresholds,
+  type CreateArchitectureSnapshotInput,
+} from './domain/architecture.ts';
+export {
   RESULT_STATUSES,
   RESULT_STATUS_DESCRIPTIONS,
   isResultStatus,
@@ -115,6 +145,18 @@ export type {
   ProjectScanner,
   RunRepository,
 } from './application/ports.ts';
+export {
+  buildArchitecture,
+  findCycleComponents,
+  moduleIdForPath,
+  type BuildArchitectureOptions,
+} from './application/architecture-builder.ts';
+export {
+  ArchitectureService,
+  type ArchitectureServiceDeps,
+  type BuildArchitectureCommand,
+  type BuildArchitectureResult,
+} from './application/architecture-service.ts';
 export {
   ProjectAnalysisService,
   type AnalyzeProjectCommand,
