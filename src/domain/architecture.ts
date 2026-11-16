@@ -311,13 +311,15 @@ function compareEdgeRefs(left: ArchitectureEdgeRef, right: ArchitectureEdgeRef):
  * Ordering is part of the contract: the digest is only reproducible if two runs
  * over the same analysis agree on it, and a JSON report must be diffable.
  */
-export function normalizeArchitectureContent(content: {
-  readonly nodes: readonly ArchitectureNode[];
-  readonly edges: readonly ArchitectureEdge[];
-  readonly modules: readonly ArchitectureModule[];
-  readonly cycles: readonly ArchitectureCycle[];
-  readonly findings: readonly ArchitectureFinding[];
-}): Pick<ArchitectureContent, 'nodes' | 'edges' | 'modules' | 'cycles' | 'findings'> {
+export function normalizeArchitectureContent(
+  content: Omit<ArchitectureContent, 'nodes' | 'edges' | 'modules' | 'cycles' | 'findings'> & {
+    nodes: readonly ArchitectureNode[];
+    edges: readonly ArchitectureEdge[];
+    modules: readonly ArchitectureModule[];
+    cycles: readonly ArchitectureCycle[];
+    findings: readonly ArchitectureFinding[];
+  },
+): Pick<ArchitectureContent, 'nodes' | 'edges' | 'modules' | 'cycles' | 'findings'> {
   return {
     nodes: [...content.nodes]
       .map((node) => ({ ...node }))
@@ -533,6 +535,7 @@ export function createArchitectureSnapshot(
       'invalid_architecture_snapshot',
       'Every node must record a file path',
     );
+    // Reuse the analysis rule for relative paths by checking the same shape.
     invariant(
       !node.path.includes('\\') &&
         !node.path.startsWith('/') &&
@@ -626,7 +629,7 @@ export function createArchitectureSnapshot(
       `Edge ${edge.from} -> ${edge.to} must count the imports it merged`,
     );
     invariant(
-      edge.importCount >= edge.specifiers.length,
+      Number.isInteger(edge.importCount) && edge.importCount >= edge.specifiers.length,
       'invalid_architecture_snapshot',
       `Edge ${edge.from} -> ${edge.to} merged fewer imports than it has specifiers`,
     );
