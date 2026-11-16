@@ -23,13 +23,16 @@ should say so.
 
 ## Project status
 
-**Phase 1 — a working local CLI.** You can import a local project, get a
-reproducible SHA-256 snapshot of its contents, see its detected dependency
-manifests, store it durably, and list or inspect it later. It runs entirely on
-your machine: no account, no network, no telemetry.
+**Phase 2A — local import, durable snapshots and a static analyzer.** You can
+import a local project, get a reproducible SHA-256 snapshot of its contents, store
+it durably, and then statically analyse its JavaScript and TypeScript: declarations,
+exports, the import graph between analysed files, and a small set of explainable
+syntax-level findings. It runs entirely on your machine: no account, no network, no
+telemetry.
 
 **No project code is ever executed.** There is no executor, no install step and no
-`child_process` in the product. Verifying experiments (Phases 2–3) is still ahead;
+`child_process` in the product; the analyzer parses text, it does not run it, type
+check it or resolve packages. Verifying experiments (Phases 2B–3) is still ahead;
 see the [roadmap](#roadmap) and [ADR-0005](docs/adr/0005-execution-isolation.md).
 
 ## What works today
@@ -59,15 +62,39 @@ Project proj_df02e24be8d04a2390f3
   manifests   2
     npm       package.json                sha256:e55654f1…
     npm       package-lock.json           sha256:9d1b0a17…
+
+$ voldbase analyze proj_df02e24be8d04a2390f3
+Analysed project proj_df02e24be8d04a2390f3 (demo)
+  project      proj_df02e24be8d04a2390f3
+  revision     sha256:c5dfb407e8b9…
+  analyzer     1.0.0
+  analysed     2026-11-16T09:00:00.000Z
+  source       184 source files (javascript, typescript)
+  declarations 1204
+  imports      638 (512 resolved)
+  findings     9 (0 error, 7 warning, 2 info)
+  digest       sha256:41c0a7…
+  Note: syntax-level analysis only. No findings does not mean the code is safe.
+  voldbase analysis ana_7f31…   # findings in detail
+
+$ voldbase analysis ana_7f31…
+Analysis ana_7f31…
+  …the same summary…
+SEVERITY  RULE    LOCATION                                   EXPLANATION
+WARNING   VB002   src/index.js:1:24                          This relative import does not
+                                                             match any analysed file…
+          evidence: ./missing
 ```
 
 ## Installation
 
-Requires **Node.js >= 22.18** (24 or 26 recommended). The package has **zero
-runtime dependencies**.
+Requires **Node.js >= 22.18** (24 or 26 recommended). The package has exactly one
+runtime dependency: `typescript`, used as the parser for JavaScript and TypeScript
+(justified in [ADR-0016](docs/adr/0016-static-analysis-boundary.md)). It installs
+no scripts and needs no network at run time.
 
 ```bash
-npm ci          # install the two dev dependencies (typescript, @types/node)
+npm ci          # install the runtime dependency (typescript) and @types/node
 npm run build   # emit the distribution to dist/ (ADR-0010)
 npm link        # optional: put `voldbase` on your PATH
 
@@ -86,6 +113,8 @@ are equivalent.
 | `voldbase import <path> --name "Project Name"` | Same, with an explicit name |
 | `voldbase list` | List imported projects |
 | `voldbase show <project-id>` | Show one project in detail |
+| `voldbase analyze <project-id>` | Statically analyse an imported snapshot (no execution) |
+| `voldbase analysis <analysis-id>` | Show a stored analysis: summary and findings |
 | `voldbase help` | Usage (also shown when no arguments are given) |
 
 `<path>` may be absolute or relative to the current directory. Exit codes: `0`
@@ -116,7 +145,8 @@ Everything lives under `VOLDBASE_HOME` (default `~/.voldbase`):
 
 ```
 ~/.voldbase/
-└── projects.json      # schemaVersion + imported projects
+├── projects.json      # schemaVersion + imported projects
+└── analyses.json      # schemaVersion + analysis snapshots (append-only)
 ```
 
 Override it for a portable or throwaway store:
@@ -150,6 +180,16 @@ store then stays locked until a human removes the file), the check is POSIX-veri
 only, and this is cooperative locking for local filesystems — a tool that ignores
 the lock can still overwrite the store. See
 [ADR-0015](docs/adr/0015-liveness-based-lock-recovery.md).
+
+### Analysis storage
+
+Analyses live in their own document, `analyses.json`, so a damaged analysis file
+can never affect project data. They are append-only and content-addressed: an
+analysis id may not be re-saved with different content (`analysis_immutable`), and
+every snapshot's digest is recomputed when it is loaded — a file that was edited by
+hand is refused with `analysis_corrupted` rather than displayed as evidence.
+Writes are atomic and use the same lock as projects. Details:
+[Phase 2A architecture](docs/architecture/phase-2a-static-analysis.md).
 
 ## Supported dependency manifests
 
@@ -206,16 +246,34 @@ share a revision) and sensitive to any content, addition or removal. See
 - A project that changes on disk *during* a scan aborts the import with
   `scan_entry_changed`; re-run the import against a stable tree.
 
+### Analysis limits
+
+The analyzer reuses the scanner's walk and reader, and adds one bound of its own:
+
+| Limit | Default | On exceeding |
+| --- | --- | --- |
+| Files | 20 000 | `scan_limit_exceeded` |
+| Total bytes | 256 MiB | `scan_limit_exceeded` |
+| Per file | 8 MiB | `file_too_large` |
+| Source files parsed | 5 000 | `analysis_limit_exceeded` |
+
+Every limit aborts the analysis; none of them silently produces a partial result.
+
 ## Security model
 
 - **No execution.** VOLDBASE never runs `npm install`, `pip install`, `cargo
   build`, project scripts, tests or any other code from the imported project.
-  `src/` contains no `child_process` import.
+  `src/` contains no `child_process` import. The analyzer parses source text with
+  the TypeScript Compiler API over an in-memory host: no `tsconfig` is loaded, no
+  module is resolved, no package is installed.
+- **Untrusted input stays data.** Parsed sources are never evaluated; findings are
+  syntax-level observations with an explicit certainty, and an analysis with no
+  findings is not described as safe.
 - **No secrets collected.** Only relative paths, byte sizes and SHA-256 digests are
   stored. File contents are hashed in memory and never persisted or logged; the
   imported project's environment variables are never read.
 - **Local-only.** No network calls, no account, no telemetry.
-- **Read-only.** Importing writes nothing outside `VOLDBASE_HOME`.
+- **Read-only.** Importing and analysing write nothing outside `VOLDBASE_HOME`.
 
 This is *analysis* security, not *execution* security. Running untrusted code is a
 separate problem with nine mandatory preconditions in
@@ -236,15 +294,15 @@ application layers.
                            │
 ┌──────────────────────────▼────────────────────────────────┐
 │  Application layer — use cases, orchestration             │
-│  ├─ ports: repositories, scanner, clock, ids, executor    │
-│  └─ ProjectImportService                                  │
+│  ├─ ports: repositories, scanner, analyzer, clock, ids    │
+│  └─ ProjectImportService, ProjectAnalysisService          │
 ├───────────────────────────────────────────────────────────┤
 │  Domain layer — entities, invariants, result taxonomy     │
 │  (pure; no I/O, no framework, no third-party runtime deps)│
 └──────────────────────────┬────────────────────────────────┘
                            │ adapters
 ┌──────────────────────────▼────────────────────────────────┐
-│  Infrastructure — local scanner, JSON storage, ids, clock │
+│  Infrastructure — scanner, analyzer, JSON storage, ids    │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -256,6 +314,7 @@ Further reading:
 
 - [Domain model](docs/architecture/domain-model.md)
 - [Phase 1 import and storage](docs/architecture/phase-1-import-and-storage.md)
+- [Phase 2A static analysis](docs/architecture/phase-2a-static-analysis.md)
 - [Architecture decision records](docs/adr/README.md)
 
 ### Repository layout
@@ -269,7 +328,7 @@ Further reading:
 ├── src/
 │   ├── domain/                  # Entities, invariants, result taxonomy
 │   ├── application/             # Use cases and port definitions
-│   ├── infrastructure/          # Adapters: fs scanner, JSON store, ids
+│   ├── infrastructure/          # Adapters: scanner, analyzer, JSON store, ids
 │   └── index.ts                 # Public module surface
 ├── tests/                       # Node test runner suites
 ├── .github/workflows/ci.yml     # Typecheck + build + tests on every PR
@@ -295,7 +354,8 @@ CI runs build before tests, so nothing is skipped there.
 ## Engineering conventions
 
 - **No runtime dependencies without an ADR.** The core must stay installable and
-  auditable offline (see [ADR-0007](docs/adr/0007-dependency-policy.md)).
+  auditable offline (see [ADR-0007](docs/adr/0007-dependency-policy.md) and
+  [ADR-0016](docs/adr/0016-static-analysis-boundary.md) for the one exception).
 - **Domain layer stays pure.** No `fs`, no `http`, no framework imports; all
   filesystem access lives in `src/infrastructure`.
 - **Results are typed, never thrown strings.** Domain violations raise a
@@ -313,8 +373,9 @@ CI runs build before tests, so nothing is skipped there.
 | Phase | Outcome |
 | --- | --- |
 | 0 — Foundation | Product definition, ADRs, domain model, skeleton, CI |
-| **1 — Walking skeleton** (current) | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
-| 2 — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
+| 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
+| **2A — Static analysis** (current) | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
+| 2B — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
 | 3 — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
 | 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
