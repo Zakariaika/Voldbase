@@ -6,9 +6,13 @@
  * ports (ADR-0004).
  */
 
+import {
+  cloneAnalysisSnapshot,
+  type AnalysisSnapshot,
+} from '../../domain/analysis.ts';
 import type { Experiment } from '../../domain/experiment.ts';
 import { DomainError } from '../../domain/errors.ts';
-import type { ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
+import type { AnalysisId, ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
 import {
   assertProjectSnapshotCompatible,
   cloneProject,
@@ -16,6 +20,7 @@ import {
 } from '../../domain/project.ts';
 import { isTerminal, type Run } from '../../domain/run.ts';
 import type {
+  AnalysisRepository,
   Clock,
   ExperimentRepository,
   IdGenerator,
@@ -54,6 +59,36 @@ export class InMemoryProjectRepository implements ProjectRepository {
 
   async list(): Promise<Project[]> {
     return [...this.#byId.values()].map(cloneProject);
+  }
+}
+
+export class InMemoryAnalysisRepository implements AnalysisRepository {
+  readonly #byId = new Map<AnalysisId, AnalysisSnapshot>();
+
+  async save(snapshot: AnalysisSnapshot): Promise<void> {
+    const existing = this.#byId.get(snapshot.analysisId);
+    if (existing !== undefined) {
+      if (existing.digest !== snapshot.digest) {
+        throw new DomainError(
+          'analysis_immutable',
+          `Analysis ${snapshot.analysisId} already exists with different content; an analysis ` +
+            'is immutable — run a new analysis instead',
+        );
+      }
+      return;
+    }
+    this.#byId.set(snapshot.analysisId, cloneAnalysisSnapshot(snapshot));
+  }
+
+  async findById(id: AnalysisId): Promise<AnalysisSnapshot | undefined> {
+    const stored = this.#byId.get(id);
+    return stored === undefined ? undefined : cloneAnalysisSnapshot(stored);
+  }
+
+  async listByProject(projectId: ProjectId): Promise<AnalysisSnapshot[]> {
+    return [...this.#byId.values()]
+      .filter((snapshot) => snapshot.projectId === projectId)
+      .map(cloneAnalysisSnapshot);
   }
 }
 
