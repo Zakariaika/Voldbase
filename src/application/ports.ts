@@ -5,9 +5,15 @@
  * domain remains unreachable from I/O (ADR-0003).
  */
 
+import type {
+  AnalysisSettings,
+  AnalysisSnapshot,
+  AnalyzedFile,
+  Finding,
+} from '../domain/analysis.ts';
 import type { Experiment } from '../domain/experiment.ts';
 import type { EvidenceRef } from '../domain/evidence.ts';
-import type { ExperimentId, ProjectId, RunId } from '../domain/ids.ts';
+import type { AnalysisId, ExperimentId, ProjectId, RunId } from '../domain/ids.ts';
 import type { Project } from '../domain/project.ts';
 import type { RevisionId } from '../domain/revision.ts';
 import type { Run } from '../domain/run.ts';
@@ -74,6 +80,47 @@ export interface ProjectScanner {
    * violations — never by returning a partial snapshot silently.
    */
   scan(directoryPath: string): Promise<ProjectScan>;
+}
+
+/** Bounds applied to one analysis run; also recorded inside the snapshot. */
+export interface AnalysisLimits {
+  readonly maxFiles: number;
+  readonly maxTotalBytes: number;
+  readonly maxFileBytes: number;
+  /** Maximum number of source files parsed in one analysis. */
+  readonly maxSourceFiles: number;
+}
+
+/** What an analyzer produced for one project revision. */
+export interface AnalyzerResult {
+  readonly analyzerVersion: string;
+  readonly settings: AnalysisSettings;
+  readonly files: readonly AnalyzedFile[];
+  readonly findings: readonly Finding[];
+}
+
+/**
+ * Static analysis of an imported project.
+ *
+ * Implementations must be read-only, must never execute project code, must not
+ * resolve packages or reach the network, and must abort rather than return a
+ * partial result when the project changed or a limit was exceeded.
+ */
+export interface ProjectAnalyzer {
+  readonly version: string;
+  analyze(project: Project, limits?: Partial<AnalysisLimits>): Promise<AnalyzerResult>;
+}
+
+/**
+ * Storage for analysis snapshots.
+ *
+ * Snapshots are append-only and content-addressed: saving an id again is a no-op
+ * only when the content is identical.
+ */
+export interface AnalysisRepository {
+  save(snapshot: AnalysisSnapshot): Promise<void>;
+  findById(id: AnalysisId): Promise<AnalysisSnapshot | undefined>;
+  listByProject(projectId: ProjectId): Promise<AnalysisSnapshot[]>;
 }
 
 export interface ExperimentRepository {
