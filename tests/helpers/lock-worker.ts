@@ -19,6 +19,7 @@
 
 import { promises as fs } from 'node:fs';
 
+import { DomainError } from '../../src/domain/errors.ts';
 import { acquireFileLock } from '../../src/infrastructure/fs/file-lock.ts';
 
 const [mode, ...rest] = process.argv.slice(2);
@@ -51,7 +52,26 @@ if (mode === 'write') {
     fail('usage: write <storePath> <id> <markerPath> <holdMs>');
   }
   const holdMs = Number(holdText);
-  const lock = await acquireFileLock(`${storePath}.lock`, { timeoutMs: 20_000, pollIntervalMs: 5 });
+
+  // `storage_lock_unsafe` is the fail-closed answer while another process is
+  // mid-recovery and a displaced lock may still have a live owner; the documented
+  // response is to retry, and the marker below still proves mutual exclusion.
+  let lock;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      lock = await acquireFileLock(`${storePath}.lock`, {
+        timeoutMs: 20_000,
+        pollIntervalMs: 5,
+      });
+      break;
+    } catch (error) {
+      const retryable = error instanceof DomainError && error.code === 'storage_lock_unsafe';
+      if (!retryable || attempt >= 25) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10 + Math.floor(Math.random() * 20)));
+    }
+  }
 
   try {
     // Atomic detector: if this cannot be created, two writers are inside.
