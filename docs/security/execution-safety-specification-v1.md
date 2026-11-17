@@ -253,12 +253,18 @@ be defined. The trust assumptions of chaining MUST be documented, not overstated
 
 **R7 — Independent verdict.** Execution outcome and verification outcome MUST be
 separate. Verdicts are exactly `PASS`, `FAIL`, `INCONCLUSIVE`, `BLOCKED`, chosen by
-the single ordered precedence in §9.1, whose rows include the cleanup outcome so that
-every combination has exactly one result. `PASS` requires every predefined mandatory
-condition to be satisfied by validated evidence, no limit/timeout termination and a
-`clean` lifecycle. The executed program MUST NOT be able to
-declare its own `PASS`, and missing or invalid evidence MUST NOT be interpreted as
-success.
+the single ordered precedence in §9.1, whose rows include the termination reason and
+the cleanup outcome so that every combination has exactly one result. `PASS` requires
+every predefined mandatory condition to be satisfied on authentic, `complete` evidence,
+termination `completed` or `failed`, and a `clean` lifecycle. Evidence **integrity**
+MUST be judged separately from evidence **completeness**: truncation or absence
+explained by an authenticated termination event is incomplete output, while an
+unexplained absence, digest/binding/manifest mismatch or ledger verification failure
+is an integrity failure that blocks. A `timeout` or `limit` termination MUST be `FAIL`
+whatever the output and whatever the cleanup state, the only exception being that
+integrity failure, which blocks. A supervisor or infrastructure error MUST never yield
+`PASS` or `INCONCLUSIVE`. The executed program MUST NOT be able to declare its own
+`PASS`, and missing or invalid evidence MUST NOT be interpreted as success.
 
 **R8 — Fresh environment and cleanup.** Every run MUST get a new environment, with no
 workspace reuse between runs. Cleanup MUST be attempted on success, failure,
@@ -362,13 +368,15 @@ configuration error, not "unlimited".
 | --- | --- | --- | --- | --- | --- |
 | VD-01 | T-02 | Execution outcome and verdict are separate records | Verdict engine reads evidence, never process state | Report shows exit status as *observation* and verdict as *decision* | — |
 | VD-02 | T-02 | Verdict vocabulary is exactly `PASS`/`FAIL`/`INCONCLUSIVE`/`BLOCKED` | Verdict engine | Unknown verdict strings are rejected by schema | Run invalid |
-| VD-03 | T-02 | `PASS` requires every predefined mandatory condition satisfied by validated evidence | Verdict engine evaluates declared conditions only | A run with a passing exit code but a missing condition is not `PASS` (NT-07) | `INCONCLUSIVE` |
+| VD-03 | T-02 | `PASS` requires every predefined mandatory condition satisfied by validated evidence | Verdict engine evaluates declared conditions only | A run with a passing exit code but a missing condition is not `PASS` (NT-07) | `INCONCLUSIVE`, or `BLOCKED` when the gap is an integrity failure (row 1) |
 | VD-04 | T-02 | The executed program cannot declare its own `PASS` | No code path accepts a verdict from evidence content | A test printing `PASS`/`OK`/JSON verdict does not change the verdict (NT-07) | — |
-| VD-05 | T-02, T-08 | Missing or invalid evidence is never success | Verdict engine treats absent/invalid evidence as unsatisfied | Delete a required evidence file: verdict is not `PASS` (NT-06/07) | `BLOCKED` or `INCONCLUSIVE` |
-| VD-06 | T-05 | A run terminated by a resource limit or timeout is not `PASS` | Verdict engine consumes the termination reason | Timeout run with passing stdout cannot be `PASS` (NT-08) | `FAIL` |
+| VD-05 | T-02, T-08 | Missing or invalid evidence is never success; the evidence record is classified `valid`/`missing`/`corrupted` and never treated as satisfied | Verdict engine + collector | Delete a required evidence file with no authenticated event explaining it: `BLOCKED`; a `stream_truncated` output under a recorded timeout: `FAIL`, not `BLOCKED` (NT-06/07, NT-23) | `BLOCKED` |
+| VD-06 | T-05 | A run terminated by `timeout` or `limit` is `FAIL`, whatever its output and whatever the cleanup state — unless evidence integrity fails, which blocks | Verdict engine consumes termination reason, integrity class and lifecycle | Timeout with passing stdout and authenticated truncation is `FAIL`, also with `lifecycleState: unsafe` (NT-08, NT-12); the same run with a corrupted digest is `BLOCKED` (NT-23) | `FAIL`; `BLOCKED` on integrity failure |
 | VD-07 | T-02 | Verdict selection is one ordered decision table with no ties (§9.1) | Verdict engine | Exhaustive table test: for every combination of evidence state, condition outcomes, termination reason, isolation outcome and cleanup outcome, exactly one verdict is produced and re-evaluating is idempotent (NT-13) | Any unclassified case ⇒ `BLOCKED` |
-| VD-08 | T-02, T-08 | Cleanup outcome is a row of the same ordered decision table (§9.1 row 6), not an exception applied afterwards; `lifecycleState` is still recorded beside the verdict | Verdict engine + ledger | A cleanup-failure run with a failing condition or a timeout yields `FAIL` + `unsafe`; a cleanup-failure run with complete evidence and no failure yields `BLOCKED` + `unsafe`; neither yields `PASS` (NT-12) | `BLOCKED` if the state cannot be recorded |
-| VD-09 | T-02 | The evidence state is classified as `complete`, `insufficient`, `missing` or `corrupted`, and the class is recorded | Verdict engine | Every verdict names the evidence class it used; `missing`/`corrupted` never yields `PASS` (NT-06) | `BLOCKED` |
+| VD-08 | T-02, T-08 | Cleanup outcome is a row of the same ordered decision table (§9.1 row 8, after normalising `unknown`), not an exception applied afterwards; `lifecycleState` is still recorded beside the verdict | Verdict engine + ledger | A cleanup-failure run with a failing condition or a timeout yields `FAIL` + `unsafe`; a cleanup-failure run with complete or insufficient evidence and no failure yields `BLOCKED` + `unsafe`; neither yields `PASS` or `INCONCLUSIVE` (NT-12) | `BLOCKED` if the state cannot be recorded |
+| VD-09 | T-02 | Evidence integrity is classified `valid`/`missing`/`corrupted` and coverage `complete`/`insufficient`; both are recorded and coverage is `complete` only when every condition is decided | Verdict engine | Every verdict names both classes; `missing`/`corrupted` never yields `PASS`, and `insufficient` never yields `PASS` (NT-06, NT-13) | `BLOCKED` |
+| VD-10 | T-02, T-10 | Every LC-06 termination reason has exactly one verdict path (§9.2), and `supervisor_error` never yields `PASS` or `INCONCLUSIVE` | Verdict engine | Run the termination matrix: `completed`/`failed` decided by coverage and lifecycle, `timeout`/`limit` `FAIL`, `cancelled` before `BLOCKED` and after `BLOCKED`, `supervisor_error` `BLOCKED` unless a failure is proven (NT-13, NT-22) | Any unmapped reason ⇒ `BLOCKED` |
+| VD-11 | T-02, T-08 | Evidence integrity failure is distinguished from incomplete output caused by an early termination, and only the former blocks | Verdict engine + collector | Authenticated truncation under a timeout yields `FAIL`; the same short output with a digest mismatch, an unexplained absent artefact or a ledger verification failure yields `BLOCKED` (NT-23) | Any unclassified evidence state ⇒ `BLOCKED` |
 
 ### 5.8 Lifecycle: fresh environment, cleanup, quarantine (R8)
 
@@ -379,7 +387,7 @@ configuration error, not "unlimited".
 | LC-03 | T-05 | Cleanup attempted on success, failure, timeout, cancellation and supervisor failure | Control Plane reconciler, driven by the run record rather than by the supervisor (LC-07) | Kill the supervisor mid-run; the reconciler attempts cleanup and records the outcome (NT-08, NT-20) | Run marked unsafe (LC-04) |
 | LC-04 | T-05 | Cleanup failure marks the run unsafe and forbids reuse | Control Plane state machine | Simulate cleanup failure: environment quarantined, never selected again | `BLOCKED` for that environment; run outcome recorded as unsafe |
 | LC-05 | T-05 | Quarantine and operator recovery defined | Control Plane + documented procedure | Quarantined environment appears in an operator list with a recovery/destroy action | — |
-| LC-06 | T-05 | Termination reason recorded for every run | Ledger | Every terminal run has exactly one reason (`completed`, `failed`, `timeout`, `cancelled`, `limit`, `supervisor_error`) | Run invalid |
+| LC-06 | T-05 | Termination reason recorded for every run, with the phase of a cancellation or supervisor error | Ledger | Every terminal run has exactly one reason (`completed`, `failed`, `timeout`, `cancelled`, `limit`, `supervisor_error`); `cancelled` and `supervisor_error` also record `before_execution`/`after_execution`, so §9.1 can separate row 3 from rows 6–7 (NT-13, NT-22) | Run invalid |
 | LC-07 | T-05, T-10 | Cleanup decisions belong to an independent reconciler inside the Control Plane, not to the supervisor process | Control Plane reconciler | SIGKILL the supervisor mid-run: the reconciler discovers the leftover environment from run labels and destroys it; the run is marked unsafe (NT-20) | `BLOCKED`; environment quarantined |
 | LC-08 | T-05, T-10 | After a control-plane restart, resources owned by in-flight runs are discovered and reconciled before any new run starts | Control Plane startup reconciliation | Restart during a run: state is rebuilt from the ledger, leftovers are destroyed or quarantined, and no new run starts until reconciliation finishes (NT-20) | New runs `BLOCKED` until reconciliation succeeds |
 | LC-09 | T-05 | An environment whose destruction cannot be verified is quarantined permanently and never reused | Reconciler + Control Plane state machine | Make destruction unverifiable: the environment enters quarantine, stays listed for the operator and is never selected again (NT-21) | `BLOCKED` for every run that would have used it |
@@ -512,90 +520,149 @@ integrity is *tamper-evident under stated assumptions*, never "tamper-proof".
 
 | Verdict | When |
 | --- | --- |
-| `PASS` | Every predefined mandatory condition satisfied by validated evidence, evidence class `complete`, no limit/timeout termination, **and** lifecycle state `clean` (cleanup attempted and verified). |
-| `FAIL` | The run executed and at least one mandatory condition is demonstrably unsatisfied, or it was terminated by a limit/timeout — whether cleanup succeeded or not. |
-| `INCONCLUSIVE` | The run executed, lifecycle state is `clean`, but evidence is insufficient to decide (truncated output that a condition depended on, flaky sampling declared by the definition, evidence present but not decisive). |
-| `BLOCKED` | No execution happened, or it could not be trusted: isolation unavailable, policy not established, limit unenforceable, image or provenance identity invalid, evidence invalid or missing, or lifecycle state `unsafe` with no established failure. |
+| `PASS` | Every predefined mandatory condition satisfied on authentic, `complete` evidence; termination `completed` or `failed` (a non-zero exit status is an observation, VD-04); no timeout, limit, cancellation or supervisor error; lifecycle state `clean`. |
+| `FAIL` | The run executed on authentic evidence and either at least one mandatory condition is demonstrably unsatisfied, or it was terminated by `timeout` or `limit`. Holds with lifecycle `clean` or `unsafe`. |
+| `INCONCLUSIVE` | Evidence is authentic but `insufficient` — at least one mandatory condition is `undecided` or `not_evaluated` — with termination `completed`/`failed` and lifecycle `clean`. |
+| `BLOCKED` | Evidence integrity failed (missing or corrupted, §9.1 row 1); or isolation/policy failed; or execution never started; or the run was cancelled after it started; or the supervisor errored during or after execution; or lifecycle `unsafe` with no established failure. |
 
 Rules that follow from R7 and are testable:
 
 1. The process's own output — exit code, a `PASS` string, a JSON verdict, a JUnit
    file the program wrote — is **evidence**, never a verdict (VD-04).
-2. Absent evidence is unsatisfied, not satisfied (VD-05).
-3. Timeout and limit termination cap the verdict at `FAIL` (VD-06).
-4. Cleanup failure never upgrades a verdict and never erases a proven one: it makes
-   the run unsafe (LC-04) and is decided by rows 4–6 of §9.1, not by an exception
-   applied afterwards.
-5. Every verdict names the conditions it evaluated, the evidence digests used and the
+2. Evidence **integrity** and evidence **completeness** are different judgements
+   (VD-11). Integrity asks whether the record can be authenticated: artefacts present
+   or their absence explained by an authenticated event, digests matching the ledger,
+   binding to this run/experiment/manifest, chain verified. Completeness asks whether
+   that authentic record decides every mandatory condition. Failure of integrity is
+   `BLOCKED`; shortfall of completeness is `FAIL`, `INCONCLUSIVE` or `PASS` depending
+   on the termination reason and lifecycle.
+3. Absent evidence is never success (VD-05).
+4. `timeout` and `limit` termination are `FAIL` whatever the output and whatever the
+   cleanup state, because the truncation is authenticated (§9.1 row 5). The single
+   exception is an integrity failure, which is decided earlier by row 1 (VD-06,
+   §9.1 rule 2).
+5. Cleanup failure never upgrades a verdict and never erases a proven one: it makes
+   the run unsafe (LC-04) and is decided by row 8 of §9.1, not by an exception applied
+   afterwards.
+6. Every verdict names the conditions it evaluated, the evidence digests used and the
    lifecycle state it was decided under.
 
 ### 9.1 Verdict precedence (deterministic)
 
-Evaluation follows a single fixed order, cleanup state included, and the first matching
-row decides. Each row removes the states a later row could see, so exactly one row
-applies to every possible combination of evidence state, condition outcomes, isolation
-outcome, termination reason and cleanup outcome. There is no after-the-fact exception:
-cleanup is row 6, not a correction applied to a verdict already chosen.
+Evaluation follows a single fixed order, cleanup and termination included, and the
+first matching row decides. Rows may describe overlapping states — a `timeout` run can
+also have unsafe cleanup, so rows 5 and 8 can both be true — and the ordering, not
+disjoint row predicates, is what makes the outcome unique: the first match is the
+verdict and no later row can change it. Every consistent combination of evidence
+integrity, evidence coverage, condition outcomes, isolation outcome, termination
+reason (+ phase) and cleanup state matches at least one row, and NT-13 is the test
+that no cell falls through. There is no after-the-fact exception: cleanup is row 8,
+not a correction applied to a verdict already chosen.
 
 | Order | Condition | Verdict | Recorded alongside |
 | --- | --- | --- | --- |
-| 1 | Evidence missing or corrupted (EV-02, EV-06, VD-09), with either lifecycle state | `BLOCKED` | evidence class, missing/corrupt artefacts, lifecycle state |
+| 1 | **Evidence integrity failure** (VD-11): required artefact absent with no authenticated event explaining it, stored digest or binding mismatch, manifest verification failure, or ledger verification failure — with any termination reason and any lifecycle state | `BLOCKED` | integrity class `missing`/`corrupted`, offending artefact or event, lifecycle state |
 | 2 | Isolation or policy failure: no environment, requested network/mount policy not established, unenforceable limit, image or provenance identity invalid/unavailable (HX-01, HX-05, NET-04, RES-08, IMG-01..IMG-08) | `BLOCKED` | the failed control id, lifecycle state |
-| 3 | Run cancelled before execution started | `BLOCKED` | termination reason `cancelled`, lifecycle state |
-| 4 | At least one predefined mandatory condition demonstrably failed — with lifecycle state `clean` **or** `unsafe` | `FAIL` | condition ids + evidence digests + lifecycle state |
-| 5 | Terminated by timeout or resource limit — with lifecycle state `clean` **or** `unsafe` | `FAIL` | limit id + measured usage + lifecycle state |
-| 6 | Lifecycle state `unsafe` (cleanup failed, destruction unverified, supervisor lost) and no FAIL established by rows 4–5 | `BLOCKED` | lifecycle reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`) |
-| 7 | Evidence valid but insufficient for at least one mandatory condition, lifecycle state `clean` | `INCONCLUSIVE` | which conditions are undecided, and why |
-| 8 | All mandatory conditions satisfied, evidence class `complete`, no limit/timeout termination, lifecycle state `clean` | `PASS` | condition ids + evidence digests + `cleanup_verified` |
+| 3 | Execution never started: `cancelled` before execution started, or `supervisor_error` before execution started | `BLOCKED` | termination reason + phase, lifecycle state |
+| 4 | At least one predefined mandatory condition demonstrably failed on authentic evidence — with **any** termination reason (`completed`, `failed`, `timeout`, `limit`, `cancelled`, `supervisor_error`) and any lifecycle state | `FAIL` | condition ids + evidence digests + termination reason + lifecycle state |
+| 5 | Terminated by `timeout` or `limit`, evidence authentic — truncation or absence explained by the authenticated termination/`stream_truncated` events — with any lifecycle state | `FAIL` | limit/timeout id + measured usage + lifecycle state |
+| 6 | Terminated by `cancelled` **after** execution started, and no failure established by row 4 | `BLOCKED` | termination `cancelled` + phase `after_execution`, lifecycle state |
+| 7 | Terminated by `supervisor_error` **after** execution started, and no failure established by row 4 | `BLOCKED` | termination `supervisor_error` + phase, lifecycle state |
+| 8 | Lifecycle state `unsafe` (after normalising `unknown`, rule 6) and no FAIL established by rows 4–5 | `BLOCKED` | lifecycle reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`) |
+| 9 | Terminated by `completed` or `failed`, lifecycle `clean`, coverage `insufficient` — at least one mandatory condition `undecided` or `not_evaluated` | `INCONCLUSIVE` | undecided/not-evaluated condition ids + why |
+| 10 | Terminated by `completed` or `failed`, lifecycle `clean`, coverage `complete`, every mandatory condition satisfied | `PASS` | condition ids + evidence digests + `cleanup_verified` |
 
-Rules that make the table total and unambiguous:
+Rules that make the table total, ordered and unambiguous:
 
-1. **One order, first match wins.** Rows 1–8 are evaluated in the order shown; the
-   first whose condition holds decides, and later rows are not consulted. Because each
-   row names the lifecycle state it accepts, cleanup is part of the decision rather
-   than a post-hoc adjustment.
-2. **Evidence integrity outranks findings.** Missing or corrupted evidence (row 1)
-   beats a failed condition (row 4) and a timeout (row 5): a failure recorded without
-   valid evidence is not a finding, it is an evidence problem. Row 1 also beats rows
-   6–8, so an unsafe lifecycle can never turn missing evidence into `PASS`.
-3. **A proven failure survives an unsafe environment.** Rows 4 and 5 match with either
-   lifecycle state and are reached before row 6, so a demonstrable failure or a
-   limit/timeout termination is `FAIL` even when cleanup failed; the same run records
-   `lifecycleState: unsafe` beside it. An unsafe environment never hides a known
-   failing condition, and never upgrades one.
-4. **Unsafe alone blocks.** With no failure established by rows 4–5, an `unsafe`
-   lifecycle matches row 6 and yields `BLOCKED` before the `INCONCLUSIVE` and `PASS`
-   rows can be reached, because a run whose environment could not be cleaned cannot be
-   certified — neither as passing nor as merely undecided.
-5. **`PASS` has exactly one door.** Only row 8 produces `PASS`, and row 8 requires all
-   mandatory conditions satisfied, evidence class `complete` and validated, no
-   limit/timeout termination, and lifecycle state `clean`. Anything else terminates at
-   or above row 7.
-6. **Cleanup outcome `unknown` is unsafe.** Supervisor loss or incomplete
-   reconciliation is treated as `unsafe` with reason `supervisor_lost` /
-   `cleanup_unverified`; `unknown` is never treated as success and never silently
-   skipped.
-7. **Cancellation after execution began is not row 3.** It is decided by the remaining
-   rows on its evidence and lifecycle, which in practice means `INCONCLUSIVE` when the
-   evidence a condition needed was never produced, or `FAIL` when a condition was
-   already demonstrably unsatisfied. A cancelled run reaches `PASS` only by satisfying
-   row 8 in full, which requires the evidence class to be `complete` — cancellation
-   does not itself block, and it does not itself excuse.
-8. **Totality.** The five input dimensions are each an enumerated finite domain
-   (evidence `complete`/`insufficient`/`missing`/`corrupted`, condition outcome
-   `satisfied`/`failed`/`undecided`/`not-evaluated`, isolation `ok`/`failed`, termination
-   reason `completed`/`failed`/`timeout`/`limit`/`cancelled`/`supervisor_error`, cleanup
-   `clean`/`unsafe`). Every combination matches exactly one row; a combination that
-   matches none is a defect and is recorded as `BLOCKED`, never coerced to the nearest
-   verdict.
-9. Exactly one verdict is recorded per run, together with the lifecycle state, the
-   evidence class and the condition outcomes it used. Verdicts are never merged, and
-   re-evaluating the same run yields the same row.
+1. **One order, first match wins.** Rows 1–10 are evaluated in the order shown; the
+   first whose condition holds decides and later rows are not consulted. Rows 1–8 are
+   safety rows that terminate evaluation; rows 9–10 are the only rows that decide an
+   otherwise clean run.
+2. **Integrity first, including over timeout.** A run killed by `timeout` or `limit`
+   is `FAIL` (row 5) even though its output is short, because the shortfall is
+   **authenticated**: the supervisor's termination event and the collector's
+   `stream_truncated` event explain which bytes never existed. The one exception is an
+   integrity failure — an artefact absent with no authenticated event explaining it, a
+   digest/binding/manifest mismatch, or a ledger that does not verify — which row 1
+   decides first, making the run `BLOCKED`. In short: *"the process was killed and its
+   output is short" is incomplete output and stays `FAIL`; "the record of what
+   happened cannot be authenticated" is an integrity failure and becomes `BLOCKED`.*
+   No other exception exists.
+3. **A proven failure outranks every late-stage state.** Row 4 is reached before rows
+   5–8, so a demonstrable mandatory failure is `FAIL` even when the run was also
+   cancelled, killed by a limit, ended in `supervisor_error`, or left an unsafe
+   environment.
+4. **`supervisor_error` never yields `PASS` or `INCONCLUSIVE`.** Before execution it
+   is row 3 (`BLOCKED`); after execution started it is row 7 (`BLOCKED`) unless a
+   failure is already proven (row 4). When the supervising process failed, the
+   completeness of the collected evidence cannot be certified, so evidence that merely
+   *appears* complete is not treated as complete.
+5. **Cancellation has two phases, decided by different rows.** `cancelled` before
+   execution started never produced a run: row 3, `BLOCKED`. `cancelled` after
+   execution started is a withdrawn run and is never certified: row 6, `BLOCKED`. In
+   both cases a failure already proven by row 4 still reads `FAIL`, so cancellation
+   cannot hide a known failing condition. A cancelled run can never be `PASS`.
+6. **`unknown` cleanup is normalised before evaluation.** Cleanup `unknown`
+   (reconciliation incomplete, supervisor lost) is rewritten to `unsafe` with reason
+   `cleanup_unverified` or `supervisor_lost` *before* the table is applied, so the
+   verdict engine only ever sees `clean` or `unsafe`. The normalisation is recorded in
+   the ledger and is itself tested (NT-13); `unknown` is never a third verdict input and
+   never counts as success.
+7. **Unsafe alone blocks.** With no failure or termination row above, `unsafe` matches
+   row 8, so a run whose environment could not be cleaned can be neither `PASS` nor
+   `INCONCLUSIVE`.
+8. **`PASS` has exactly one door.** Only row 10 produces `PASS`, and row 10 requires
+   coverage `complete`, every mandatory condition satisfied, termination `completed` or
+   `failed`, and lifecycle `clean`.
+9. **Domains and totality.** The inputs are enumerated finite domains — evidence
+   integrity `valid`/`missing`/`corrupted`; evidence coverage `complete`/`insufficient`;
+   per-condition outcome `satisfied`/`failed`/`undecided`/`not_evaluated`, aggregated to
+   `all_satisfied`/`failed`/`undecided`; isolation `ok`/`failed`; termination
+   `completed`/`failed`/`timeout`/`limit`/`cancelled`/`supervisor_error` with a phase
+   `before_execution`/`after_execution` for `cancelled` and `supervisor_error`; cleanup
+   `clean`/`unsafe`/`unknown`, normalised by rule 6. `not_evaluated` is kept
+   deliberately rather than folded into `undecided`: it distinguishes a condition the
+   termination prevented from ever running (`timeout`, `limit`, cancellation) from one
+   that ran but whose authentic evidence was not decisive. Both make coverage
+   `insufficient` and both reach row 9, but the recorded reason differs and a reviewer
+   needs it to tell an aborted run from an ambiguous one. The domains carry consistency
+   constraints that are part of the definition: coverage is `complete` exactly when
+   every condition is decided (`satisfied` or `failed`); `failed` requires authentic
+   evidence; `cancelled` and `supervisor_error` always carry a phase. Every consistent
+   combination maps to exactly one row and NT-13 must enumerate all of them; a
+   combination that matches none is a defect recorded as `BLOCKED`, never coerced to
+   the nearest verdict.
+10. Exactly one verdict is recorded per run, together with its inputs (integrity,
+    coverage, conditions, isolation, termination + phase, lifecycle), and re-evaluating
+    the same run yields the same row.
+
+### 9.2 Termination reasons and their verdicts
+
+LC-06 fixes six termination reasons. §9.1 maps each to exactly one verdict path; there
+is no reason without a path, and no reason that can bypass a row.
+
+| Termination (LC-06) | Recorded meaning | Verdict path |
+| --- | --- | --- |
+| `completed` | The program ended on its own and collection finished | Rows 9–10 by coverage and lifecycle; `FAIL` can only come from row 4 |
+| `failed` | The program ended on its own with a non-zero/failed status | Identical to `completed`: exit status is an observation (VD-04), so the verdict follows conditions, coverage and lifecycle, never the status itself |
+| `timeout` | The supervisor killed the run at `timeoutMs` | Row 5 `FAIL`; rows 4 (`FAIL`) or 1/2 (`BLOCKED`) if they match first |
+| `limit` | The environment killed the run at the CPU, memory, PID, disk, stream or artifact cap | Row 5 `FAIL`, same exceptions |
+| `cancelled`, phase `before_execution` | Withdrawn before any project process started | Row 3 `BLOCKED` |
+| `cancelled`, phase `after_execution` | Withdrawn while running | Row 6 `BLOCKED`, unless row 4 proves a failure |
+| `supervisor_error`, phase `before_execution` | Supervisor/provisioner failed before start | Row 3 `BLOCKED` |
+| `supervisor_error`, phase `after_execution` | Supervisor, provisioner or control plane failed during the run or during teardown | Row 7 `BLOCKED`, unless row 4 proves a failure; never `PASS`/`INCONCLUSIVE`, and normally also `lifecycleState: unsafe` |
+
+Two consequences worth stating because they are the easiest to get wrong: a `timeout`
+with authentic truncation is a failure and must not be softened into `INCONCLUSIVE` or
+hidden as `BLOCKED`; and a `supervisor_error` whose evidence happens to look complete
+must not be promoted into `PASS`, because the component that would have attested
+completeness is the one that failed.
 
 The lifecycle state is a run property, not a verdict: `clean` or `unsafe`, with a
-reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`). Reports show it
-beside the verdict so that a `FAIL` in an unsafe environment is not read as a clean
-one, and so that an unsafe `BLOCKED` is not read as a flaky test.
+reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`). It is normalised
+from `unknown` before evaluation (rule 6), recorded beside the verdict, and never
+merged into it. Reports show it so that a `FAIL` in an unsafe environment is not read
+as a clean one, and so that an unsafe `BLOCKED` is not read as a flaky test.
 
 ## 10. Negative tests (acceptance)
 
@@ -611,12 +678,12 @@ reviewer checks the design against.
 | NT-05 | Specify `node:22` (or any tag) as image identity | Rejected; only digest identity accepted (IMG-01) |
 | NT-06 | Modify a stored evidence file; delete one; rewrite a ledger event; truncate the ledger; try to write evidence from inside the environment | All detected; verdict becomes `INCONCLUSIVE`/`BLOCKED`, never `PASS` (EV-01, EV-02, EV-06, FS-05) |
 | NT-07 | A test that prints `PASS`, writes a fake verdict file and exits 0, while a mandatory condition is unsatisfied | Verdict is not `PASS` (VD-03, VD-04, VD-05) |
-| NT-08 | Kill the supervisor mid-run; force a timeout; force a cleanup failure | Cleanup attempted and its outcome recorded; run unsafe/quarantined; timeout caps verdict at `FAIL` (LC-03, LC-04, RES-05, VD-06) |
+| NT-08 | SIGKILL the supervisor mid-run; force a timeout with truncated output; force a cleanup failure on an otherwise clean run | Supervisor loss → `BLOCKED` + `unsafe` (row 7), never `PASS`; timeout with authenticated truncation → `FAIL` (row 5) even though the output is short; cleanup failure alone → `BLOCKED` (row 8); cleanup attempted and recorded in all three (LC-03, LC-04, RES-05, VD-06, VD-10) |
 | NT-09 | Make a run start against a workspace that already contains a file, or re-request a previous environment id | Refused: fresh environment and empty workspace are required (LC-01, LC-02) |
 | NT-10 | Provide a manifest with an unknown or misspelled key | Schema validation rejects it (CFG-01) |
 | NT-11 | Run with a resource-limit bomb (fork bomb, allocation loop, infinite printer, artifact bomb) | Terminated at the cap; host unaffected; truncation recorded (RES-02..RES-07) |
-| NT-12 | Force cleanup failure (and separately, unverifiable destruction and supervisor loss) on four runs: mandatory condition failed; terminated by timeout/limit; complete evidence with all conditions satisfied; valid but insufficient evidence | `FAIL` + `unsafe` (table row 4), `FAIL` + `unsafe` (row 5), `BLOCKED` + `unsafe` (row 6), `BLOCKED` + `unsafe` (row 6, not `INCONCLUSIVE`); never `PASS`, and the lifecycle reason is recorded in each case (VD-07, VD-08, LC-04) |
-| NT-13 | Generate the full cross-product of evidence state (`complete`/`insufficient`/`missing`/`corrupted`), condition outcomes (`satisfied`/`failed`/`undecided`), termination reason, isolation outcome and cleanup outcome (`clean`/`unsafe`/`unknown`), then compare every cell against §9.1 | Exactly one verdict per combination, matching the first row whose condition holds; no combination is unmatched; every `unsafe`/`unknown` combination yields `FAIL` (when a failure or limit is established) or `BLOCKED` (otherwise) and never `INCONCLUSIVE` or `PASS`; repeated evaluation is idempotent (VD-07, VD-08) |
+| NT-12 | Force cleanup failure (and separately, unverifiable destruction and supervisor loss) on five runs: mandatory condition failed; timeout with authenticated truncation; complete evidence with all conditions satisfied; sufficient-but-undecided evidence; timeout whose evidence digest was altered after collection | `FAIL` + `unsafe` (row 4), `FAIL` + `unsafe` (row 5), `BLOCKED` + `unsafe` (row 8), `BLOCKED` + `unsafe` (row 8, not `INCONCLUSIVE`), and `BLOCKED` (row 1) for the altered digest — the one exception to "timeout is `FAIL`"; never `PASS`, lifecycle reason recorded in every case (VD-06, VD-07, VD-08, VD-11, LC-04) |
+| NT-13 | Enumerate the full declared domain: integrity (`valid`/`missing`/`corrupted`) × coverage (`complete`/`insufficient`, consistent with condition decisions) × condition outcomes (`all_satisfied`/`failed`/`undecided`, including `not_evaluated`) × isolation (`ok`/`failed`) × termination (all six reasons, with `cancelled` and `supervisor_error` in both phases) × cleanup (`clean`/`unsafe`/`unknown`), and compare every consistent cell against §9.1 | Exactly one verdict per cell, matching the first row whose condition holds; no cell unmatched; `unknown` cleanup normalised to `unsafe` before evaluation, so no cell depends on a third cleanup value; `timeout`/`limit` ⇒ `FAIL` except integrity failure ⇒ `BLOCKED`; `supervisor_error` never `PASS`/`INCONCLUSIVE`; `cancelled` never `PASS`; `PASS` only from row 10; repeated evaluation idempotent (VD-07, VD-10, VD-11) |
 | NT-14 | A tool inside the environment reports a version different from the SBOM | Identity stays the SBOM's; the difference is recorded as an observation; run does not gain trust from the claim (IMG-03) |
 | NT-15 | Remove the provenance attestation; then present a mismatched signature | `BLOCKED` before environment creation (IMG-08) |
 | NT-16 | Attempt DNS resolution and DNS-based exfiltration while network is denied | Resolution fails; no query leaves the environment; deny recorded (NET-01, NET-05) |
@@ -625,6 +692,8 @@ reviewer checks the design against.
 | NT-19 | Request `169.254.169.254`, `fd00:ec2::254` and the equivalent metadata names, with and without an egress allowlist | Unreachable in both cases; the attempt is recorded (NET-06) |
 | NT-20 | SIGKILL the supervisor mid-run, then restart the control plane | Reconciler discovers the leftover environment, destroys it, marks the run unsafe, and blocks new runs until reconciliation completes (LC-07, LC-08) |
 | NT-21 | Make environment destruction unverifiable, then attempt to allocate a new run | Environment quarantined, listed for the operator, never reused (LC-09, LC-10) |
+| NT-22 | Fail the supervisor/provisioner after execution started while the collected evidence looks complete and every condition appears satisfied | `BLOCKED` (row 7) + `unsafe`, never `PASS` or `INCONCLUSIVE`; the same scenario with a demonstrably failed condition is `FAIL` (row 4) (VD-10, LC-06) |
+| NT-23 | Take one timeout run with `stream_truncated` output and tamper with it in three ways: alter a stored artefact digest; delete a required artefact while removing the termination event; present evidence bound to another run | All three are integrity failures (`BLOCKED`, row 1) and are distinguished from the untouched truncated run, which stays `FAIL` (row 5) (VD-11, EV-02, EV-03, EV-06) |
 
 ## 11. Conformance and status
 
@@ -641,6 +710,14 @@ A future implementation claims conformance only when:
 Until then, the status of this specification is **documented, not enforced**, and
 VOLDBASE must say so wherever it mentions execution: there is no executor, no
 sandbox, and no `PASS` — only `NOT_TESTED` and analysis.
+
+**Current CI is not control evidence.** The repository's existing 250 tests exercise
+import, durable storage, static analysis and architecture intelligence. None of them
+starts an execution environment, and none exercises a control in §5. A green
+`npm ci` / `typecheck` / `build` / `test` run shows that the product still behaves; it
+is not evidence that any isolation requirement is implemented, and must never be
+reported as such. The acceptance suite for an execution engine is §10 and nothing
+else.
 
 ### 11.1 Sequencing
 
