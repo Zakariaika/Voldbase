@@ -1,8 +1,8 @@
 # Architecture Decision Records
 
 Every decision that is expensive to reverse is written down here before it is
-implemented. An ADR is one page: the context, the decision, the consequences, and
-the alternatives that were rejected.
+implemented. An ADR is one page: the context, the decision, the consequences, and the
+alternatives that were rejected.
 
 ## Format
 
@@ -48,3 +48,4 @@ Rules:
 | [0016](0016-static-analysis-boundary.md) | Static analysis: parser choice and the syntax-only boundary | Accepted |
 | [0017](0017-architecture-intelligence.md) | Architecture intelligence: a derived, non-persisted projection | Accepted |
 | [0018](0018-execution-control-plane-and-sandbox-boundaries.md) | Execution control plane and sandbox boundaries | Proposed |
+| [0019](0019-isolation-runtime-selection.md) | Isolation runtime selection for the execution engine | Proposed |
