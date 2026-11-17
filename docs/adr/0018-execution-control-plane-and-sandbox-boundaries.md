@@ -1,6 +1,6 @@
 # 0018 — Execution control plane and sandbox boundaries
 
-- Status: Proposed (specification accepted for review; implementation is Phase 3B)
+- Status: Proposed (specification accepted for review; implementation is Phase 3C, after the Phase 3B runtime decision)
 - Date: 2026-11-17
 - Refines: [0005](0005-execution-isolation.md)
 - Detailed in: [Execution safety specification v1](../security/execution-safety-specification-v1.md)
@@ -88,8 +88,52 @@ runtime dependency is added, and no existing no-execution guarantee is weakened.
 specification says explicitly that VOLDBASE does not provide execution isolation
 today, so no reader can mistake a requirement for a capability.
 
+**8. Verdicts come from one ordered table; lifecycle safety is a separate field.**
+
+The verdict is selected by the fixed precedence in specification §9.1: evidence
+missing or corrupted → `BLOCKED`; isolation or policy failure → `BLOCKED`;
+demonstrable mandatory failure → `FAIL`; timeout or limit termination → `FAIL`; valid
+but insufficient evidence → `INCONCLUSIVE`; and only then `PASS`. Missing evidence
+never becomes `PASS`, and no implementation may add a verdict or resolve overlapping
+conditions ad hoc.
+
+Cleanup safety is recorded as `lifecycleState: clean|unsafe` beside the verdict, not
+folded into it. Cleanup failure forbids `PASS` and forbids reuse of the environment,
+but it does not erase a demonstrable `FAIL`: an unsafe environment is no reason to hide
+a known failing condition. An unsafe run with complete evidence and no failure becomes
+`BLOCKED`.
+
+**9. Toolchain identity is attested metadata, never a version printed in the sandbox.**
+
+Anything a command inside the environment reports is an observation. Identity — image
+digest, SBOM digest, component versions, provenance status, scanner and scanner-database
+freshness — is resolved by the Control Plane from build metadata and signed provenance
+bound to the pinned digest. Unavailable provenance, a mismatched SBOM or a stale scanner
+database blocks the run before any environment is created. There is no "assume trusted"
+path, and a program cannot improve its own provenance by claiming it.
+
+**10. Cleanup is owned by an independent reconciler, and uncertainty means quarantine.**
+
+Supervisors die, and a supervisor trusted to clean up after itself leaks exactly when it
+fails. Cleanup decisions therefore belong to a reconciler in the Control Plane: run-owned
+resources are labelled, rediscovered from labels and the ledger on termination, on
+supervisor loss and on control-plane restart, and destroyed before any new run starts.
+Destruction that cannot be verified quarantines the environment permanently for an
+operator, and no environment is reused after uncertain cleanup.
+
+**11. Phase order is binding.**
+
+2C may model experiments and runs but must not execute project code. An executor may not
+be implemented before 3A is accepted and 3B records a runtime decision; 3C implements the
+controls in the specification. This restates ADR-0005 rather than relaxing it.
+
 ## Consequences
 
+- The specification now holds more controls than a first executor will implement
+  comfortably. 3C conformance must declare a scoped subset explicitly rather than
+  quietly dropping rows.
+- The reconciler is a control-plane component that must exist before the first executor
+  run, not after the first leak.
 - The executor is designed top-down from a control matrix: every mandatory
   requirement has an enforcement boundary and an acceptance test, including the
   negative test that tries to defeat it. A control without a test is treated as
