@@ -33,7 +33,7 @@ network, no telemetry.
 **No project code is ever executed.** There is no executor, no install step and no
 `child_process` in the product; the analyzer parses text, it does not run it, type
 check it or resolve packages, and the architecture layer reads only that analysis
-— never the project files again. Verifying experiments (Phases 2C–3) is still
+— never the project files again. Verifying experiments (Phases 3C onward) is still
 ahead; see the [roadmap](#roadmap) and
 [ADR-0005](docs/adr/0005-execution-isolation.md).
 
@@ -321,8 +321,9 @@ Every limit aborts the analysis; none of them silently produces a partial result
   [execution safety specification](docs/security/execution-safety-specification-v1.md)
   states how a future engine must isolate runs: no host execution and no bypass mode,
   network off by default, an explicit mount allowlist, mandatory resource limits,
-  digest-pinned images, evidence collected outside the sandbox, and a verdict decided
-  independently of the executed program. No part of it is code yet.
+  digest-pinned images with attested toolchain identity, evidence collected outside
+  the sandbox, cleanup owned by an independent reconciler, and a verdict decided by
+  a fixed precedence independently of the executed program. No part of it is code yet.
 - **No secrets collected.** Only relative paths, byte sizes and SHA-256 digests are
   stored. File contents are hashed in memory and never persisted or logged; the
   imported project's environment variables are never read.
@@ -432,11 +433,15 @@ CI runs build before tests, so nothing is skipped there.
 | 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
 | 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
 | 2B — Architecture intelligence | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
-| 2C — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
+| 2C — Experiments and runs (domain only) | Experiment and run records, their states and artifacts modelled and persisted end to end; **no project code is executed**, and every run records `NOT_TESTED` or `BLOCKED` |
 | **3A — Execution safety specification** (current) | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
-| 3 — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
+| 3B — Isolation runtime decision | ADR selecting container or microVM isolation from measured evidence; still no executor |
+| 3C — Isolated execution engine | The executor itself, implementing the 3A controls and conformance-tested against them; may not start until 3A and 3B are accepted |
+| 3D — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
 | 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
+
+The order is binding, not advisory. **2C models experiments and runs without executing project code**; **3A** (this specification) and **3B** (the runtime decision) must both be accepted before **3C** may implement an executor (ADR-0005, ADR-0018). A change that adds execution ahead of that order is out of sequence, not an optimisation.
 
 ## License
 
