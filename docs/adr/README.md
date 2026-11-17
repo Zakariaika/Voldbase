@@ -1,8 +1,8 @@
 # Architecture Decision Records
 
 Every decision that is expensive to reverse is written down here before it is
-implemented. An ADR is one page: the context, the decision, the consequences, and the
-alternatives that were rejected.
+implemented. An ADR is one page: the context, the decision, the consequences, and
+the alternatives that were rejected.
 
 ## Format
 
