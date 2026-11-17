@@ -16,14 +16,15 @@ require a separate, authorized security-testing arrangement on isolated hardware
 environment in §4.1, which is host-local, deterministic and disconnected from any
 production or public network.
 
-No part of this protocol has been executed. Nothing in this document is a measurement.
+Nothing in this document has been measured. Every number below is a **target**, and is
+labelled as such; results are labelled measured, projected, vendor-quoted or unknown.
 
 ## 1. Questions
 
 | ID | Question | Feeds |
 | --- | --- | --- |
 | B1 | Cold and warm start latency for a realistic Node toolchain image | matrix criterion 6, budgets in §7 |
-| B2 | Incremental host memory and disk attributable to one run | criterion 6 |
+| B2 | Per-run attributable host memory, with attribution quality stated | criterion 6 |
 | B3 | Successful concurrent runs at N = 1, 2, 4, 8 | criterion 7 |
 | B4 | Are CPU, memory, PID and disk limits enforced at the declared values? | criterion 5 |
 | B5 | Zero residual resources across 30 trials? | criterion 8 |
@@ -42,6 +43,7 @@ No part of this protocol has been executed. Nothing in this document is a measur
 | OS | Ubuntu 24.04 LTS or equivalent, kernel ≥ 6.8, cgroup v2 mounted, systemd |
 | KVM | `/dev/kvm` present and accessible to the benchmark user without root |
 | Network | The host's own uplinks are not used by any trial. Trials use only the probe environment in §4.1. |
+| Cgroups | cgroup v2 only; `memory`, `pids`, `cpu` controllers available at the delegated root |
 | Hygiene | No other workloads; CPU governor `performance`; record SMT state, microcode, kernel and mount options |
 | Clock | `CLOCK_MONOTONIC` read by the supervisor, outside the environment |
 
@@ -76,23 +78,23 @@ resolver.
 | Sink A | `10.213.0.10:8443` (IPv4), `[fd00:213::10]:8443` (IPv6) | Controlled allowlist destination; serves a fixed body |
 | Sink A, second port | `10.213.0.10:9443` | Proves the allowlist is port-scoped |
 | Sink B | `10.213.0.11:8443` | Never allowlisted; proves the allowlist is address-scoped |
-| No resolver | — | No DNS server is reachable from the probe namespace |
+| Unauthorized resolver | `10.213.0.53:53` | Never authorized; exists so a DNS query *can* be attempted and observed |
 | No forwarding | — | `ip_forward=0`, no NAT/MASQUERADE, nftables default-drop, no route to the host uplink |
 
 Properties that make the environment safe and reproducible:
 
 - **Deterministic content.** Sink A returns exactly `voldbase-probe-v1\n`; its SHA-256 is
-  recorded in the report and checked by the workload.
-- **No production or public target.** The addresses are from a documentation-reserved
+  recorded and checked by the workload.
+- **No production or public target.** The addresses come from a documentation-reserved
   range used only inside the probe namespace; nothing is forwarded outside it.
 - **No unintended path into the guest.** The run's TAP (Firecracker) or veth (container)
-  is attached to the probe namespace only. The sink processes live in that namespace, not
-  on the host uplink, and cannot reach the host loopback.
-- **Recorded state.** Before the first trial the report records the namespace's
+  is attached to the probe namespace only. Sink processes live in that namespace, not on
+  the host uplink, and cannot reach host loopback.
+- **Observed state.** Before the first trial the report records the namespace's
   interfaces, routes and full `nft list ruleset`; the same dump is taken after each trial
   and must be identical except for per-run entries.
-- **No DNS dependency for setup.** Image pulls, if any, happen before the trial and
-  outside the probe namespace; a trial that needs the network to prepare is invalid.
+- **No DNS dependency for setup.** Image pulls happen before the trial and outside the
+  probe namespace; a trial that needs the network to prepare is invalid.
 
 ### 4.2 Images and workloads
 
@@ -111,13 +113,13 @@ lockfile) with a deterministic suite of known duration.
 | W6 | write 200 MiB to the workspace | disk quota and export behaviour |
 | W7 | spawn 200 short-lived children | PID limit |
 | W8 | **deny** — TCP connect to `10.213.0.10:8443`, expect immediate `ENETUNREACH`/`EHOSTUNREACH` | IPv4 default-deny |
-| W9 | **deny** — resolve `probe.test`, expect name-resolution failure with no query observed | DNS default-deny |
+| W9 | **deny** — resolve `probe.test`; evidence bundle per §6.2, not just a failed lookup | DNS default-deny |
 | W10 | **deny** — TCP connect to `[fd00:213::10]:8443`, expect `ENETUNREACH` | IPv6 default-deny |
 | W11 | **deny** — connect to `169.254.169.254:80`, `[fd00:ec2::254]:80`, `100.100.100.200:80`, resolve `metadata.google.internal` | metadata-endpoint blocking |
 | W12 | read a canary file placed outside the workspace | filesystem boundary |
 | W13 | sleep beyond `timeoutMs` | supervisor timeout path |
 | W14 | **allowlist positive** — `GET http://10.213.0.10:8443/health`, expect 200 and the recorded body digest | authorized egress works |
-| W15 | **allowlist negative** — `10.213.0.10:9443`, `10.213.0.11:8443`, `[fd00:213::10]:8443`, W11 addresses, and `probe.test` | authorization is address-, port- and family-scoped; DNS stays denied |
+| W15 | **allowlist negative** — `10.213.0.10:9443`, `10.213.0.11:8443`, `[fd00:213::10]:8443`, W11 addresses, and resolve `probe.test` with the §6.2 evidence bundle | authorization is address-, port- and family-scoped; DNS stays denied |
 | W16 | host capture on every interface except the run's TAP during W14 | no unintended network path |
 
 Two mirrored allowlist trials are required: one authorizing the IPv4 sink only, one
@@ -126,14 +128,18 @@ permits both proves nothing about the rule.
 
 ## 5. Procedure
 
+0. **Capture control (once per host, before any trial).** From a non-sandboxed helper
+   inside `vb-probe`, perform one TCP connection to sink A and one DNS query to the
+   unauthorized resolver. Both must appear in the capture and counter setup used in
+   §6.2. If they do not, the instrumentation is unverified and every zero-count result
+   is invalid.
 1. **Cold start.** Reboot, drop caches, create one environment with W1, measure from the
    supervisor's create call to the first byte of workload output, then teardown.
    `n = 10`, one reboot per trial.
 2. **Warm start.** Same image present, no environment reuse: create → W2 → destroy.
    `n = 30`, randomized interleaving across runtimes to avoid drift.
-3. **Memory and disk.** Sample the run's host cgroup `memory.peak` and workspace or
-   block-device usage at 100 ms (§6.1 defines the baseline). Report the incremental
-   value, the configured guest RAM and the VMM RSS separately.
+3. **Memory and disk.** Create the run cgroup before the process, sample as defined in
+   §6.1, and report the required decomposition. Disk: workspace and block-device usage.
 4. **Concurrency.** N ∈ {1, 2, 4, 8} concurrent W3, `n = 10` per N; record success rate
    and p95 start.
 5. **Limits.** W4–W7 at the defaults in specification §5.4; record the value at which the
@@ -141,18 +147,17 @@ permits both proves nothing about the rule.
 6. **Cleanup.** After every trial enumerate processes, cgroups, TAP/veth devices, jail
    directories, containers, VMs, volumes and the workspace. Any residual resource is a
    failure, counted per trial.
-7. **Default-deny network.** With `policy: none`, run W8–W11 and inspect the probe
-   namespace. Expected: no interface other than loopback, every connect fails
-   **immediately** with `ENETUNREACH`/`EHOSTUNREACH`, DNS fails without a resolver, no
-   sink log entry exists, and no packet from the environment appears on any host capture
-   point. A **timeout rather than an unreachable error is a failure**, because it implies
-   a path exists and packets were dropped.
-8. **Allowlist network.** Authorize exactly one destination (IPv4 sink A, port 8443,
-   DNS `deny`, addresses pinned at the Control Plane) and run W14 then W15. Repeat with
-   the IPv6 sink authorized. Expected: only the authorized destination answers; the
-   same sink on another port, the second sink, the other address family, the metadata
-   addresses and every hostname fail; the sink's access log shows exactly the authorized
-   requests.
+7. **Default-deny network.** With `policy: none`, run W8–W11. Expected: no interface
+   other than loopback; connects fail **immediately** with `ENETUNREACH`/`EHOSTUNREACH`
+   (a timeout is a failure, because it implies a path exists); no sink access-log entry;
+   and the DNS evidence bundle in §6.2 classifies the trial `blocked_before_transmission`
+   or, where a resolver is configured, `transmitted_and_dropped`. `leaked` fails.
+8. **Allowlist network.** Authorize exactly one destination (IPv4 sink A, port 8443, DNS
+   `deny`, addresses pinned at the Control Plane); run W14 then W15. Repeat with the IPv6
+   sink authorized. Expected: only the authorized destination answers; the same sink on
+   another port, the second sink, the other address family, the metadata addresses and
+   every hostname fail, with hostname attempts evidenced per §6.2; the sink's access log
+   shows exactly the authorized requests.
 9. **Unintended-path check.** During W14/W16, capture on all host interfaces except the
    run's TAP and on the host uplink. Expected: zero packets from the run. Any packet is a
    policy failure, not a flake.
@@ -165,31 +170,105 @@ permits both proves nothing about the rule.
 
 ## 6. Measurement definitions and reporting
 
-### 6.1 Incremental memory
+### 6.1 Per-run memory attribution
 
-- **Metric.** `incremental_bytes = cgroup.memory.peak(run scope) − idle_baseline`, where
-  `idle_baseline` is the median of `cgroup.memory.current` sampled every 100 ms for
-  5 minutes on an idle host immediately before the trial.
-- **What it includes.** Total host memory attributable to the run: VMM or runtime
-  process, guest RAM actually resident, page tables, device emulation and per-run
-  buffers. It is **not** the configured guest RAM.
-- **Reported separately** for diagnosis: configured guest RAM, VMM RSS peak, and
-  workspace/block-device size. These are components of the metric, never substitutes
-  for it.
-- **Sampling.** 100 ms, from outside the environment; peak taken over the steady window
-  between environment start and teardown, excluding the first and last second.
+Two scopes exist and they are **not interchangeable**. No subtraction crosses them.
 
-### 6.2 Trials
+| Scope | Path | Contains | Used for |
+| --- | --- | --- | --- |
+| `S_run` | `/sys/fs/cgroup/voldbase-bench/run-<id>` | the VMM process (Firecracker) or the container process tree (Podman), created before start and destroyed after teardown | per-run attributable memory |
+| `S_root` | `/sys/fs/cgroup` | the whole host | context only: pressure and events |
+| `S_guest` | — | guest-reported resident memory (balloon/agent), if available | observation only; never a gate input |
+
+**Attributable memory.** `M_run_peak = memory.peak(S_run)`, read from the kernel counter of
+that single cgroup. Nothing is subtracted: `S_run` is empty before the run, so it already
+excludes other processes, and a host-wide idle figure is a different scope. The value
+includes anonymous memory, file pages charged to the run, `pagetables`, `kernel_stack`,
+`sock` and chargeable slab.
+
+**Decomposition** at peak and after 5 s of steady state, from `memory.stat`: `anon`,
+`file`, `shmem`, `kernel_stack`, `pagetables`, `slab`, `sock`. `memory.events` (`oom`,
+`oom_kill`, `high`) and `memory.max` are recorded with it.
+
+**Host-wide impact, reported separately.** `H_delta = max(memory.current(S_root) during
+the run) − memory.current(S_root) immediately before create`, plus PSI
+`memory.pressure` (some avg10) and root `memory.events`. This is pressure, not
+attribution, and is never compared across runs with different co-tenants.
+
+**Shared page cache and uncharged kernel memory.** cgroup v2 charges a file page to the
+first cgroup that faults it, so pages shared with the host image store may be charged
+elsewhere, and some kernel allocations are not charged to leaves at all. Consequently:
+
+- `M_run_peak` is a **lower bound** on the run's system-wide memory impact;
+- `unattributed = max(0, H_delta − M_run_peak)` is reported, labelled approximate and
+  never added to `M_run_peak` as if it were measured;
+- `attribution` is `exact` only when `file` is ≤ 25% of `M_run_peak` and `H_delta` is
+  within 25% of `M_run_peak`; otherwise it is `partial` and the reported figure is the
+  range `[M_run_peak, M_run_peak + unattributed]`.
+
+**Always reported separately, never substituted for each other:** configured guest RAM
+(manifest), VMM RSS peak (`VmRSS` sampled from `/proc/<pid>/status`), guest resident
+memory (observation), `M_run_peak` with its decomposition, and `H_delta`/PSI/events.
+
+**Budget.** The 128 MiB preliminary target is compared against `M_run_peak` **only** when
+`attribution` is `exact`. With `partial` attribution the result is recorded as
+`memory_target: unknown` with the range shown; a bound is not a pass.
+
+**Limit enforcement** (RES-02) is judged from `memory.max`, `memory.peak` measured against
+that cap, `memory.events` and the supervisor's termination record — never from RSS, and
+never by subtracting anything.
+
+### 6.2 DNS denial evidence
+
+A failed lookup is not evidence of no egress: it may only mean no resolver was
+configured. Each trial that claims DNS denial produces a bundle with four parts.
+
+| Part | Content |
+| --- | --- |
+| Resolver inventory | SHA-256 and contents of `/etc/resolv.conf`, `/etc/nsswitch.conf`, `/etc/hosts` collected as untrusted observations; "absent" is a recorded value |
+| Run-side capture | `tcpdump` on the host end of the run's TAP/veth, filter `udp port 53 or tcp port 53`, plus a filter for any packet from the run's address |
+| Boundary capture | the same filter on the probe-namespace interfaces and on the host uplink |
+| Policy counters | nftables counters for the run's chain (accept and drop per rule), read before and after |
+
+**Capture points, exactly:** (1) host side of the run TAP/veth; (2) each interface in
+`vb-probe`; (3) each host uplink; (4) the nftables chain scoped to the run. A capture
+that misses any of (1)–(3) is incomplete and yields `inconclusive`.
+
+**Classification (one per trial):**
+
+| Class | TAP packets | nft drop counter | Probe/uplink packets | Meaning |
+| --- | --- | --- | --- | --- |
+| `blocked_before_transmission` | 0 | 0 | 0 | no resolver and no route; nothing was sent |
+| `transmitted_and_dropped` | > 0 | > 0 | 0 | the query was sent and the policy dropped it |
+| `leaked` | any | any | > 0, or a resolver answered | **failure** |
+| `inconclusive` | — | — | — | capture or counters missing |
+
+**Expected observations:**
+
+- Default-deny: resolver inventory empty or absent; class `blocked_before_transmission`.
+  `transmitted_and_dropped` is acceptable **only** if the runtime still configured a
+  resolver address, and then the packets and drop counts must be recorded.
+- Allowlist with DNS `deny` and addresses pinned at the Control Plane: same expectation;
+  a hostname must not resolve even though an IP is authorized.
+- Any `leaked` result fails the trial regardless of what the application observed.
+
+The **capture control in §5 step 0** is what makes a zero count meaningful: without it,
+"no packet seen" is indistinguishable from "capture not working". A missing DNS response
+is never accepted as proof on its own.
+
+### 6.3 Trials and reporting
 
 - `n = 30` for warm start, memory, cleanup and network; `n = 10` for cold start; three
   warm-up iterations discarded and reported as discarded.
 - Report **median, p95, min, max, interquartile range and failure count**. Never a mean
   alone. Report outliers and the exclusion criterion chosen before the run.
-- Publish raw CSV or JSON with the report, including per-trial runtime identity, probe
-  namespace state and host state. A summary without raw data is not evidence.
+- Publish raw CSV or JSON with the report, including per-trial runtime identity, memory
+  decomposition and attribution class, DNS evidence bundle, probe-namespace state and
+  host state. A summary without raw data is not evidence.
 - A failed trial is reported as a failure and is never re-run until it passes. Re-running
   a cell requires a documented cause (for example a thermal event) recorded in the report.
-- The report labels its own numbers as measured, vendor-quoted, projected or unknown.
+- Every figure carries one label: **measured**, **projected**, **vendor-quoted** or
+  **unknown**. A figure with partial attribution is `unknown` with a bound.
 
 ## 7. Budgets
 
@@ -204,11 +283,11 @@ exists on target hardware yet; promoting it to a gate requires the 16 GiB host r
 | --- | --- | --- | --- |
 | Warm start p95 | ≤ 750 ms | Gate | environment creation must not dominate a 10 s suite |
 | Cold start p95 | ≤ 2 000 ms | Gate | the first run of a session may pay image setup |
-| Incremental host memory per idle run | ≤ 128 MiB | **Preliminary target** | eight runs plus host overhead should fit a 16 GiB laptop; not yet measured there |
+| `M_run_peak` per idle run | ≤ 128 MiB, `attribution: exact` required | **Preliminary target** | eight runs plus host overhead should fit a 16 GiB laptop; not yet measured there |
 | Concurrency on the reference host | 8 of 8 succeed | Gate | density floor |
 | Limit enforcement | ≤ ±5% of declared value | Gate | RES-02..RES-04 |
 | Cleanup residuals | 0 across 30 trials | Gate | LC-04, LC-09 |
-| Network deny | 0 egress, 0 DNS queries, 0 packets outside the TAP | Gate | NET-01 |
+| Network deny | `blocked_before_transmission` or evidenced `transmitted_and_dropped`; never `leaked` | Gate | NET-01 |
 | Allowlist exactness | every authorized destination works; every other fails | Gate | NET-02..NET-06 |
 | Filesystem canaries | 0 reads, 0 writes | Gate | FS-04 |
 | Operator steps | ≤ 10 documented commands, ≤ 30 minutes | **Preliminary target** | local-first usability, to be confirmed on a second host |
@@ -219,16 +298,16 @@ product finding and carried into the review; it does not on its own change the d
 
 ### 7.2 Reference host versus target user hardware
 
-- The reference host (§2) exists to produce **measurements**. It has 32 GiB, and the
-  8-run concurrency gate is evaluated there.
-- The **target user machine** is a 16 GiB developer laptop, which is not the measurement
-  instrument and is not required for the decision.
-- The 16 GiB fit is an **arithmetic projection**, not a measurement:
-  `8 × incremental_p95 + measured_os_baseline ≤ 90% of 16 GiB`. It is reported as
-  `projected_fit: yes|no|unknown`, with the inputs shown.
-- `unknown` is a valid result and must not be rounded up to `yes`.
-- A 16 GiB host run is required before the memory target is promoted to a gate; that run
-  is a prerequisite for changing the target, not for accepting the ADR.
+- The reference host (§2) exists to produce **measurements**. It has 32 GiB, the cgroup
+  hierarchy of §6.1, and the 8-run concurrency gate is evaluated there.
+- The **target user machine** is a 16 GiB developer laptop: not the measurement
+  instrument, and not required for the decision.
+- The 16 GiB fit is an **arithmetic projection**, labelled as such:
+  `8 × M_run_peak_p95 + measured_os_baseline ≤ 90% of 16 GiB`, with the attribution class
+  carried through. It is reported as `projected_fit: yes|no|unknown`; `unknown` is valid
+  and must not be rounded up to `yes`.
+- A 16 GiB host run is required before the memory target becomes a gate. That run is a
+  prerequisite for changing the target, not for accepting the ADR.
 
 ## 8. Decision rule
 
