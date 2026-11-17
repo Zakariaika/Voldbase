@@ -73,6 +73,12 @@ every *predefined* mandatory condition to be satisfied by validated evidence; mi
 or invalid evidence is never success; timeout and limit termination cap the verdict at
 `FAIL`. A program printing `PASS` is producing evidence, not a verdict.
 
+That `FAIL` is not overridden by short output, because integrity and completeness are
+different judgements: bytes that do not exist because the supervisor killed the run
+are authenticated incomplete output, while an unexplained missing artefact, a digest
+or binding mismatch, or a ledger that does not verify is an integrity failure. Only
+the latter blocks; a timeout with authentic truncation stays `FAIL`.
+
 **6. The ledger is append-only and its trust assumptions are stated.**
 
 Events are chained and verified independently. A hash chain detects edits and
@@ -93,15 +99,23 @@ recorded beside it.**
 
 The verdict is selected by the fixed precedence in specification §9.1, and cleanup is
 a row of that table rather than an exception applied to a verdict already chosen:
-evidence missing or corrupted → `BLOCKED`; isolation or policy failure → `BLOCKED`;
-cancellation before execution → `BLOCKED`; demonstrable mandatory failure → `FAIL`
-(whatever the cleanup state); timeout or limit termination → `FAIL` (whatever the
-cleanup state); lifecycle `unsafe` with no established `FAIL` → `BLOCKED`; valid but
-insufficient evidence with a clean lifecycle → `INCONCLUSIVE`; and only then `PASS`,
-which requires every mandatory condition satisfied, complete validated evidence, no
-timeout or limit, and a `clean` lifecycle. Missing evidence never becomes `PASS`, and
-no implementation may add a verdict, skip the cleanup row or resolve overlapping
-conditions ad hoc: the first matching row decides, for every combination of states.
+evidence **integrity** failure → `BLOCKED`; isolation or policy failure → `BLOCKED`;
+execution never started (`cancelled` or `supervisor_error` before start) → `BLOCKED`;
+demonstrable mandatory failure → `FAIL` (any termination reason, any lifecycle state);
+`timeout` or `limit` termination with authentic truncation → `FAIL` (any lifecycle
+state); `cancelled` after execution started → `BLOCKED`; `supervisor_error` after
+execution started → `BLOCKED`; lifecycle `unsafe` with no established failure →
+`BLOCKED`; authentic but insufficient evidence with a clean lifecycle →
+`INCONCLUSIVE`; and only then `PASS`, which requires every condition satisfied,
+coverage `complete`, termination `completed` or `failed`, and a `clean` lifecycle.
+`PASS` has no other door, and no implementation may add a verdict, skip a row or
+resolve overlapping conditions ad hoc: the first matching row decides.
+
+Two asymmetries are deliberate. A `supervisor_error` never yields `PASS` or
+`INCONCLUSIVE`: the component that would have attested completeness is the one that
+failed, so evidence that merely appears complete is not complete. And a `timeout` is
+never softened: it is `FAIL` with authentic truncation, and only an integrity failure
+moves it to `BLOCKED`.
 
 Cleanup state itself is still recorded as `lifecycleState: clean|unsafe` beside the
 verdict, with its reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`),
@@ -127,7 +141,9 @@ fails. Cleanup decisions therefore belong to a reconciler in the Control Plane: 
 resources are labelled, rediscovered from labels and the ledger on termination, on
 supervisor loss and on control-plane restart, and destroyed before any new run starts.
 Destruction that cannot be verified quarantines the environment permanently for an
-operator, and no environment is reused after uncertain cleanup.
+operator, and no environment is reused after uncertain cleanup. Cleanup state `unknown`
+is normalised to `unsafe` before any verdict is computed, so uncertainty can never be
+read as a clean environment.
 
 **11. Phase order is binding.**
 
@@ -159,6 +175,10 @@ controls in the specification. This restates ADR-0005 rather than relaxing it.
 - Some real risks stay outside the model — kernel/hypervisor escapes, image supply
   chain, host-level denial of service, privileged ledger rewrites — and are recorded
   as residual rather than claimed as solved.
+- The repository's current 250 tests prove the product, not these controls: none of
+  them starts an execution environment or exercises a control in the specification, so
+  a green CI run must never be reported as evidence that isolation is implemented or
+  tested.
 
 ## Alternatives considered
 
