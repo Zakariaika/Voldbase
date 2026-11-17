@@ -139,7 +139,8 @@ permits both proves nothing about the rule.
 2. **Warm start.** Same image present, no environment reuse: create → W2 → destroy.
    `n = 30`, randomized interleaving across runtimes to avoid drift.
 3. **Memory and disk.** Create the run cgroup before the process, sample as defined in
-   §6.1, and report the required decomposition. Disk: workspace and block-device usage.
+   §6.1, and report the required decomposition and attribution class. Disk: workspace
+   and block-device usage.
 4. **Concurrency.** N ∈ {1, 2, 4, 8} concurrent W3, `n = 10` per N; record success rate
    and p95 start.
 5. **Limits.** W4–W7 at the defaults in specification §5.4; record the value at which the
@@ -200,19 +201,61 @@ first cgroup that faults it, so pages shared with the host image store may be ch
 elsewhere, and some kernel allocations are not charged to leaves at all. Consequently:
 
 - `M_run_peak` is a **lower bound** on the run's system-wide memory impact;
-- `unattributed = max(0, H_delta − M_run_peak)` is reported, labelled approximate and
-  never added to `M_run_peak` as if it were measured;
-- `attribution` is `exact` only when `file` is ≤ 25% of `M_run_peak` and `H_delta` is
-  within 25% of `M_run_peak`; otherwise it is `partial` and the reported figure is the
-  range `[M_run_peak, M_run_peak + unattributed]`.
+- `unattributed = max(0, H_delta − M_run_peak)` is reported as an approximate interval
+  width, never added to `M_run_peak` as if it were measured;
+- `H_delta` proves **nothing** about attribution: unrelated host activity moves it in
+  either direction, so it is context, not evidence of what the run caused to be resident.
+
+**Attribution classes.** No percentage threshold establishes exact attribution. A run can
+produce a small `file` share and a `H_delta` close to `M_run_peak` while still leaving
+shared page cache and uncharged kernel memory outside the cgroup, so a threshold would
+label unmeasured bytes as measured.
+
+| Class | Meaning | Reported figure |
+| --- | --- | --- |
+| `partial` | `M_run_peak` is a real measurement, but resident memory charged outside `S_run` is unquantified | range `[M_run_peak, M_run_peak + unattributed]` |
+| `unknown` | the decomposition, the host observation or the cross-check is missing or inconsistent | `unknown`; no numeric per-run claim |
+| `exact` | every byte the run causes to be resident is measured inside `S_run` | possible only with the instrumentation in §6.1.1; **not achievable in this protocol version** |
+
+**The default classification is `partial`.** It is `unknown` when `memory.stat` cannot be
+read, when the matched idle control was not run, or when the decomposition does not
+reconcile. `exact` is never inferred from `M_run_peak` alone.
+
+#### 6.1.1 What exact attribution would require
+
+Before any result may be labelled `exact`, all five of the following must exist as
+implemented instrumentation and be demonstrated on a control run:
+
+1. **An exclusive host.** No co-tenant workloads during the trial, plus a matched idle
+   control — the same cgroup create/sample/destroy sequence with no workload — recorded
+   alongside every trial, so host drift is bounded rather than assumed absent.
+2. **Run-private page cache.** Image and rootfs bytes not shared with any other cgroup:
+   a per-run copy, read into `S_run` after the cgroup is created, so `memory.stat.file`
+   can be checked against a known byte count instead of trusted.
+3. **Verified kernel-memory accounting.** `slab`, `pagetables`, `kernel_stack` and the
+   device-side buffers a run causes (TAP queues, KVM allocations) charged to `S_run`,
+   verified by reconciling the `memory.stat` components against `memory.current`.
+4. **An independent PSS cross-check.** Proportional set size summed over the run's
+   processes, with shared pages divided by their sharers, reconciling with `M_run_peak`
+   within a tolerance fixed before the run. A residual means memory is still uncharged
+   somewhere, and the class stays `partial`.
+5. **Guest-memory accounting.** VMM-owned guest pages (a memfd for Firecracker)
+   reconciled against configured guest RAM, so guest-resident memory is neither counted
+   twice nor omitted.
+
+Until those exist and are shown to agree, `exact` is unavailable and the figure is a
+bound. Naming the instrumentation is the point: the gap is stated, not papered over.
 
 **Always reported separately, never substituted for each other:** configured guest RAM
 (manifest), VMM RSS peak (`VmRSS` sampled from `/proc/<pid>/status`), guest resident
-memory (observation), `M_run_peak` with its decomposition, and `H_delta`/PSI/events.
+memory (observation), `M_run_peak` with its decomposition and attribution class, and
+`H_delta`/PSI/events.
 
-**Budget.** The 128 MiB preliminary target is compared against `M_run_peak` **only** when
-`attribution` is `exact`. With `partial` attribution the result is recorded as
-`memory_target: unknown` with the range shown; a bound is not a pass.
+**Budget.** The 128 MiB preliminary target is compared against `M_run_peak`, and may be
+recorded as **met only when `attribution` is `exact`**. Under `partial` or `unknown` the
+result is `memory_target: unknown`, with the range or the missing instrumentation named.
+`unknown` is not a pass: it never satisfies a gate, never counts toward the 16 GiB
+projection, and is never reported as "within budget".
 
 **Limit enforcement** (RES-02) is judged from `memory.max`, `memory.peak` measured against
 that cap, `memory.events` and the supervisor's termination record — never from RSS, and
@@ -268,7 +311,8 @@ is never accepted as proof on its own.
 - A failed trial is reported as a failure and is never re-run until it passes. Re-running
   a cell requires a documented cause (for example a thermal event) recorded in the report.
 - Every figure carries one label: **measured**, **projected**, **vendor-quoted** or
-  **unknown**. A figure with partial attribution is `unknown` with a bound.
+  **unknown**. A figure with `partial` or `unknown` attribution is **unknown** with a
+  bound, and no gate may pass on it.
 
 ## 7. Budgets
 
@@ -283,7 +327,7 @@ exists on target hardware yet; promoting it to a gate requires the 16 GiB host r
 | --- | --- | --- | --- |
 | Warm start p95 | ≤ 750 ms | Gate | environment creation must not dominate a 10 s suite |
 | Cold start p95 | ≤ 2 000 ms | Gate | the first run of a session may pay image setup |
-| `M_run_peak` per idle run | ≤ 128 MiB, `attribution: exact` required | **Preliminary target** | eight runs plus host overhead should fit a 16 GiB laptop; not yet measured there |
+| `M_run_peak` per idle run | ≤ 128 MiB, recorded as met only under `exact` attribution | **Preliminary target** | eight runs plus host overhead should fit a 16 GiB laptop; not yet measured there. Under `partial`/`unknown` attribution the result is `unknown`, which is not a pass |
 | Concurrency on the reference host | 8 of 8 succeed | Gate | density floor |
 | Limit enforcement | ≤ ±5% of declared value | Gate | RES-02..RES-04 |
 | Cleanup residuals | 0 across 30 trials | Gate | LC-04, LC-09 |
@@ -295,6 +339,8 @@ exists on target hardware yet; promoting it to a gate requires the 16 GiB host r
 A candidate that exceeds a gate is not selected: ADR-0019 stays `Proposed`, and the
 shortfall is reported with the raw data. A missed preliminary target is reported as a
 product finding and carried into the review; it does not on its own change the decision.
+Neither outcome may be reported as met — and no memory budget may be reported as passed —
+while attribution is `partial` or `unknown`.
 
 ### 7.2 Reference host versus target user hardware
 
@@ -303,9 +349,10 @@ product finding and carried into the review; it does not on its own change the d
 - The **target user machine** is a 16 GiB developer laptop: not the measurement
   instrument, and not required for the decision.
 - The 16 GiB fit is an **arithmetic projection**, labelled as such:
-  `8 × M_run_peak_p95 + measured_os_baseline ≤ 90% of 16 GiB`, with the attribution class
-  carried through. It is reported as `projected_fit: yes|no|unknown`; `unknown` is valid
-  and must not be rounded up to `yes`.
+  `8 × M_run_peak_p95 + measured_os_baseline ≤ 90% of 16 GiB`. The attribution class is
+  carried through unchanged: under `partial` or `unknown` attribution the projection is
+  `projected_fit: unknown`, because a lower bound cannot demonstrate a fit. `unknown` is
+  a valid result and must not be rounded up to `yes`.
 - A 16 GiB host run is required before the memory target becomes a gate. That run is a
   prerequisite for changing the target, not for accepting the ADR.
 
