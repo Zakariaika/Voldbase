@@ -105,7 +105,7 @@ not be decided from the evidence.
 | --- | --- | --- | --- | --- | --- |
 | PF-06 | Architecture | `uname -m` | `x86_64` | `PF-06-arch.txt` | `BLOCKED` for any other value |
 | PF-07 | Physical cores | `lscpu` (sockets × cores per socket) | ≥ 8 physical cores, counted physically rather than as threads | `PF-07-lscpu.txt` | `BLOCKED` |
-| PF-08 | Virtualization extensions | `grep -m1 -oE 'vmx|svm' /proc/cpuinfo` (x86_64) | `vmx` (Intel) or `svm` (AMD) present | `PF-08-flags.txt` | `BLOCKED` |
+| PF-08 | Virtualization extensions | `grep` of `/proc/cpuinfo` for `vmx` or `svm` (x86_64) | `vmx` (Intel) or `svm` (AMD) present | `PF-08-flags.txt` | `BLOCKED` |
 | PF-09 | SMT state | `cat /sys/devices/system/cpu/smt/active` | Recorded as `0` or `1`; not a pass/fail on its own | `PF-09-smt.txt` | `INCONCLUSIVE` if unreadable |
 | PF-10 | CPU governor | `cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor` | Every CPU reports `performance` | `PF-10-governor.txt` | `BLOCKED` until the observed value is `performance` |
 | PF-11 | Microcode revision | `grep -m1 '^microcode' /proc/cpuinfo` | Recorded | `PF-11-microcode.txt` | `INCONCLUSIVE` if absent from `/proc/cpuinfo` |
@@ -130,7 +130,7 @@ not be decided from the evidence.
 | --- | --- | --- | --- | --- | --- |
 | PF-21 | `/dev/kvm` exists | `test -c /dev/kvm` | Character device present | `PF-21-kvm-device.txt` | `BLOCKED` — there is no container fallback (ADR-0018 decision 2; protocol §8.5) |
 | PF-22 | KVM permissions | `ls -l /dev/kvm`, `id`, `test -r /dev/kvm -a -w /dev/kvm` **as the benchmark user** | Benchmark user can read and write the device without root | `PF-22-kvm-access.txt` | `BLOCKED` |
-| PF-23 | KVM modules | `lsmod | grep -E '^kvm'` | `kvm` and the matching `kvm_intel`/`kvm_amd` are loaded, or their absence is recorded as a pending load | `PF-23-kvm-modules.txt` | `INCONCLUSIVE` when the module is not loaded and cannot be loaded without a host change |
+| PF-23 | KVM modules | `lsmod`, inspected for `kvm`, `kvm_intel` and `kvm_amd` | `kvm` and the matching `kvm_intel`/`kvm_amd` are loaded, or their absence is recorded as a pending load | `PF-23-kvm-modules.txt` | `INCONCLUSIVE` when the module is not loaded and cannot be loaded without a host change |
 | PF-24 | KVM acceleration usable | `kvm-ok` when available; otherwise the recorded PF-05/PF-08/PF-21/PF-22 evidence | Acceleration is reported as usable by a tool, or the four underlying checks all pass and the report says the tool was unavailable | `PF-24-kvm-ok.txt` | `INCONCLUSIVE` if no tool result exists and any underlying check is undecided |
 
 ### 3.5 cgroup v2 and systemd
@@ -180,7 +180,7 @@ are separate checks in the protocol's §3.
 
 | ID | Check | Command / evidence source | Acceptance condition | Artifact | On failure |
 | --- | --- | --- | --- | --- | --- |
-| PF-42 | Competing workloads | `ps -eo comm --no-headers | sort | uniq -c` | No unexpected CPU- or memory-heavy service; anything unusual is named | `PF-42-processes.txt` | `INCONCLUSIVE` if unexpected load cannot be accounted for |
+| PF-42 | Competing workloads | `ps -eo comm --no-headers`, sorted and counted per command | No unexpected CPU- or memory-heavy service; anything unusual is named | `PF-42-processes.txt` | `INCONCLUSIVE` if unexpected load cannot be accounted for |
 | PF-43 | Time synchronisation | `timedatectl` | Clock synchronised, so recorded evidence timestamps are meaningful | `PF-43-clock.txt` | `INCONCLUSIVE` |
 | PF-44 | Kernel taint state | `cat /proc/sys/kernel/tainted` | Recorded; a non-zero value is explained in the report | `PF-44-tainted.txt` | `INCONCLUSIVE` if non-zero and unexplained |
 
