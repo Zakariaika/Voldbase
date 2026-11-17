@@ -126,8 +126,10 @@ classification per candidate.
   can analyse but not execute locally; that must be documented, not discovered.
 - **Firecracker is OCI-incompatible.** Its block devices are host files pre-formatted
   with a guest-supported filesystem [S8]; there is no native OCI image support. VOLDBASE
-  must build a digest-pinned rootfs from an OCI image and re-attest SBOM, provenance and
-  scan against *that* digest — an extension of IMG-01..IMG-08.
+  must build a digest-pinned rootfs from an OCI image and satisfy IMG-01..IMG-08 against
+  *that* digest. Most are Control Plane obligations that carry over unchanged; IMG-05
+  (signature of a locally built artifact) and IMG-08 (provenance for the conversion step)
+  need components that do not exist yet (§7).
 - **Privileged residual surface shrinks, not vanishes.** One jailed VMM process per run
   replaces a runtime, a shim and a filesystem daemon; KVM and the host kernel remain in
   the trusted computing base [S20].
@@ -197,7 +199,7 @@ different verification burdens:
 | NET-01..06 | `--network=none` [S6]; allowlist needs host rules | no NIC unless configured [S8] | expressible, more moving parts [S15] |
 | FS-01..07 | expressible; fuse/overlay quirks | block devices only, no bind mounts | virtio-fs sharing must be audited |
 | RES-01..08 | conditional on cgroup v2 delegation [S3][S21] | needs translation (guest PIDs) | multi-level [S15] |
-| IMG-01..08 | native OCI digests | **gap**: derived rootfs re-attestation | native via manager |
+| IMG-01..08 | native OCI digests | gaps at IMG-05, IMG-08; the rest carry over to a derived rootfs (§7) | native via manager |
 | EV/VD | host-observable, no agent | export disk or vsock | agent-mediated |
 | LC-01..10 | labels + `rm -f`; storage leftovers | five resource kinds [S9] | shim + VMM + virtiofsd + netns |
 
@@ -229,7 +231,7 @@ different verification burdens:
 | 7 | Density and concurrent runs | 5 | 5 | 5 | 4 | 3 | [S11][S13] |
 | 8 | Cleanup and reconciliation | 9 | 4 | 3 | 4 | 3 | [S9]; Docker adds daemon state; Kata adds shim/virtiofsd |
 | 9 | Evidence collection outside the env | 6 | 5 | 4 | 3 | 3 | host cgroup/proc vs export disk vs agent |
-| 10 | Image identity, provenance, SBOM | 6 | 5 | 5 | 2 | 4 | OCI native [S4] vs pre-formatted blocks [S8] |
+| 10 | Image identity, provenance, SBOM | 6 | 5 | 5 | 2 | 4 | OCI native [S4] vs pre-formatted blocks [S8]; derived-rootfs gaps at IMG-05 and IMG-08 |
 | 11 | Operational complexity, maintainability | 10 | 5 | 2 | 2 | 1 | daemonless binary vs kernel/rootfs/jailer vs Kubernetes shims |
 | 12 | Control-plane compatibility | 4 | 4 | 3 | 4 | 2 | per-VM REST API [S8] vs CRI orientation [S13] |
 | | **Weighted total /100** | **100** | **75.4** | **60.2** | **73.6** | **60.8** | `Σ(W × score) / 5` |
@@ -270,14 +272,16 @@ would need work before 3C:
 | Candidate | Gaps requiring an extra component | Class |
 | --- | --- | --- |
 | Podman rootless | limit enforcement only with cgroup v2 delegation; runtime-socket and mount policy verification; reconciliation of storage leftovers | E+V |
-| Firecracker | **RES-03** guest PID enforcement (the host cgroup bounds only VMM threads); **IMG-01..08** OCI→rootfs identity and re-attestation | G (2 controls) |
+| Firecracker | **RES-03** guest PID enforcement (the host cgroup bounds only VMM threads); **IMG-05** signing of a locally built rootfs; **IMG-08** provenance for the conversion step | G (3 controls) |
 | Firecracker | evidence export path and observed-policy comparison | E+V |
 | Kata | **CP-01..05** CRI-oriented interface needs a control-plane adapter; three-level limit verification; sharing audit | G / E+V |
 
 Per-limit enforcement — which component enforces each limit and how a reviewer proves it
 from outside — is tabulated in the
 [control mapping](../security/runtime-control-mapping.md) §2.1. A limit whose enforcement
-cannot be established is `BLOCKED` (RES-08), never assumed.
+cannot be established is `BLOCKED` (RES-08), never assumed. Image controls are classified
+one by one in the same appendix: only IMG-05 and IMG-08 need new components, and the rest
+are Control Plane obligations that carry over to a derived rootfs.
 
 Controls **no** candidate enforces by itself — CP-04 observed-policy comparison,
 EV-02..08 evidence hashing and chain verification, VD-01..12 the verdict engine,
@@ -347,6 +351,11 @@ Phase 3C may not create an executor until all of these exist as reviewable artif
     expected evidence artifact. A control without a test is unimplemented.
 11. **Two independent reviewers** have scored §6 and reconciled differences.
 12. **No executor code exists** in the 3C branch when review starts (ADR-0018 decision 11).
+
+None of these is satisfied today. This ADR is documentation: the benchmark has not been
+executed, no report exists, and no independent review is recorded in the repository. Item
+11 is a prerequisite for acceptance, not a completed step, and nothing in this branch may
+be read as evidence that it happened.
 
 ## 10. Benchmark
 
