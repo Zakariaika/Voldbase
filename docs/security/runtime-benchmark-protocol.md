@@ -113,14 +113,15 @@ lockfile) with a deterministic suite of known duration.
 | W6 | write 200 MiB to the workspace | disk quota and export behaviour |
 | W7 | spawn 200 short-lived children | PID limit |
 | W8 | **deny** — TCP connect to `10.213.0.10:8443`, expect immediate `ENETUNREACH`/`EHOSTUNREACH` | IPv4 default-deny |
-| W9 | **deny** — resolve `probe.test`; evidence bundle per §6.2, not just a failed lookup | DNS default-deny |
+| W9 | **deny, case A** — resolve `probe.test` with no NIC and no route; expect `path_absent`, no packet anywhere | network path absent (not a DNS drop) |
 | W10 | **deny** — TCP connect to `[fd00:213::10]:8443`, expect `ENETUNREACH` | IPv6 default-deny |
 | W11 | **deny** — connect to `169.254.169.254:80`, `[fd00:ec2::254]:80`, `100.100.100.200:80`, resolve `metadata.google.internal` | metadata-endpoint blocking |
 | W12 | read a canary file placed outside the workspace | filesystem boundary |
 | W13 | sleep beyond `timeoutMs` | supervisor timeout path |
 | W14 | **allowlist positive** — `GET http://10.213.0.10:8443/health`, expect 200 and the recorded body digest | authorized egress works |
-| W15 | **allowlist negative** — `10.213.0.10:9443`, `10.213.0.11:8443`, `[fd00:213::10]:8443`, W11 addresses, and resolve `probe.test` with the §6.2 evidence bundle | authorization is address-, port- and family-scoped; DNS stays denied |
+| W15 | **allowlist negative** — `10.213.0.10:9443`, `10.213.0.11:8443`, `[fd00:213::10]:8443`, W11 addresses, and resolve `probe.test` with the unauthorized resolver configured (case B evidence) | authorization is address-, port- and family-scoped; DNS stays denied |
 | W16 | host capture on every interface except the run's TAP during W14 | no unintended network path |
+| W17 | **deny, case B** — resolver `10.213.0.53:53` configured inside the run, then resolve `probe.test`; expect `denied_at_policy` with a boundary packet and a drop counter | explicit DNS-deny policy, not an absent path |
 
 Two mirrored allowlist trials are required: one authorizing the IPv4 sink only, one
 authorizing the IPv6 sink only. Each must show the other family failing — a policy that
@@ -148,25 +149,29 @@ permits both proves nothing about the rule.
 6. **Cleanup.** After every trial enumerate processes, cgroups, TAP/veth devices, jail
    directories, containers, VMs, volumes and the workspace. Any residual resource is a
    failure, counted per trial.
-7. **Default-deny network.** With `policy: none`, run W8–W11. Expected: no interface
-   other than loopback; connects fail **immediately** with `ENETUNREACH`/`EHOSTUNREACH`
-   (a timeout is a failure, because it implies a path exists); no sink access-log entry;
-   and the DNS evidence bundle in §6.2 classifies the trial `blocked_before_transmission`
-   or, where a resolver is configured, `transmitted_and_dropped`. `leaked` fails.
-8. **Allowlist network.** Authorize exactly one destination (IPv4 sink A, port 8443, DNS
+7. **Default-deny network, case A.** With `policy: none` and no NIC, run W8–W11. Expected:
+   no interface other than loopback; connects fail **immediately** with
+   `ENETUNREACH`/`EHOSTUNREACH` (a timeout is a failure, because it implies a path
+   exists); no sink access-log entry; and the DNS result is `path_absent` — nothing was
+   emitted, and no attempted packet is claimed.
+8. **Default-deny network, case B.** Configure the unauthorized resolver
+   `10.213.0.53:53` inside the run, still confined to `vb-probe`, and run W17. Expected:
+   a DNS packet at the run boundary, a matching policy drop counter, zero packets at the
+   probe resolver or uplink, and no response — class `denied_at_policy`.
+9. **Allowlist network.** Authorize exactly one destination (IPv4 sink A, port 8443, DNS
    `deny`, addresses pinned at the Control Plane); run W14 then W15. Repeat with the IPv6
    sink authorized. Expected: only the authorized destination answers; the same sink on
-   another port, the second sink, the other address family, the metadata addresses and
-   every hostname fail, with hostname attempts evidenced per §6.2; the sink's access log
-   shows exactly the authorized requests.
-9. **Unintended-path check.** During W14/W16, capture on all host interfaces except the
-   run's TAP and on the host uplink. Expected: zero packets from the run. Any packet is a
-   policy failure, not a flake.
-10. **Filesystem.** Canary files in the home directory, `/tmp` and a path outside the
+   another port, the second sink, the other address family and the metadata addresses
+   fail; the hostname attempt is case B and must be `denied_at_policy`; the sink's access
+   log shows exactly the authorized requests.
+10. **Unintended-path check.** During W14/W16, capture on all host interfaces except the
+    run's TAP and on the host uplink. Expected: zero packets from the run. Any packet is
+    a policy failure, not a flake.
+11. **Filesystem.** Canary files in the home directory, `/tmp` and a path outside the
     workspace. W12 must fail, and the canaries must be byte-identical afterwards.
-11. **Operator burden.** On a clean host, follow only the published install steps; count
+12. **Operator burden.** On a clean host, follow only the published install steps; count
     commands, wall-clock minutes and every privileged step to a first successful W1.
-12. **Baseline.** The same workloads on rootless Podman; record the delta. The baseline
+13. **Baseline.** The same workloads on rootless Podman; record the delta. The baseline
     prices isolation; it is not a candidate.
 
 ## 6. Measurement definitions and reporting
@@ -200,11 +205,14 @@ attribution, and is never compared across runs with different co-tenants.
 first cgroup that faults it, so pages shared with the host image store may be charged
 elsewhere, and some kernel allocations are not charged to leaves at all. Consequently:
 
-- `M_run_peak` is a **lower bound** on the run's system-wide memory impact;
-- `unattributed = max(0, H_delta − M_run_peak)` is reported as an approximate interval
-  width, never added to `M_run_peak` as if it were measured;
-- `H_delta` proves **nothing** about attribution: unrelated host activity moves it in
-  either direction, so it is context, not evidence of what the run caused to be resident.
+- `M_run_peak` is a **measured lower bound** on the run's system-wide memory impact;
+- the **upper bound is unknown**. No numeric interval is constructed: subtracting a
+  per-cgroup peak from a host-wide delta mixes two accounting scopes and then presents
+  the remainder as if it were the run's uncharged memory. It is not, and no arithmetic
+  in this protocol produces an upper bound.
+- `H_delta`, PSI and root `memory.events` are reported as separate host-wide
+  observations. They can show that the host was under pressure during a trial; they
+  cannot be converted into a per-run byte count.
 
 **Attribution classes.** No percentage threshold establishes exact attribution. A run can
 produce a small `file` share and a `H_delta` close to `M_run_peak` while still leaving
@@ -213,7 +221,7 @@ label unmeasured bytes as measured.
 
 | Class | Meaning | Reported figure |
 | --- | --- | --- |
-| `partial` | `M_run_peak` is a real measurement, but resident memory charged outside `S_run` is unquantified | range `[M_run_peak, M_run_peak + unattributed]` |
+| `partial` | `M_run_peak` is a real measurement, but resident memory charged outside `S_run` is unquantified | `M_run_peak` as a lower bound, upper bound `unknown` |
 | `unknown` | the decomposition, the host observation or the cross-check is missing or inconsistent | `unknown`; no numeric per-run claim |
 | `exact` | every byte the run causes to be resident is measured inside `S_run` | possible only with the instrumentation in §6.1.1; **not achievable in this protocol version** |
 
@@ -263,8 +271,22 @@ never by subtracting anything.
 
 ### 6.2 DNS denial evidence
 
-A failed lookup is not evidence of no egress: it may only mean no resolver was
-configured. Each trial that claims DNS denial produces a bundle with four parts.
+Two different claims are tested separately. A failed lookup is evidence of neither: it
+may only mean that no resolver was configured.
+
+**Case A — no network path.** With `policy: none` and no NIC or route, a resolution
+attempt cannot emit a packet. The result is recorded as *path absent*: interfaces and
+routes dumped, resolver inventory recorded, and capture on the run boundary, the probe
+namespace and the uplinks showing zero packets. The claim is "there is no path", not "a
+DNS packet was sent and denied", and no attempted packet is claimed when none was
+emitted.
+
+**Case B — explicit DNS-deny policy.** The workload is configured with the controlled
+unauthorized resolver `10.213.0.53:53` and stays confined to `vb-probe`. Here a packet
+**must** be observed at the run boundary, so the trial can distinguish an attempted query
+from an absent path. A missing capture or counter is `inconclusive`, never a pass.
+
+Each trial that claims either result produces a bundle with four parts.
 
 | Part | Content |
 | --- | --- |
@@ -279,25 +301,27 @@ that misses any of (1)–(3) is incomplete and yields `inconclusive`.
 
 **Classification (one per trial):**
 
-| Class | TAP packets | nft drop counter | Probe/uplink packets | Meaning |
-| --- | --- | --- | --- | --- |
-| `blocked_before_transmission` | 0 | 0 | 0 | no resolver and no route; nothing was sent |
-| `transmitted_and_dropped` | > 0 | > 0 | 0 | the query was sent and the policy dropped it |
-| `leaked` | any | any | > 0, or a resolver answered | **failure** |
-| `inconclusive` | — | — | — | capture or counters missing |
+| Class | Boundary packets | nft drop counter | Probe/uplink packets | Response | Meaning |
+| --- | --- | --- | --- | --- | --- |
+| `path_absent` | 0 | 0 | 0 | none | case A: no interface or route, so nothing was emitted |
+| `denied_at_policy` | > 0 | > 0 | 0 | none | case B: the query was attempted and the policy dropped it |
+| `leaked` | any | any | > 0, or a resolver answered | any | **failure** |
+| `inconclusive` | — | — | — | — | capture or counters missing, **or** case B with a configured resolver and zero boundary packets (the query was never attempted, so the trial proves nothing) |
 
 **Expected observations:**
 
-- Default-deny: resolver inventory empty or absent; class `blocked_before_transmission`.
-  `transmitted_and_dropped` is acceptable **only** if the runtime still configured a
-  resolver address, and then the packets and drop counts must be recorded.
-- Allowlist with DNS `deny` and addresses pinned at the Control Plane: same expectation;
-  a hostname must not resolve even though an IP is authorized.
+- Case A (no NIC, no route): `path_absent`. `denied_at_policy` is not achievable there and
+  must not be claimed, because no packet existed to drop.
+- Case B (resolver configured, policy denying): `denied_at_policy`, with the packet count,
+  the drop count and the absence of any response recorded. Zero boundary packets is
+  `inconclusive` — a test fault, not a pass.
+- Allowlist with DNS `deny` and addresses pinned at the Control Plane: the hostname attempt
+  is case B; a hostname must not resolve even though an IP is authorized.
 - Any `leaked` result fails the trial regardless of what the application observed.
 
-The **capture control in §5 step 0** is what makes a zero count meaningful: without it,
-"no packet seen" is indistinguishable from "capture not working". A missing DNS response
-is never accepted as proof on its own.
+The **capture control in §5 step 0** is mandatory and is what makes a zero count
+meaningful: without it, "no packet seen" is indistinguishable from "capture not working".
+A missing DNS response is never accepted as proof of denied egress on its own.
 
 ### 6.3 Trials and reporting
 
@@ -331,7 +355,7 @@ exists on target hardware yet; promoting it to a gate requires the 16 GiB host r
 | Concurrency on the reference host | 8 of 8 succeed | Gate | density floor |
 | Limit enforcement | ≤ ±5% of declared value | Gate | RES-02..RES-04 |
 | Cleanup residuals | 0 across 30 trials | Gate | LC-04, LC-09 |
-| Network deny | `blocked_before_transmission` or evidenced `transmitted_and_dropped`; never `leaked` | Gate | NET-01 |
+| Network deny | `path_absent` (case A) or evidenced `denied_at_policy` (case B); never `leaked`; `inconclusive` fails | Gate | NET-01 |
 | Allowlist exactness | every authorized destination works; every other fails | Gate | NET-02..NET-06 |
 | Filesystem canaries | 0 reads, 0 writes | Gate | FS-04 |
 | Operator steps | ≤ 10 documented commands, ≤ 30 minutes | **Preliminary target** | local-first usability, to be confirmed on a second host |
@@ -348,11 +372,12 @@ while attribution is `partial` or `unknown`.
   hierarchy of §6.1, and the 8-run concurrency gate is evaluated there.
 - The **target user machine** is a 16 GiB developer laptop: not the measurement
   instrument, and not required for the decision.
-- The 16 GiB fit is an **arithmetic projection**, labelled as such:
-  `8 × M_run_peak_p95 + measured_os_baseline ≤ 90% of 16 GiB`. The attribution class is
-  carried through unchanged: under `partial` or `unknown` attribution the projection is
-  `projected_fit: unknown`, because a lower bound cannot demonstrate a fit. `unknown` is
-  a valid result and must not be rounded up to `yes`.
+- The 16 GiB fit is an **arithmetic projection** over a lower bound, labelled as such:
+  `8 × M_run_peak_p95 + measured_os_baseline ≤ 90% of 16 GiB`. It can only refute a fit:
+  if the lower bound alone already exceeds the threshold, the answer is `no`. Otherwise
+  the projection is `projected_fit: unknown` under `partial` or `unknown` attribution,
+  because a lower bound cannot demonstrate a fit. `unknown` must not be rounded up to
+  `yes`.
 - A 16 GiB host run is required before the memory target becomes a gate. That run is a
   prerequisite for changing the target, not for accepting the ADR.
 
