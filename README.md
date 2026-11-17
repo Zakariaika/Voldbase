@@ -23,12 +23,12 @@ should say so.
 
 ## Project status
 
-**Phase 3A — execution safety specification.** Phases 1, 2A and 2B are implemented:
+**Phase 3B — isolation runtime decision.** Phases 1, 2A, 2B and 3A are implemented:
 local import with reproducible snapshots, durable storage, syntax-level static
-analysis and architecture intelligence, through the `import` / `list` / `show` /
-`analyze` / `analysis` / `architecture` CLI. The current phase specifies, and does not
-build, the future execution engine. It runs entirely on your machine: no account, no
-network, no telemetry.
+analysis, architecture intelligence, and the execution safety specification, through
+the `import` / `list` / `show` / `analyze` / `analysis` / `architecture` CLI. The
+current phase selects, and does not build, the future execution engine's isolation
+runtime. It runs entirely on your machine: no account, no network, no telemetry.
 
 **No project code is ever executed.** There is no executor, no install step and no
 `child_process` in the product; the analyzer parses text, it does not run it, type
@@ -43,6 +43,12 @@ defines the trust boundaries, threat model, control matrix and acceptance tests 
 future engine must satisfy before any project code may run. Nothing in this repository
 implements it: there is no executor, no sandbox and no `PASS` — an experiment that was
 never executed is `NOT_TESTED`.
+
+**Phase 3B adds no runtime.** [ADR-0019](docs/adr/0019-isolation-runtime-selection.md)
+compares rootless containers, Firecracker microVMs and Kata Containers against the
+Phase 3A controls, excludes a shared kernel as the sole isolation boundary, and leaves
+the product choice **pending** the reproducible benchmark it defines. No runtime, no
+launcher and no sandbox dependency is added, and no project code is executed.
 
 ## What works today
 
@@ -434,14 +440,14 @@ CI runs build before tests, so nothing is skipped there.
 | 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
 | 2B — Architecture intelligence | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
 | 2C — Experiments and runs (domain only) | Experiment and run records, their states and artifacts modelled and persisted end to end; **no project code is executed**, and every run records `NOT_TESTED` or `BLOCKED` |
-| **3A — Execution safety specification** (current) | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
-| 3B — Isolation runtime decision | ADR selecting container or microVM isolation from measured evidence; still no executor |
+| 3A — Execution safety specification | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
+| **3B — Isolation runtime decision** (current) | ADR-0019 compares rootless containers, Firecracker and Kata against the 3A controls, excludes a shared kernel as the sole boundary, and records the product choice as pending a reproducible benchmark; still no executor |
 | 3C — Isolated execution engine | The executor itself, implementing the 3A controls and conformance-tested against them; may not start until 3A and 3B are accepted |
 | 3D — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
 | 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
 
-The order is binding, not advisory. **2C models experiments and runs without executing project code**; **3A** (this specification) and **3B** (the runtime decision) must both be accepted before **3C** may implement an executor (ADR-0005, ADR-0018). A change that adds execution ahead of that order is out of sequence, not an optimisation.
+The order is binding, not advisory. **2C models experiments and runs without executing project code**; **3A** (the specification) and **3B** (the runtime decision) must both be accepted before **3C** may implement an executor (ADR-0005, ADR-0018). A change that adds execution ahead of that order is out of sequence, not an optimisation.
 
 ## License
 
