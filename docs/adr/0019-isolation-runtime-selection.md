@@ -93,12 +93,12 @@ hypervisor levels, which the project itself calls "not always straightforward" [
 
 `Proposed` is not a formality. This ADR becomes `Accepted` only when a benchmark report
 produced by [the protocol](../security/runtime-benchmark-protocol.md) is attached to a
-follow-up change, its budgets are evaluated, and the result is reviewed. Until then:
+follow-up change, its gates are evaluated, and the result is reviewed. Until then:
 
 - Phase 3C may not implement an executor (ADR-0018 decision 11, specification §11.1).
 - No code may depend on Firecracker, Kata, Podman or Docker, and none may be added to
   `package.json`.
-- A budget failure promotes Kata or supersedes this ADR. It is never resolved at runtime
+- A gate failure promotes Kata or supersedes this ADR. It is never resolved at runtime
   by falling back to a weaker path (ADR-0018 decision 2).
 
 ### 2.4 Execution is Linux-with-KVM only until a second backend is accepted
@@ -117,7 +117,8 @@ The runtime is a mechanism; it does not move authority. The environment still ho
 authority over nothing (ADR-0018 decision 1). The
 [control mapping](../security/runtime-control-mapping.md) records, for every control
 group, the mechanism each candidate provides, how it is verified, and where an
-additional control-plane component is required.
+additional control-plane component is required. Every control has exactly one
+classification per candidate.
 
 ## 3. Consequences
 
@@ -269,8 +270,14 @@ would need work before 3C:
 | Candidate | Gaps requiring an extra component | Class |
 | --- | --- | --- |
 | Podman rootless | limit enforcement only with cgroup v2 delegation; runtime-socket and mount policy verification; reconciliation of storage leftovers | E+V |
-| Firecracker | guest PID limit; OCI→rootfs identity and re-attestation; export path design | G (3 items) |
-| Kata | CRI-oriented interface needs a control-plane adapter; three-level limit verification; sharing audit | G/E+V |
+| Firecracker | **RES-03** guest PID enforcement (the host cgroup bounds only VMM threads); **IMG-01..08** OCI→rootfs identity and re-attestation | G (2 controls) |
+| Firecracker | evidence export path and observed-policy comparison | E+V |
+| Kata | **CP-01..05** CRI-oriented interface needs a control-plane adapter; three-level limit verification; sharing audit | G / E+V |
+
+Per-limit enforcement — which component enforces each limit and how a reviewer proves it
+from outside — is tabulated in the
+[control mapping](../security/runtime-control-mapping.md) §2.1. A limit whose enforcement
+cannot be established is `BLOCKED` (RES-08), never assumed.
 
 Controls **no** candidate enforces by itself — CP-04 observed-policy comparison,
 EV-02..08 evidence hashing and chain verification, VD-01..12 the verdict engine,
@@ -343,9 +350,10 @@ Phase 3C may not create an executor until all of these exist as reviewable artif
 
 ## 10. Benchmark
 
-The binding protocol — hosts, runtime identity, immutable images, benign workloads, cold
-and warm start, memory and density trials, cleanup, network-policy and filesystem-boundary
-verification, trial counts, reporting rules, hard budgets and the decision rule — is in
+The binding protocol — hosts, runtime identity, the controlled probe environment,
+immutable images, benign workloads, cold and warm start, memory and density trials,
+cleanup, network default-deny and allowlist verification, filesystem boundaries, trial
+counts, reporting rules, gates and preliminary targets, and the decision rule — is in
 [the benchmark protocol](../security/runtime-benchmark-protocol.md). It has not been
 executed; no runtime is selected until it is.
 
@@ -357,7 +365,7 @@ What would legitimately reopen it:
   runtime escape classes motivating G1. That reopens G1, not the arithmetic.
 - A product requirement for execution on macOS or Windows. That needs a second backend and
   its own ADR; it does not justify a shared-kernel fallback on Linux.
-- Firecracker failing the protocol's hard budgets, which promotes Kata, not Podman.
+- Firecracker failing the protocol's gates, which promotes Kata, not Podman.
 - A documented, reviewed risk acceptance of shared-kernel execution in exchange for
   portability and latency. Legitimate, but it must be signed as a risk acceptance, not
   presented as an equivalent security posture.
