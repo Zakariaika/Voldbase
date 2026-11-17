@@ -77,7 +77,10 @@ That `FAIL` is not overridden by short output, because integrity and completenes
 different judgements: bytes that do not exist because the supervisor killed the run
 are authenticated incomplete output, while an unexplained missing artefact, a digest
 or binding mismatch, or a ledger that does not verify is an integrity failure. Only
-the latter blocks; a timeout with authentic truncation stays `FAIL`.
+the latter blocks; a timeout with authentic truncation stays `FAIL`. Tampering, a
+digest mismatch, an unexplained absent artefact and ledger-integrity failure are all
+`BLOCKED`; `INCONCLUSIVE` is reserved for authentic, integrity-valid evidence that is
+merely insufficient, with a clean lifecycle and a `completed`/`failed` termination.
 
 **6. The ledger is append-only and its trust assumptions are stated.**
 
@@ -106,10 +109,15 @@ demonstrable mandatory failure → `FAIL` (any termination reason, any lifecycle
 state); `cancelled` after execution started → `BLOCKED`; `supervisor_error` after
 execution started → `BLOCKED`; lifecycle `unsafe` with no established failure →
 `BLOCKED`; authentic but insufficient evidence with a clean lifecycle →
-`INCONCLUSIVE`; and only then `PASS`, which requires every condition satisfied,
-coverage `complete`, termination `completed` or `failed`, and a `clean` lifecycle.
-`PASS` has no other door, and no implementation may add a verdict, skip a row or
-resolve overlapping conditions ad hoc: the first matching row decides.
+`INCONCLUSIVE`; and only then `PASS`, which requires at least one predefined mandatory
+condition, every declared condition satisfied, coverage `complete`, termination
+`completed` or `failed`, and a `clean` lifecycle. `PASS` has no other door, and no
+implementation may add a verdict, skip a row or resolve overlapping conditions ad hoc:
+the first matching row decides.
+
+`PASS` must also be non-vacuous: a definition whose mandatory-condition list is empty
+or absent is invalid, is rejected before any environment exists, and blocks a verdict
+if it reaches one, so "all zero conditions are satisfied" can never be a free `PASS`.
 
 Two asymmetries are deliberate. A `supervisor_error` never yields `PASS` or
 `INCONCLUSIVE`: the component that would have attested completeness is the one that
