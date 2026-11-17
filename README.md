@@ -432,8 +432,8 @@ CI runs build before tests, so nothing is skipped there.
 | 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
 | 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
 | 2B — Architecture intelligence | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
-| **3A — Execution safety specification** (current) | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
 | 2C — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
+| **3A — Execution safety specification** (current) | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
 | 3 — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
 | 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
