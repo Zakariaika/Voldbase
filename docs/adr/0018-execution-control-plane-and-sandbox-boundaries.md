@@ -88,20 +88,28 @@ runtime dependency is added, and no existing no-execution guarantee is weakened.
 specification says explicitly that VOLDBASE does not provide execution isolation
 today, so no reader can mistake a requirement for a capability.
 
-**8. Verdicts come from one ordered table; lifecycle safety is a separate field.**
+**8. Verdicts come from one ordered table, cleanup included, and lifecycle state is
+recorded beside it.**
 
-The verdict is selected by the fixed precedence in specification §9.1: evidence
-missing or corrupted → `BLOCKED`; isolation or policy failure → `BLOCKED`;
-demonstrable mandatory failure → `FAIL`; timeout or limit termination → `FAIL`; valid
-but insufficient evidence → `INCONCLUSIVE`; and only then `PASS`. Missing evidence
-never becomes `PASS`, and no implementation may add a verdict or resolve overlapping
-conditions ad hoc.
+The verdict is selected by the fixed precedence in specification §9.1, and cleanup is
+a row of that table rather than an exception applied to a verdict already chosen:
+evidence missing or corrupted → `BLOCKED`; isolation or policy failure → `BLOCKED`;
+cancellation before execution → `BLOCKED`; demonstrable mandatory failure → `FAIL`
+(whatever the cleanup state); timeout or limit termination → `FAIL` (whatever the
+cleanup state); lifecycle `unsafe` with no established `FAIL` → `BLOCKED`; valid but
+insufficient evidence with a clean lifecycle → `INCONCLUSIVE`; and only then `PASS`,
+which requires every mandatory condition satisfied, complete validated evidence, no
+timeout or limit, and a `clean` lifecycle. Missing evidence never becomes `PASS`, and
+no implementation may add a verdict, skip the cleanup row or resolve overlapping
+conditions ad hoc: the first matching row decides, for every combination of states.
 
-Cleanup safety is recorded as `lifecycleState: clean|unsafe` beside the verdict, not
-folded into it. Cleanup failure forbids `PASS` and forbids reuse of the environment,
-but it does not erase a demonstrable `FAIL`: an unsafe environment is no reason to hide
-a known failing condition. An unsafe run with complete evidence and no failure becomes
-`BLOCKED`.
+Cleanup state itself is still recorded as `lifecycleState: clean|unsafe` beside the
+verdict, with its reason (`cleanup_failed`, `cleanup_unverified`, `supervisor_lost`),
+because the reader must see *why* a `BLOCKED` happened. Being a table row does not let
+it erase a demonstrable `FAIL`: rows 4 and 5 outrank the unsafe row, so an unsafe
+environment is no reason to hide a known failing condition, and it never upgrades one.
+An unsafe run with complete evidence and no failure lands on the unsafe row and becomes
+`BLOCKED` before `INCONCLUSIVE` or `PASS` can be reached.
 
 **9. Toolchain identity is attested metadata, never a version printed in the sandbox.**
 
