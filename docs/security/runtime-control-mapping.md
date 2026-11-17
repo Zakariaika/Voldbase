@@ -14,7 +14,10 @@ Classes: **E** = enforced by the runtime mechanism; **E+V** = enforceable, but o
 an independent control-plane verification step; **G** = gap requiring an additional
 component or a specification amendment before Phase 3C.
 
-Nothing here claims that any control is implemented today. VOLDBASE has no executor.
+Each control appears exactly once per candidate. Where a range is shown, every control
+in it has the same classification and the same mechanism; a control that differs is
+listed separately. Nothing here claims that any control is implemented today. VOLDBASE
+has no executor.
 
 ## 1. Podman rootless (benchmark baseline; not eligible as sole boundary)
 
@@ -23,10 +26,10 @@ Nothing here claims that any control is implemented today. VOLDBASE has no execu
 | HX-01, HX-03 | Control Plane refuses runs without a provisioned environment; no bypass flag exists | NT-01, option enumeration | E+V |
 | HX-02 | No `child_process` path; Podman invoked only through the supervisor | static import test + audit trace | E |
 | HX-04, HX-05 | No runtime socket mounted; run-scoped supervisor credential | NT-03 environment inventory | E |
-| NET-01, NET-16..19 | `--network=none` gives a netns with no interfaces | egress, DNS, IPv6 and metadata probes fail | E |
-| NET-02..06 | Allowlist netns plus host nftables; DNS resolved and pinned at the Control Plane | observed policy equals requested before start (CP-04) | E+V |
+| NET-01, NET-16..19 | `--network=none` gives a netns with no interfaces | W8–W11 fail immediately; no packet outside the run | E |
+| NET-02..06 | Allowlist netns plus host nftables; DNS resolved and pinned at the Control Plane | observed policy equals requested before start (CP-04); W14/W15 | E+V |
 | FS-01..07 | Mount allowlist, fresh workspace, read-only rootfs, evidence outside | NT-03, NT-09, store inventory | E |
-| RES-01..08 | cgroup v2 with delegated controllers; **ignored otherwise** (Docker documents this explicitly) | preflight reads `cgroup.controllers`; absent ⇒ `BLOCKED` (RES-08) | E+V |
+| RES-01..08 | cgroup v2 with delegated controllers; the container's `pids.max` is the guest's PID limit | preflight reads `cgroup.controllers` and the applied values; absent ⇒ `BLOCKED` (RES-08) | E+V |
 | IMG-01..08 | OCI digest identity, signature and SBOM tooling | NT-05, NT-14, NT-15 | E |
 | EV-01..08, VD-01..12 | Collector outside; no verdict path inside the environment | NT-06, NT-07, NT-13, NT-24 | E |
 | LC-01..10 | Labels plus `rm -f`; storage and volume leftovers reconciled | NT-09, NT-20, NT-21 | E+V |
@@ -41,31 +44,59 @@ unless the control plane verifies them.
 | Controls | Mechanism | Verification | Class |
 | --- | --- | --- | --- |
 | HX-01..05 | No host process for project code; the API socket lives in the jail on the host, not in the guest | NT-01, NT-03; guest inventory shows only configured virtio devices | E |
-| NET-01, NET-16..19 | **No NIC configured at all** by default; loopback only | egress, DNS, IPv6 and metadata probes fail | E |
-| NET-02..06 | One TAP per run, host nftables default-deny, DNS pinned by the Control Plane | observed policy report matches the manifest; NT-02 | E+V |
+| NET-01, NET-16..19 | **No NIC configured at all** by default; loopback only | W8–W11 fail immediately; no packet on any host capture point | E |
+| NET-02..06 | One TAP per run, host nftables default-deny, DNS pinned by the Control Plane | observed policy report matches the manifest; W14/W15 | E+V |
 | FS-01..07 | Read-only rootfs, workspace disk, one-way export disk; no bind mounts or shared filesystem | NT-03, device inventory, export mounted read-only on the host | E |
-| RES-01..05 | cgroup `cpu.max` plus vCPU count; guest RAM plus VMM `memory.max`; block-device size | supervisor reads cgroup and block usage; ±5% budget | E+V |
-| RES-03 | **Gap:** guest PIDs are not host PIDs; needs `pids.max` inside the guest plus a VMM thread bound | fork-bomb test (NT-11) plus host thread count | G |
-| RES-05..06 | Supervisor clock outside the environment; streams bounded by the collector | NT-08, NT-11 | E |
+| RES-01 | Every limit is present before creation and recorded in the manifest | schema validation; unset value ⇒ `BLOCKED` | E |
+| RES-02 | CPU: cgroup `cpu.max` on the VMM plus a fixed vCPU count; memory: guest RAM fixed at boot plus `memory.max` on the VMM | supervisor reads `cpu.stat` and `memory.peak`; W4/W5 within ±5% | E+V |
+| RES-03 | **Two layers, neither sufficient alone.** Host: cgroup `pids.max` bounds VMM threads only. Guest: `pids.max` in the guest cgroup bounds workload processes, enforced by the guest kernel | host thread count (outside) **and** a fork-bomb run (W7) that must terminate at the cap; a guest limit that cannot be established from the verified image ⇒ `BLOCKED` | **G** |
+| RES-04 | Disk: block-device size fixed at creation, plus a pre-allocated export quota | host checks device and export-file size; overflow not exported | E+V |
+| RES-05 | Wall-clock timeout measured by the supervisor's monotonic clock, outside the environment | W13 terminates at `timeoutMs` plus the documented grace | E |
+| RES-06 | stdout/stderr bounded by the collector while streaming | truncation recorded; infinite printer cut at the cap | E |
+| RES-07 | Artifact count and bytes bounded by the collector | excess rejected and recorded | E |
+| RES-08 | A limit that cannot be enforced or measured prevents start | preflight capability check; failure ⇒ `BLOCKED` | E+V |
 | IMG-01..08 | **Gap:** no OCI image support; needs a pinned OCI→ext4 builder and re-attestation | rootfs digest and conversion provenance recorded; NT-05, NT-15 | G |
-| EV-01..08 | One-way export disk (preferred) or a bounded vsock stream; the collector hashes outside | NT-06, NT-23; guest cannot write ledger or collector | E+V |
+| EV-01..08 | One-way export disk (preferred) or a bounded vsock stream; the collector hashes outside | NT-06, NT-23; the guest cannot write ledger or collector | E+V |
 | VD-01..12 | Verdict engine never reads guest process state | NT-07, NT-13, NT-24 | E |
 | LC-01..10 | VM id equals the jail directory name; reconciler destroys process, jail, TAP, cgroup and disks | NT-20, NT-21; zero residuals over 30 trials | E+V |
 | CP-01..05 | Per-VM REST API limited to create/observe/destroy | CP-04 comparison | E |
 
-Residual: VMM and KVM vulnerabilities; the host syscall surface the VMM uses; guest
-kernel and rootfs supply chain; host denial of service through memory or CPU pressure;
-TAP, cgroup and jail leaks when the supervisor dies before reconciliation.
+### 2.1 Resource limits: who enforces, who verifies
+
+The ambiguity worth removing is that a microVM has **two** PID domains and **two**
+memory views. The table states, per manifest limit, which component enforces it and how
+a reviewer proves it from outside the environment.
+
+| Limit | Enforced by | Independently verified by | If verification fails |
+| --- | --- | --- | --- |
+| `cpuMillis` | host cgroup `cpu.max` on the VMM process, plus the fixed vCPU count | supervisor reads `cpu.stat` throttling; W4 wall time within ±5% | `BLOCKED` (RES-08); a run that exceeds it is `FAIL` (RES-02) |
+| `memoryBytes` | guest RAM size fixed at boot **and** cgroup `memory.max` on the VMM | `memory.peak` sampled outside; W5 within ±5%; config recorded in the manifest | `BLOCKED` |
+| `pids` | **host** `pids.max` (VMM threads only) **and** guest cgroup `pids.max` (workload) | host thread count from outside; guest side from the verified image config plus a fork-bomb run (W7) that must terminate at the cap | `BLOCKED` — the guest-side limit is not attestable from the host, so it is a gap (RES-03) |
+| `workspaceBytes` | block-device size and pre-allocated export quota | device size and export-file size read on the host; W6 overflow not exported | `BLOCKED` |
+| `timeoutMs` | supervisor monotonic clock, outside the environment | W13 termination instant recorded by the supervisor | `BLOCKED` |
+| `streamBytes` | collector while streaming | truncation event with byte counts; NT-08 | `BLOCKED` |
+| `artifactCount` / `artifactBytes` | collector | rejected-count and byte totals in evidence metadata | `BLOCKED` |
+
+Two consequences are deliberate:
+
+- A guest-enforced limit is never accepted on the guest's word. If the guest-side PID
+  limit cannot be fixed at boot from a digest-verified image, the run does not start.
+- **Enforcement that cannot be established is `BLOCKED`, never "probably fine".** That
+  is RES-08, and it applies to every row above.
+
+Residual for Firecracker: VMM and KVM vulnerabilities; the host syscall surface the VMM
+uses; guest kernel and rootfs supply chain; host denial of service through memory or CPU
+pressure; TAP, cgroup and jail leaks when the supervisor dies before reconciliation.
 
 ## 3. Kata Containers (eligible, ranked second)
 
 | Controls | Mechanism | Verification | Class |
 | --- | --- | --- | --- |
 | HX-01..05 | VM boundary; no host socket inside the guest | NT-01, NT-03 | E |
-| NET-01, NET-16..19 | VM netns with no interface; host networking unsupported | probes fail | E |
-| NET-02..06 | TAP plus host policy; DNS configured in the guest, not inherited | NET-04 observed policy | E+V |
+| NET-01, NET-16..19 | VM netns with no interface; host networking unsupported | W8–W11 fail immediately | E |
+| NET-02..06 | TAP plus host policy; DNS configured in the guest, not inherited | NET-04 observed policy; W14/W15 | E+V |
 | FS-01..07 | virtio-fs or block devices; sharing configuration audited per run | NT-03, FS-02 inventory | E+V |
-| RES-01..08 | Constraints at guest-kernel, in-guest container and hypervisor level | all three levels inspected; any missing ⇒ `BLOCKED` | E+V |
+| RES-01..08 | Constraints applied at guest-kernel, in-guest container and hypervisor level | all three levels inspected; any missing ⇒ `BLOCKED` | E+V |
 | IMG-01..08 | OCI images through containerd/CRI-O, digest-pinned | NT-05, NT-14, NT-15 | E |
 | EV/VD | Guest statistics are observations; evidence through the collector | NT-06, NT-23 | E+V |
 | LC-01..10 | Shim, VMM, virtiofsd and netns teardown | NT-20, NT-21 | E+V |
