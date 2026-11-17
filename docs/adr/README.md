@@ -47,3 +47,4 @@ Rules:
 | [0015](0015-liveness-based-lock-recovery.md) | Lock safety: liveness-based recovery and the displaced-owner guard | Accepted |
 | [0016](0016-static-analysis-boundary.md) | Static analysis: parser choice and the syntax-only boundary | Accepted |
 | [0017](0017-architecture-intelligence.md) | Architecture intelligence: a derived, non-persisted projection | Accepted |
+| [0018](0018-execution-control-plane-and-sandbox-boundaries.md) | Execution control plane and sandbox boundaries | Proposed |

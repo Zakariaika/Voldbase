@@ -23,13 +23,11 @@ should say so.
 
 ## Project status
 
-**Phase 2B — local import, durable snapshots, static analysis and architecture
-intelligence.** You can import a local project, get a reproducible SHA-256 snapshot
-of its contents, store it durably, statically analyse its JavaScript and TypeScript
-(declarations, exports, imports, syntax-level findings), and then derive a
-deterministic architectural model from that analysis: the file dependency graph,
-directory modules, cross-module coupling, circular dependencies, fan-in/fan-out and
-explainable structural findings. It runs entirely on your machine: no account, no
+**Phase 3A — execution safety specification.** Phases 1, 2A and 2B are implemented:
+local import with reproducible snapshots, durable storage, syntax-level static
+analysis and architecture intelligence, through the `import` / `list` / `show` /
+`analyze` / `analysis` / `architecture` CLI. The current phase specifies, and does not
+build, the future execution engine. It runs entirely on your machine: no account, no
 network, no telemetry.
 
 **No project code is ever executed.** There is no executor, no install step and no
@@ -38,6 +36,13 @@ check it or resolve packages, and the architecture layer reads only that analysi
 — never the project files again. Verifying experiments (Phases 2C–3) is still
 ahead; see the [roadmap](#roadmap) and
 [ADR-0005](docs/adr/0005-execution-isolation.md).
+
+**Phase 3A adds no execution capability.** The
+[execution safety specification](docs/security/execution-safety-specification-v1.md)
+defines the trust boundaries, threat model, control matrix and acceptance tests a
+future engine must satisfy before any project code may run. Nothing in this repository
+implements it: there is no executor, no sandbox and no `PASS` — an experiment that was
+never executed is `NOT_TESTED`.
 
 ## What works today
 
@@ -312,6 +317,12 @@ Every limit aborts the analysis; none of them silently produces a partial result
   stored analysis through the repository port: it opens no project file, re-parses
   no source and resolves nothing. Every model records the analysis id and digest it
   came from.
+- **Execution safety is specified, not implemented.** The
+  [execution safety specification](docs/security/execution-safety-specification-v1.md)
+  states how a future engine must isolate runs: no host execution and no bypass mode,
+  network off by default, an explicit mount allowlist, mandatory resource limits,
+  digest-pinned images, evidence collected outside the sandbox, and a verdict decided
+  independently of the executed program. No part of it is code yet.
 - **No secrets collected.** Only relative paths, byte sizes and SHA-256 digests are
   stored. File contents are hashed in memory and never persisted or logged; the
   imported project's environment variables are never read.
@@ -359,6 +370,7 @@ Further reading:
 - [Phase 1 import and storage](docs/architecture/phase-1-import-and-storage.md)
 - [Phase 2A static analysis](docs/architecture/phase-2a-static-analysis.md)
 - [Phase 2B architecture intelligence](docs/architecture/phase-2b-architecture-intelligence.md)
+- [Execution safety specification v1](docs/security/execution-safety-specification-v1.md)
 - [Architecture decision records](docs/adr/README.md)
 
 ### Repository layout
@@ -419,7 +431,8 @@ CI runs build before tests, so nothing is skipped there.
 | 0 — Foundation | Product definition, ADRs, domain model, skeleton, CI |
 | 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
 | 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
-| **2B — Architecture intelligence** (current) | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
+| 2B — Architecture intelligence | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
+| **3A — Execution safety specification** (current) | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
 | 2C — Core domain MVP | Experiments + runs end to end, isolated executor, artifacts |
 | 3 — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
 | 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
