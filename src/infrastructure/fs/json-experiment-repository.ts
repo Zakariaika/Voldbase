@@ -22,6 +22,7 @@ import { DomainError } from '../../domain/errors.ts';
 import { cloneExperiment, type Experiment } from '../../domain/experiment.ts';
 import type { ExperimentId, ProjectId } from '../../domain/ids.ts';
 import {
+  assertStorableExperiment,
   documentToExperiments,
   experimentsToDocument,
   EXPERIMENT_STORAGE_SCHEMA_VERSION,
@@ -72,6 +73,10 @@ export class JsonExperimentRepository implements ExperimentRepository {
   }
 
   async save(experiment: Experiment): Promise<void> {
+    // Refuse an invalid record before any I/O: serializing it would write a
+    // document that this repository could no longer read back.
+    assertStorableExperiment(experiment);
+
     const directory = path.dirname(this.#filePath);
     try {
       // The directory must exist before the lock file can be created.

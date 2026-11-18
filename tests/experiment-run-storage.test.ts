@@ -4,8 +4,9 @@
  * Experiments and runs are durable records in their own documents. These tests
  * cover the round trip through fresh repository instances, per-project and
  * per-experiment listing, atomic writes under a lock, terminal-run immutability,
- * and the ways a stored record can become untrustworthy: corrupt JSON, malformed
- * records, duplicate ids and a document written by a newer build.
+ * records refused before they are written, and the ways a stored record can become
+ * untrustworthy: corrupt JSON, malformed records, duplicate ids and a document
+ * written by a newer build.
  */
 
 import assert from 'node:assert/strict';
@@ -246,6 +247,50 @@ describe('experiment storage', () => {
     assert.equal(await fs.readFile(filePath, 'utf8'), '{ not json');
   });
 
+  it('rejects an invalid experiment without touching the stored document', async (t) => {
+    const home = await makeHome(t);
+    const filePath = experimentStorageFilePath(home);
+    await experimentRepository(filePath).save(buildExperiment('exp-1'));
+    const before = await fs.readFile(filePath, 'utf8');
+
+    // A step-less experiment cannot be rehydrated, so writing it would make the
+    // document unreadable.
+    const invalid = { ...buildExperiment('exp-2'), steps: [] } as unknown as Experiment;
+    await assert.rejects(
+      () => experimentRepository(filePath).save(invalid),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'invalid_storage_record' &&
+        /experiment 'exp-2'/.test(error.message),
+    );
+
+    assert.equal(await fs.readFile(filePath, 'utf8'), before);
+    const reopened = experimentRepository(filePath);
+    assert.equal((await reopened.findById(asExperimentId('exp-1')))?.name, 'suite passes');
+    assert.equal(await reopened.findById(asExperimentId('exp-2')), undefined);
+  });
+
+  it('does not create an experiment document for an invalid experiment', async (t) => {
+    const home = await makeHome(t);
+    const filePath = experimentStorageFilePath(home);
+    const candidates: readonly unknown[] = [
+      { ...buildExperiment('exp-steps'), steps: [] },
+      { ...buildExperiment('exp-version'), definitionVersion: 0 },
+      { ...buildExperiment('exp-determinism'), determinism: 'sometimes' },
+      { ...buildExperiment('exp-date'), createdAt: '2026-05-01' },
+    ];
+
+    for (const candidate of candidates) {
+      await assert.rejects(
+        () => experimentRepository(filePath).save(candidate as Experiment),
+        isDomainError('invalid_storage_record'),
+      );
+    }
+
+    await assert.rejects(() => fs.readFile(filePath, 'utf8'), /ENOENT/);
+    assert.deepEqual(await fs.readdir(home), []);
+  });
+
   it('rejects a malformed stored experiment', async () => {
     const stored = experimentsToDocument([buildExperiment()]).experiments[0];
     assert.ok(stored !== undefined);
@@ -422,6 +467,49 @@ describe('run storage', () => {
     });
     await repository.save(completed);
     assert.equal((await repository.findById(asRunId('run-1')))?.state, 'completed');
+  });
+
+  it('rejects an invalid run without touching the stored document', async (t) => {
+    const home = await makeHome(t);
+    const filePath = runStorageFilePath(home);
+    await runRepository(filePath).save(finishedRun('run-1'));
+    const before = await fs.readFile(filePath, 'utf8');
+
+    // A completed run without a result could never be read back.
+    const invalid = { ...buildRun('run-2'), state: 'completed' } as unknown as Run;
+    await assert.rejects(
+      () => runRepository(filePath).save(invalid),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'invalid_storage_record' &&
+        /run 'run-2'/.test(error.message),
+    );
+
+    assert.equal(await fs.readFile(filePath, 'utf8'), before);
+    const reopened = runRepository(filePath);
+    assert.equal((await reopened.findById(asRunId('run-1')))?.result, 'NOT_TESTED');
+    assert.equal(await reopened.findById(asRunId('run-2')), undefined);
+  });
+
+  it('does not create a run document for an invalid run', async (t) => {
+    const home = await makeHome(t);
+    const filePath = runStorageFilePath(home);
+    const candidates: readonly unknown[] = [
+      { ...buildRun('run-state'), state: 'completed' },
+      { ...finishedRun('run-environment'), environment: { ...ENVIRONMENT, os: '' } },
+      { ...buildRun('run-window'), startedAt: new Date('2026-05-01T00:01:00Z') },
+      { ...buildRun('run-hash'), experimentDefinitionHash: '' },
+    ];
+
+    for (const candidate of candidates) {
+      await assert.rejects(
+        () => runRepository(filePath).save(candidate as Run),
+        isDomainError('invalid_storage_record'),
+      );
+    }
+
+    await assert.rejects(() => fs.readFile(filePath, 'utf8'), /ENOENT/);
+    assert.deepEqual(await fs.readdir(home), []);
   });
 
   it('rejects a malformed stored run', async () => {
