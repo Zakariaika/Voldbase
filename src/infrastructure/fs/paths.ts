@@ -11,6 +11,10 @@ import * as path from 'node:path';
 
 import { DomainError } from '../../domain/errors.ts';
 import { ANALYSES_FILE_NAME } from './analysis-storage-schema.ts';
+import {
+  EXPERIMENTS_FILE_NAME,
+  RUNS_FILE_NAME,
+} from './experiment-run-storage-schema.ts';
 import { STORAGE_FILE_NAME } from './storage-schema.ts';
 
 /** Environment variables this build reads. Nothing else is inspected. */
@@ -59,4 +63,24 @@ export function projectStorageFilePath(home: string): string {
  */
 export function analysisStorageFilePath(home: string): string {
   return path.join(home, ANALYSES_FILE_NAME);
+}
+
+/**
+ * Path of the experiment store inside a VOLDBASE home directory.
+ *
+ * Experiments live in their own document: an editable definition must never be
+ * able to damage project, analysis or run data.
+ */
+export function experimentStorageFilePath(home: string): string {
+  return path.join(home, EXPERIMENTS_FILE_NAME);
+}
+
+/**
+ * Path of the run store inside a VOLDBASE home directory.
+ *
+ * Run history is append-only and terminal records are immutable, so it is kept
+ * apart from the editable experiment definitions it refers to.
+ */
+export function runStorageFilePath(home: string): string {
+  return path.join(home, RUNS_FILE_NAME);
 }
