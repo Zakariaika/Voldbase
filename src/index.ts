@@ -103,6 +103,7 @@ export {
   type ProjectSourceKind,
 } from './domain/project.ts';
 export {
+  cloneExperiment,
   createExperiment,
   experimentDefinitionHash,
   type Determinism,
@@ -111,6 +112,7 @@ export {
 } from './domain/experiment.ts';
 export {
   cancelRun,
+  cloneRun,
   completeRun,
   createRun,
   isTerminal,
@@ -242,10 +244,41 @@ export {
   type JsonAnalysisRepositoryOptions,
 } from './infrastructure/fs/json-analysis-repository.ts';
 export {
+  documentToExperiments,
+  documentToRuns,
+  experimentToStored,
+  experimentsToDocument,
+  EXPERIMENTS_FILE_NAME,
+  EXPERIMENT_STORAGE_SCHEMA_VERSION,
+  migrateExperimentsDocument,
+  migrateRunsDocument,
+  runToStored,
+  runsToDocument,
+  RUNS_FILE_NAME,
+  RUN_STORAGE_SCHEMA_VERSION,
+  storedToExperiment,
+  storedToRun,
+  type ExperimentsDocumentV1,
+  type RunsDocumentV1,
+  type StoredExperiment,
+  type StoredExperimentStep,
+  type StoredRun,
+} from './infrastructure/fs/experiment-run-storage-schema.ts';
+export {
+  JsonExperimentRepository,
+  type JsonExperimentRepositoryOptions,
+} from './infrastructure/fs/json-experiment-repository.ts';
+export {
+  JsonRunRepository,
+  type JsonRunRepositoryOptions,
+} from './infrastructure/fs/json-run-repository.ts';
+export {
   analysisStorageFilePath,
+  experimentStorageFilePath,
   HOME_ENV_VAR,
   projectStorageFilePath,
   resolveVoldbaseHome,
+  runStorageFilePath,
 } from './infrastructure/fs/paths.ts';
 export {
   documentToProjects,

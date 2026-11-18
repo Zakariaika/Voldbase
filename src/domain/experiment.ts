@@ -95,6 +95,32 @@ export function createExperiment(input: CreateExperimentInput): Experiment {
 }
 
 /**
+ * Deep copy of an experiment.
+ *
+ * `readonly` is a compile-time promise only: a caller still holds references to
+ * `steps`, `expectedObservations` and `createdAt`, and could mutate them after
+ * handing the experiment over. Adapters that store or return an experiment must
+ * copy it, or the stored definition can drift without passing through a guard.
+ */
+export function cloneExperiment(experiment: Experiment): Experiment {
+  return {
+    id: experiment.id,
+    projectId: experiment.projectId,
+    name: experiment.name,
+    hypothesis: experiment.hypothesis,
+    steps: experiment.steps.map((step) =>
+      step.command === undefined
+        ? { index: step.index, description: step.description }
+        : { index: step.index, description: step.description, command: step.command },
+    ),
+    determinism: experiment.determinism,
+    expectedObservations: [...experiment.expectedObservations],
+    definitionVersion: experiment.definitionVersion,
+    createdAt: new Date(experiment.createdAt.getTime()),
+  };
+}
+
+/**
  * Stable hash of an experiment's executable definition.
  *
  * Deliberately excludes `id`, `createdAt` and `definitionVersion`: the same
