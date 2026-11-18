@@ -120,6 +120,87 @@ export function cloneExperiment(experiment: Experiment): Experiment {
   };
 }
 
+/** The definition fields an experiment revision may change. */
+export type ExperimentDefinitionChanges = Partial<
+  Pick<Experiment, 'name' | 'hypothesis' | 'steps' | 'determinism' | 'expectedObservations'>
+>;
+
+/**
+ * Apply a definition change, bumping `definitionVersion` only when the
+ * definition actually changed (ADR-0006).
+ *
+ * `id`, `projectId` and `createdAt` are preserved: revising edits the same
+ * experiment and never rewrites the history that existing runs point at. The
+ * candidate is rebuilt through `createExperiment`, so a revision cannot smuggle
+ * in a definition that creation would have rejected.
+ */
+export function reviseExperiment(
+  experiment: Experiment,
+  changes: ExperimentDefinitionChanges,
+): Experiment {
+  const candidate = createExperiment({
+    id: experiment.id,
+    projectId: experiment.projectId,
+    name: changes.name ?? experiment.name,
+    hypothesis: changes.hypothesis ?? experiment.hypothesis,
+    steps: changes.steps ?? experiment.steps,
+    determinism: changes.determinism ?? experiment.determinism,
+    expectedObservations:
+      changes.expectedObservations ?? experiment.expectedObservations,
+    definitionVersion: experiment.definitionVersion,
+    createdAt: experiment.createdAt,
+  });
+
+  const changed =
+    experimentDefinitionHash(candidate) !== experimentDefinitionHash(experiment);
+
+  return cloneExperiment({
+    ...candidate,
+    definitionVersion: changed
+      ? experiment.definitionVersion + 1
+      : experiment.definitionVersion,
+  });
+}
+
+/**
+ * Refuse a revision whose `definitionVersion` does not match what changed.
+ *
+ * A changed definition must bump the version exactly once; an unchanged one
+ * must not bump it at all. Without this, two different procedures could share a
+ * version and a revision could silently reuse the old one's identity.
+ */
+export function assertExperimentRevisionIntegrity(
+  current: Experiment,
+  next: Experiment,
+): void {
+  invariant(
+    next.id === current.id,
+    'experiment_identity_changed',
+    `Experiment ${current.id} cannot be revised under id ${next.id}`,
+  );
+  invariant(
+    next.projectId === current.projectId,
+    'experiment_identity_changed',
+    `Experiment ${current.id} cannot move from project ${current.projectId} to ${next.projectId}`,
+  );
+
+  const definitionChanged =
+    experimentDefinitionHash(next) !== experimentDefinitionHash(current);
+  const expectedVersion = definitionChanged
+    ? current.definitionVersion + 1
+    : current.definitionVersion;
+
+  invariant(
+    next.definitionVersion === expectedVersion,
+    'definition_version_mismatch',
+    definitionChanged
+      ? `Experiment ${current.id} changed its definition but records definitionVersion ` +
+        `${next.definitionVersion}; expected ${expectedVersion}. Revise it through reviseExperiment()`
+      : `Experiment ${current.id} has an unchanged definition but records definitionVersion ` +
+        `${next.definitionVersion}; expected ${expectedVersion}`,
+  );
+}
+
 /**
  * Stable hash of an experiment's executable definition.
  *

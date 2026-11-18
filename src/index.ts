@@ -103,11 +103,14 @@ export {
   type ProjectSourceKind,
 } from './domain/project.ts';
 export {
+  assertExperimentRevisionIntegrity,
   cloneExperiment,
   createExperiment,
   experimentDefinitionHash,
+  reviseExperiment,
   type Determinism,
   type Experiment,
+  type ExperimentDefinitionChanges,
   type ExperimentStep,
 } from './domain/experiment.ts';
 export {
