@@ -10,6 +10,10 @@
  * list, an impossible lifecycle or malformed evidence into the application.
  * Nothing is repaired silently: a record that fails validation is reported as
  * `storage_corrupted` and the file is left untouched.
+ *
+ * Writes are validated the same way: a candidate record is serialized and
+ * rehydrated before `#persist`, so a record the loader would reject can never
+ * reach the document.
  */
 
 import { createEvidenceRef, type EvidenceRef } from '../../domain/evidence.ts';
@@ -490,6 +494,60 @@ export function runToStored(run: Run): StoredRun {
     })),
     ...(run.notes === undefined ? {} : { notes: run.notes }),
   };
+}
+
+function describeFailure(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Report a candidate record that cannot be serialized and read back.
+ *
+ * A distinct code is used deliberately: `storage_corrupted` describes a document
+ * already on disk, and a caller may react to it by discarding that file. Here the
+ * stored document is intact and only the new record was refused.
+ */
+function notStorable(context: string, error: unknown): DomainError {
+  const detail =
+    error instanceof DomainError
+      ? error.message.replace(/^Stored (?:experiment|run) data is invalid: /, '')
+      : describeFailure(error);
+  return new DomainError(
+    'invalid_storage_record',
+    `${context} cannot be stored: ${detail}`,
+  );
+}
+
+/**
+ * Validate a candidate experiment through the same path a reader takes.
+ *
+ * Serializing and re-reading the record proves it would survive `#persist` and a
+ * later load unchanged; without this, a caller could write a record that makes the
+ * whole document unreadable.
+ */
+export function assertStorableExperiment(experiment: Experiment): void {
+  const context = `experiment '${String(experiment.id)}'`;
+  try {
+    storedToExperiment(experimentToStored(experiment));
+  } catch (error) {
+    throw notStorable(context, error);
+  }
+}
+
+/**
+ * Validate a candidate run through the same path a reader takes.
+ *
+ * The rehydration replays the run's lifecycle, so an impossible state (a
+ * completed run without a verdict, a queued run holding evidence, ...) is refused
+ * before it can reach the document.
+ */
+export function assertStorableRun(run: Run): void {
+  const context = `run '${String(run.id)}'`;
+  try {
+    storedToRun(runToStored(run));
+  } catch (error) {
+    throw notStorable(context, error);
+  }
 }
 
 function detectVersion(raw: unknown, fail: Fail): number {
