@@ -11,6 +11,10 @@
  * edit never rewrites history.
  *
  * A corrupted document is reported, never silently replaced (ADR-0009).
+ *
+ * The in-process cache is keyed to the identity of the document it was read from,
+ * so a file changed by another instance (or by hand) is re-read instead of being
+ * served from a stale cache.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -58,10 +62,56 @@ function compareIds(left: string, right: string): number {
   return 0;
 }
 
+/**
+ * Identity of the document a cache snapshot was read from.
+ *
+ * This is a change detector, not a content hash: it answers "is this still the
+ * same file?" without reading it again, which is what makes a cached read cheap.
+ * The inode catches the replace-by-rename every write performs; size and mtime
+ * catch an in-place edit.
+ */
+interface DocumentSignature {
+  readonly device: number;
+  readonly inode: number;
+  readonly size: number;
+  readonly modifiedMs: number;
+}
+
+function signatureOf(stats: {
+  dev: number;
+  ino: number;
+  size: number;
+  mtimeMs: number;
+}): DocumentSignature {
+  return {
+    device: stats.dev,
+    inode: stats.ino,
+    size: stats.size,
+    modifiedMs: stats.mtimeMs,
+  };
+}
+
+function sameSignature(
+  left: DocumentSignature | undefined,
+  right: DocumentSignature | undefined,
+): boolean {
+  if (left === undefined || right === undefined) {
+    return left === right;
+  }
+  return (
+    left.device === right.device &&
+    left.inode === right.inode &&
+    left.size === right.size &&
+    left.modifiedMs === right.modifiedMs
+  );
+}
+
 export class JsonExperimentRepository implements ExperimentRepository {
   readonly #filePath: string;
   readonly #lockOptions: LockOptions;
   #experiments: Map<ExperimentId, Experiment> | undefined;
+  /** Identity of the document {@link #experiments} was read from. */
+  #cacheSignature: DocumentSignature | undefined;
 
   constructor(options: JsonExperimentRepositoryOptions) {
     if (typeof options.filePath !== 'string' || options.filePath.trim() === '') {
@@ -113,6 +163,10 @@ export class JsonExperimentRepository implements ExperimentRepository {
 
       await this.#persist(next);
       this.#experiments = next;
+      // The rename changed the document's identity, and another process may have
+      // written again before this line. Invalidate so the next read reloads
+      // rather than trusting a signature this write cannot vouch for.
+      this.#cacheSignature = undefined;
     } finally {
       // Runs on success and on failure: a crash between lock and rename must not
       // leave this process holding the store.
@@ -133,12 +187,37 @@ export class JsonExperimentRepository implements ExperimentRepository {
   }
 
   async #load(): Promise<Map<ExperimentId, Experiment>> {
-    if (this.#experiments !== undefined) {
+    // Sample the document's identity *before* reading. If it is replaced while
+    // the read is in flight, the cache is stored under the older signature and
+    // the next read reloads, instead of caching content that is already outdated.
+    const signature = await this.#currentSignature();
+    if (this.#experiments !== undefined && sameSignature(this.#cacheSignature, signature)) {
       return this.#experiments;
     }
     const experiments = await this.#readFromDisk();
     this.#experiments = experiments;
+    this.#cacheSignature = signature;
     return experiments;
+  }
+
+  /**
+   * Identity of the document on disk, or `undefined` when it does not exist.
+   *
+   * A stat failure other than `ENOENT` is reported, not treated as a cache hit:
+   * "I could not look" is not evidence that the cached snapshot is current.
+   */
+  async #currentSignature(): Promise<DocumentSignature | undefined> {
+    try {
+      return signatureOf(await fs.stat(this.#filePath));
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') {
+        return undefined;
+      }
+      throw new DomainError(
+        'storage_unreadable',
+        `Cannot inspect ${this.#filePath}: ${describe(error)}`,
+      );
+    }
   }
 
   /** Read and validate the document from disk, bypassing the cache. */
