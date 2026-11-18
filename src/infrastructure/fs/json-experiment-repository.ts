@@ -19,7 +19,11 @@ import * as path from 'node:path';
 
 import type { ExperimentRepository } from '../../application/ports.ts';
 import { DomainError } from '../../domain/errors.ts';
-import { cloneExperiment, type Experiment } from '../../domain/experiment.ts';
+import {
+  assertExperimentRevisionIntegrity,
+  cloneExperiment,
+  type Experiment,
+} from '../../domain/experiment.ts';
 import type { ExperimentId, ProjectId } from '../../domain/ids.ts';
 import {
   assertStorableExperiment,
@@ -96,6 +100,12 @@ export class JsonExperimentRepository implements ExperimentRepository {
       // have written since this instance last loaded, and saving our cache would
       // silently drop its records.
       const current = await this.#readFromDisk();
+      const existing = current.get(experiment.id);
+      if (existing !== undefined) {
+        // Checked against the record on disk, not the cache: another process may
+        // have revised the experiment since this instance last loaded it.
+        assertExperimentRevisionIntegrity(existing, experiment);
+      }
       const next = new Map(current);
       // Store a copy: `readonly` is compile-time only, so keeping the caller's
       // object graph would let them mutate the stored definition afterwards.

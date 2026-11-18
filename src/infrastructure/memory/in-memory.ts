@@ -10,7 +10,10 @@ import {
   cloneAnalysisSnapshot,
   type AnalysisSnapshot,
 } from '../../domain/analysis.ts';
-import type { Experiment } from '../../domain/experiment.ts';
+import {
+  assertExperimentRevisionIntegrity,
+  type Experiment,
+} from '../../domain/experiment.ts';
 import { DomainError } from '../../domain/errors.ts';
 import type { AnalysisId, ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
 import {
@@ -96,6 +99,11 @@ export class InMemoryExperimentRepository implements ExperimentRepository {
   readonly #byId = new Map<ExperimentId, Experiment>();
 
   async save(experiment: Experiment): Promise<void> {
+    const existing = this.#byId.get(experiment.id);
+    if (existing !== undefined) {
+      // Every adapter enforces the same revision rule as durable storage.
+      assertExperimentRevisionIntegrity(existing, experiment);
+    }
     this.#byId.set(experiment.id, experiment);
   }
 
