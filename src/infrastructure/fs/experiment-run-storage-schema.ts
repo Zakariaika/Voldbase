@@ -105,6 +105,29 @@ function runCorrupted(detail: string): DomainError {
   return new DomainError('storage_corrupted', `Stored run data is invalid: ${detail}`);
 }
 
+/**
+ * Reject duplicate ids outright.
+ *
+ * A document with two records under the same id cannot be represented by the
+ * repository's map without silently dropping one of them, so the duplicate is
+ * reported as corruption instead of resolving it by position.
+ */
+function assertUniqueIds<T>(
+  records: readonly T[],
+  idOf: (record: T) => string,
+  kind: string,
+  fail: Fail,
+): void {
+  const seen = new Set<string>();
+  for (const record of records) {
+    const id = idOf(record);
+    if (seen.has(id)) {
+      throw fail(`duplicate ${kind} id '${id}'`);
+    }
+    seen.add(id);
+  }
+}
+
 function requireText(value: unknown, field: string, fail: Fail): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw fail(`${field} must be a non-empty string`);
@@ -500,11 +523,13 @@ export function migrateExperimentsDocument(raw: unknown): ExperimentsDocumentV1 
   if (!isRecord(raw) || !Array.isArray(raw.experiments)) {
     throw experimentCorrupted('document has no experiments array');
   }
+  const experiments = raw.experiments.map((entry, index) =>
+    experimentToStored(storedToExperiment(entry, `experiment #${index + 1}`)),
+  );
+  assertUniqueIds(experiments, (experiment) => experiment.id, 'experiment', experimentCorrupted);
   return {
     schemaVersion: 1,
-    experiments: raw.experiments.map((entry, index) =>
-      experimentToStored(storedToExperiment(entry, `experiment #${index + 1}`)),
-    ),
+    experiments,
   };
 }
 
@@ -532,11 +557,13 @@ export function migrateRunsDocument(raw: unknown): RunsDocumentV1 {
   if (!isRecord(raw) || !Array.isArray(raw.runs)) {
     throw runCorrupted('document has no runs array');
   }
+  const runs = raw.runs.map((entry, index) =>
+    runToStored(storedToRun(entry, `run #${index + 1}`)),
+  );
+  assertUniqueIds(runs, (run) => run.id, 'run', runCorrupted);
   return {
     schemaVersion: 1,
-    runs: raw.runs.map((entry, index) =>
-      runToStored(storedToRun(entry, `run #${index + 1}`)),
-    ),
+    runs,
   };
 }
 

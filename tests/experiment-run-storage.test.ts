@@ -5,7 +5,7 @@
  * cover the round trip through fresh repository instances, per-project and
  * per-experiment listing, atomic writes under a lock, terminal-run immutability,
  * and the ways a stored record can become untrustworthy: corrupt JSON, malformed
- * records and a document written by a newer build.
+ * records, duplicate ids and a document written by a newer build.
  */
 
 import assert from 'node:assert/strict';
@@ -31,6 +31,7 @@ import {
   JsonExperimentRepository,
   JsonRunRepository,
   projectStorageFilePath,
+  runsToDocument,
   runStorageFilePath,
   RUN_STORAGE_SCHEMA_VERSION,
   startRun,
@@ -259,6 +260,27 @@ describe('experiment storage', () => {
     );
   });
 
+  it('rejects duplicate experiment ids instead of keeping one', async (t) => {
+    const home = await makeHome(t);
+    const filePath = experimentStorageFilePath(home);
+    const raw = `${JSON.stringify(
+      experimentsToDocument([buildExperiment('exp-1'), buildExperiment('exp-1')]),
+      null,
+      2,
+    )}\n`;
+    await fs.writeFile(filePath, raw, 'utf8');
+
+    await assert.rejects(
+      () => experimentRepository(filePath).listByProject(asProjectId('proj-1')),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'storage_corrupted' &&
+        /duplicate experiment id 'exp-1'/.test(error.message),
+    );
+    // The duplicate document is reported, never rewritten or deduplicated.
+    assert.equal(await fs.readFile(filePath, 'utf8'), raw);
+  });
+
   it('rejects a document written by a newer build', async (t) => {
     const home = await makeHome(t);
     const filePath = experimentStorageFilePath(home);
@@ -417,6 +439,27 @@ describe('run storage', () => {
     };
 
     assert.throws(() => documentToRuns(malformed), isDomainError('storage_corrupted'));
+  });
+
+  it('rejects duplicate run ids instead of keeping one', async (t) => {
+    const home = await makeHome(t);
+    const filePath = runStorageFilePath(home);
+    const raw = `${JSON.stringify(
+      runsToDocument([buildRun('run-1'), finishedRun('run-1')]),
+      null,
+      2,
+    )}\n`;
+    await fs.writeFile(filePath, raw, 'utf8');
+
+    await assert.rejects(
+      () => runRepository(filePath).listByExperiment(asExperimentId('exp-1')),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'storage_corrupted' &&
+        /duplicate run id 'run-1'/.test(error.message),
+    );
+    // The duplicate document is reported, never rewritten or deduplicated.
+    assert.equal(await fs.readFile(filePath, 'utf8'), raw);
   });
 
   it('rejects a document written by a newer build', async (t) => {
