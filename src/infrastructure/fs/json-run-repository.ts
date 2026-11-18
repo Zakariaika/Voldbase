@@ -22,6 +22,7 @@ import { DomainError } from '../../domain/errors.ts';
 import type { ExperimentId, RunId } from '../../domain/ids.ts';
 import { cloneRun, isTerminal, type Run } from '../../domain/run.ts';
 import {
+  assertStorableRun,
   documentToRuns,
   runsToDocument,
   RUN_STORAGE_SCHEMA_VERSION,
@@ -97,6 +98,11 @@ export class JsonRunRepository implements RunRepository {
           `Run ${run.id} is ${existing.state} and cannot be modified; record a new run instead`,
         );
       }
+
+      // Refuse an invalid record before it can reach the document. Validation runs
+      // after the immutability guard so that mutating a terminal run is still
+      // reported as `immutable_run`, the more specific rule.
+      assertStorableRun(run);
 
       const next = new Map(current);
       // Store a copy: `readonly` is compile-time only, so keeping the caller's
