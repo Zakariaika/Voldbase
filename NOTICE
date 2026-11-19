@@ -117,12 +117,18 @@ retain all rights. See `LICENSE` section 3.2 and section 9.
 
 5. CONTRIBUTORS
 
-Contributors keep their copyright. A contribution is licensed to the project,
-not assigned to it: `LICENSE` section 8 grants the Copyright Holder a
-perpetual, irrevocable, transferable and sublicensable license to reproduce,
-modify, distribute and relicense the contribution as part of the Software,
-including under commercial terms. The project does not claim ownership of
-contributors' work, and no contribution becomes the Copyright Holder's property.
+**Copyright stays where it is held.** The project does not claim ownership of
+contributors' work, and no contribution becomes the Copyright Holder's
+property. Copyright in a contribution remains with whoever actually holds it:
+an individual contributor to the extent they own it, or an employer, client or
+other organisation that owns or controls it. The project does not assert that
+every contributor personally owns copyright in what they submit, and it does
+not decide ownership. A contribution is licensed to the project, not assigned
+to it: `LICENSE` section 8.4 grants the Copyright Holder a perpetual,
+irrevocable, transferable and sublicensable license to reproduce, modify,
+distribute and relicense the contribution as part of the Software, including
+under commercial terms, but only to the extent the grantor holds, or is
+authorised to grant, those rights.
 
 **Consent is recorded, not presumed.** Submitting a pull request, pushing a
 commit, attaching a patch or opening an issue does not by itself agree to those
@@ -245,17 +251,26 @@ This draft deliberately leaves the following unresolved rather than guessing:
   intended jurisdictions, in particular whether a recipient's permission truly
   survives a redistributor's breach, and whether `LICENSE` 8.5 limits a
   recipient's grant to non-commercial rights in every legal system.
-- Whether `LICENSE` section 11's materiality standard, 30-day cure period,
-  notice mechanics and post-termination deletion duty are appropriate and
-  enforceable, and how they interact with rights that cannot be waived or
-  revoked.
+- Whether `LICENSE` section 11's materiality standard, its three classes of
+  breach — fully curable, stoppable-but-not-undoable, and genuinely
+  incurable — the 30-day cure period, the notice mechanics and the
+  post-termination deletion duty are appropriate and enforceable, and how they
+  interact with rights that cannot be waived or revoked. In particular,
+  whether treating cessation or mitigation of continuing effects as a cure,
+  rather than as an incurable breach, is correct in each intended
+  jurisdiction, and whether a past occurrence that cannot be undone must still
+  carry a remedy.
 - What liability position can be stated where exclusion is not permitted, and
   whether a monetary cap or insurance is appropriate (`LICENSE` 13.2). This
   draft sets no cap, formula or fixed amount, and asserts no particular
   limitation, because none could be chosen responsibly without advice.
-- How the open non-commercial cases in `LICENSE` 1.8(j)–(n) should be classified:
-  non-profit internal use, government and public-sector use, mixed-funded
-  research, donation-funded hosted services, and donations to contributors.
+- How the open non-commercial cases in `LICENSE` 1.8(j)–(n) should be
+  classified: non-profit internal use, government and public-sector use,
+  mixed-funded research, a donation-funded hosted service, and whether an
+  unconditional personal gift to a contributor or to the project is itself a
+  Commercial Use. The third donation case — a payment, sponsorship or donation
+  tied to commercial operation or a benefit — is classified as commercial in
+  `LICENSE` 1.4(f) and 1.8 and is not left open here.
 - Whether the scope of the evaluation allowance in `LICENSE` 1.3(d) — no fixed
   period, no production use, no paid delivery of results — is workable.
 - Whether any prose, algorithm, design element or AI-assisted output in the
