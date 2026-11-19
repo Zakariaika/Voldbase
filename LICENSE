@@ -1,5 +1,5 @@
 VOLDBASE SOURCE-AVAILABLE LICENSE (DRAFT)
-Draft version 0.2 — 2026-11-19
+Draft version 0.3 — 2026-11-19
 
 Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
 
@@ -56,13 +56,22 @@ grants the rights that an open-source license such as the MIT License grants.
     (c) use in paid consulting, contracting, development or support work;
     (d) use to provide a hosted, managed or software-as-a-service offering,
         whether or not a fee is charged, where it is operated by or for an
-        entity as part of its activities;
+        entity as part of its activities, except the donation-funded free
+        public service that section 1.8(m) leaves open;
     (e) use in training, fine-tuning, benchmarking or evaluating a commercial
         model, product or service;
     (f) accepting payment, sponsorship, advertising revenue or other
         consideration in connection with distributing, operating or supporting
         the Software or a Modification, or using the Software to deliver a paid
-        service;
+        service. Consideration is commercial when it is given in exchange for,
+        or in expectation of, a product, service, influence, access or other
+        benefit, or when it is received by the person or entity that
+        distributes, operates or supports the Software. A personal gift or
+        donation to a contributor that is not connected with the Software and
+        exchanges no such benefit is addressed in section 1.8(n) and is not
+        classified by this paragraph. A donation that funds the free public
+        service in section 1.8(m) is governed by that paragraph and not by this
+        one;
     (g) use by an employee, contractor or agent in the course of their work for
         an employer or principal, where the use by that employer or principal
         would itself be Commercial Use.
@@ -105,12 +114,14 @@ grants the rights that an open-source license such as the MIT License grants.
     (f) use by an employee, contractor or agent in the course of work for an
         employer or principal whose use would be Commercial Use;
     (g) any hosted, managed or software-as-a-service offering operated by or for
-        an entity as part of its activities, whether or not a fee is charged;
+        an entity as part of its activities, whether or not a fee is charged,
+        other than the donation-funded case that paragraph (m) leaves open;
     (h) commercial deployment, selling, sublicensing and commercial
         redistribution, each of which also requires permission under section 5;
-    (i) accepting payment, sponsorship, advertising revenue or other
-        consideration in connection with distributing, operating or supporting
-        the Software or a Modification.
+    (i) accepting payment, sponsorship, advertising revenue or other commercial
+        consideration, as section 1.4(f) defines it, in connection with
+        distributing, operating or supporting the Software or a Modification,
+        other than the cases in paragraphs (m) and (n).
 
     Left open; not classified by this draft:
 
@@ -122,9 +133,18 @@ grants the rights that an open-source license such as the MIT License grants.
         performed under an agreement that gives a commercial sponsor rights in
         the results;
     (m) a donation-funded project that operates the Software as a free public
-        service;
-    (n) whether a donation or sponsorship given to a contributor, with no
-        product, service or influence exchanged, is itself a commercial use.
+        service, where access is free of charge and the project derives no
+        revenue from the service other than donations that are not
+        consideration for it. Section 1.4(d) does not classify this case, and
+        this draft leaves it open rather than deciding it there;
+    (n) whether a personal donation or gift to a contributor is itself a
+        commercial use, where nothing is exchanged for it, it is not connected
+        with distributing, operating or supporting the Software, and no
+        product, service, influence, access or other benefit is given or
+        promised. Section 1.4(f) classifies a donation, sponsorship or payment
+        that is connected with the Software or that buys any such benefit; a
+        donation that funds the free service in paragraph (m) is governed by
+        that paragraph.
 
     For an open case this draft does not choose a classification. Pending the
     Copyright Holder's written decision, an open case should be treated as
@@ -172,9 +192,10 @@ grants the rights that an open-source license such as the MIT License grants.
 
 3.3 Excluded — contributors' work. This license does NOT transfer or claim
     ownership of any contribution made by anyone other than the Copyright
-    Holder. A contributor retains copyright in their contribution and licenses
-    it as described in section 8. Nothing in this license should be read as an
-    assignment of a contributor's copyright.
+    Holder. A contributor, or the person or organisation that holds the
+    copyright in the contribution, retains that copyright and licenses the
+    contribution as described in section 8. Nothing in this license should be
+    read as an assignment of a contributor's copyright.
 
 3.4 Excluded — names, logos and brand identity. This license grants no rights
     in the VOLDBASE name, logo, wordmark, visual identity or any other
@@ -207,12 +228,14 @@ grants the rights that an open-source license such as the MIT License grants.
         to any of those commits, and it does not apply to any copy obtained
         from them.
     (e) Start of this license, and the limit of what can be stated. This draft
-        applies to repository contents from the first commit on `main` that
-        contains it. That commit is the merge commit of the pull request that
-        introduces this draft. It did not exist when this section was written,
-        so its identifier cannot be recorded here and must not be guessed. Until
-        such a commit exists on `main`, no version on `main` is distributed
-        under this draft.
+        applies to repository contents from the first commit on `main` whose
+        tree contains it. That commit is identified by that fact alone, not by
+        its commit message or by the way the change was landed: whether it is a
+        merge commit, a squashed commit or a direct commit, the boundary is the
+        first commit on `main` that contains this draft. It did not exist when
+        this section was written, so its identifier cannot be recorded here and
+        must not be guessed. Until such a commit exists on `main`, no version on
+        `main` is distributed under this draft.
     (f) No releases. The repository has no tags and no published releases, so
         the boundary is commit-based only: there are no release artifacts on
         either side of it.
@@ -231,7 +254,8 @@ grants the rights that an open-source license such as the MIT License grants.
 
 4.1 Subject to your compliance with this license, the Copyright Holder grants
     you a worldwide, royalty-free, non-exclusive, non-transferable,
-    non-sublicensable and revocable permission to:
+    non-sublicensable and revocable permission, revocable only through the
+    procedure in section 11, to:
 
     (a) use, run, reproduce and display the Software for Non-Commercial Use;
     (b) Modify the Software for Non-Commercial Use;
@@ -255,6 +279,11 @@ grants the rights that an open-source license such as the MIT License grants.
     This permission is personal to you. Except as described in section 4.1(c)
     and section 4.4, you may not transfer it, assign it, or sublicense any of
     the rights it grants.
+
+    The word "revocable" in this section refers only to section 11. The
+    Copyright Holder does not reserve a right to withdraw this permission at
+    will, on mere notice or for convenience, and no other provision of this
+    license should be read as granting one.
 
 4.2 Modified versions may be Distributed only for Non-Commercial Use, and only
     if every Distribution satisfies all of the following conditions:
@@ -428,7 +457,12 @@ grants the rights that an open-source license such as the MIT License grants.
     accepted into the Software: it must not be merged, and if it is merged by
     mistake it may be reverted. The Copyright Holder may also agree separate
     written terms with a contributor, in which case those terms govern that
-    contribution to the extent they differ.
+    contribution to the extent they differ. Where a contribution is owned or
+    controlled by an employer, client or other organisation rather than by the
+    individual submitting it, acceptance also requires that the organisation's
+    authority to submit it and to grant the license in section 8.4 be recorded,
+    either in the contributor's acceptance statement or in separate written
+    terms under this section.
 
     An acceptance recorded for a pull request covers the commits in that pull
     request when the statement was posted, and any further commits the
@@ -443,25 +477,32 @@ grants the rights that an open-source license such as the MIT License grants.
 
     (a) you are the author of the contribution or have the right to submit it;
     (b) the contribution is your original work, or any third-party material in
-        it is clearly identified and properly licensed, with its notices
-        preserved;
+        it is clearly identified, properly licensed, and licensed in a way that
+        permits the grant in section 8.4, with its notices preserved;
     (c) to your knowledge the contribution does not infringe anyone's rights;
-    (d) you are not submitting it on behalf of, or as part of work for, a
-        commercial entity that expects to receive commercial rights in the
-        Software, unless that entity has separately agreed terms in writing
-        with the Copyright Holder; and
-    (e) you have authority to grant the license in section 8.4 for the whole
-        contribution.
+    (d) if the contribution is owned or controlled by an employer, client or
+        other organisation, or is submitted on behalf of one, you have that
+        organisation's authority to submit it and to grant the license in
+        section 8.4, or that organisation has separately agreed terms in
+        writing with the Copyright Holder; and
+    (e) you hold, or are authorised to grant, the rights in section 8.4 for the
+        whole contribution, and you grant only the rights you actually hold or
+        are authorised to grant.
 
 8.3 You retain copyright in your contribution. Nothing in this license
     transfers, assigns or otherwise conveys ownership of your contribution to
     the Copyright Holder, and the Copyright Holder does not claim ownership of
     it. Copyright in your contribution stays with you (or with whoever held it
-    before you), subject only to the license you grant in section 8.4.
+    before you), subject only to the license you grant in section 8.4. If your
+    employer, client or another organisation owns or controls that copyright,
+    this section applies to that holder in the same way: nothing here transfers
+    their copyright, and the license in section 8.4 is granted only to the
+    extent you are authorised to grant it.
 
 8.4 License granted to the Copyright Holder. When you record acceptance under
     section 8.1, you grant the Copyright Holder, for each contribution you
-    submit under these Contribution Terms, a perpetual, irrevocable, worldwide,
+    submit under these Contribution Terms and to the extent you hold, or are
+    authorised to grant, the rights in it, a perpetual, irrevocable, worldwide,
     royalty-free, non-exclusive, transferable and sublicensable license to:
 
     (a) reproduce, store and archive the contribution;
@@ -479,7 +520,11 @@ grants the rights that an open-source license such as the MIT License grants.
     and commercially license VOLDBASE, and it is granted only for contributions
     you submit under these Contribution Terms or under separate written terms.
     It is a license, not an assignment: it does not make the Copyright Holder
-    the owner of your contribution.
+    the owner of your contribution. The grant covers only rights you hold or
+    are authorised to grant. It does not cover third-party material you are not
+    entitled to license, and it conveys nothing in material that section 8.2(b)
+    requires you to identify as owned by another party, beyond what that
+    party's license permits.
 
     Paragraph (e) is the commercial element, and it is deliberate rather than
     incidental: section 5 makes commercial use available only by written
@@ -579,20 +624,31 @@ grants the rights that an open-source license such as the MIT License grants.
      and continues until terminated under this section.
 
 11.2 Material breach and notice. If you materially breach this license, the
-     Copyright Holder may terminate your permission by written notice. The
-     termination takes effect 30 days after the notice unless, before then, you
-     cure the breach and confirm the cure in writing to the Copyright Holder. If
-     the breach cannot be cured, termination takes effect when the notice is
-     given. A breach is material if it defeats the purpose of this license,
-     including commercial use or commercial distribution without permission
-     under section 5, a failure to keep the notices required by section 6.1, or
-     presenting an unexecuted run as a `PASS` in breach of section 6.3.
+     Copyright Holder may terminate your permission only by written notice that
+     identifies the breach and, where the breach can be cured, states what is
+     required to cure it. Where the breach can be cured, termination takes
+     effect 30 days after the notice unless, before then, you cure the breach
+     and confirm the cure in writing to the Copyright Holder; a cure within that
+     period means no termination occurs. Where the breach cannot be cured,
+     termination takes effect when the notice is given. A breach is material
+     only if it defeats the purpose of this license. Commercial use or
+     commercial distribution without permission under section 5, and presenting
+     an unexecuted run as a `PASS` in breach of section 6.3, are material. A
+     failure to keep the notices required by section 6.1 is material only where
+     it defeats that purpose — for example, removing notices in order to pass
+     the Software off as unlicensed or as the distributor's own work — and not
+     where it is an accidental or technical omission corrected after notice.
 
-11.3 Minor breaches. Termination is not automatic and is not intended for
-     minor, technical or accidental breaches. A breach that is not material does
-     not terminate this license; the Copyright Holder may require you to correct
-     it, and a continued failure to correct it may become a material breach
-     under section 11.2.
+11.3 Minor, technical and accidental breaches. Termination is not automatic
+     and is not available for a breach that is not material. An accidental or
+     technical violation — including an inadvertent omission of a notice, a
+     metadata error, or a momentary failure that is corrected promptly after the
+     Copyright Holder points it out — does not terminate this license and does
+     not by itself become material. The Copyright Holder may require you to
+     correct it. Only if you fail to correct it after written notice, and that
+     continued failure defeats the purpose of this license, may it become a
+     material breach under section 11.2. Nothing in this section creates a
+     termination right that section 11.2 does not give.
 
 11.4 Claims and challenges. Bringing a claim that the Copyright Holder's rights
      in the Software are invalid, or that the Copyright Holder's exercise of
@@ -621,8 +677,18 @@ grants the rights that an open-source license such as the MIT License grants.
      Copyright Holder's discretion, takes effect only in writing, and does not
      excuse a breach that occurred before it.
 
-11.8 Sections 1, 3, 6.2, 7, 8.4, 8.5, 9, 10, 12, 13, 14 and this section survive
-     termination.
+11.8 Sections 1, 3, 6.2, 7, 8.3, 8.4, 8.5, 8.9, 9, 10, 12, 13, 14 and this
+     section survive termination.
+
+     Survival preserves the terms, not a terminated party's permission. What a
+     terminated party and its recipients may still do is governed by sections
+     11.5 and 11.6. Section 8.3 survives because a contributor's retained
+     copyright is not affected by the termination of any license granted under
+     this document. Section 8.9 survives only so that a contribution already
+     part of a copy lawfully distributed before termination may continue to be
+     distributed under the permissions that survive under section 11.6; it does
+     not give a terminated party any new right to modify or distribute the
+     Software.
 
 12. DISCLAIMER OF WARRANTY
 
@@ -643,14 +709,16 @@ AT YOUR OWN RISK.
      LICENSE, WHETHER IN CONTRACT, TORT, NEGLIGENCE OR OTHERWISE, EVEN IF
      ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-13.2 WHERE LIABILITY CANNOT BE EXCLUDED, THE COPYRIGHT HOLDER'S LIABILITY IS
-     LIMITED TO THE SMALLEST AMOUNT THAT APPLICABLE LAW PERMITS IN THE
-     CIRCUMSTANCES. THIS DRAFT DELIBERATELY SETS NO MONETARY CAP AND NO FORMULA
-     FOR ONE: A CAP CHOSEN WITHOUT LEGAL ADVICE MAY BE UNENFORCEABLE, AND A CAP
-     SET BELOW A STATUTORY MINIMUM HAS NO EFFECT. THE CAP, AND WHETHER A CAP IS
-     APPROPRIATE AT ALL, MUST BE SETTLED WITH QUALIFIED COUNSEL BEFORE THIS
-     DRAFT IS TREATED AS FINAL. THE QUESTION IS RECORDED IN `NOTICE` ("OPEN
-     QUESTIONS FOR LEGAL REVIEW") AND IS NOT PRESENTED HERE AS SETTLED LAW.
+13.2 THIS DRAFT SETS NO MONETARY CAP, NO FORMULA AND NO FIXED LIMITATION
+     AMOUNT, AND IT DOES NOT ASSERT THAT ANY PARTICULAR LIMITATION IS
+     ENFORCEABLE. SECTION 13.1 STATES THE EXCLUSION THE COPYRIGHT HOLDER
+     INTENDS. WHERE APPLICABLE LAW DOES NOT PERMIT THAT EXCLUSION, OR PERMITS IT
+     ONLY IN PART, THE EXTENT OF THE COPYRIGHT HOLDER'S LIABILITY IS LEFT TO
+     THAT LAW AND IS UNRESOLVED IN THIS DRAFT. WHETHER A LIMITATION, A MONETARY
+     CAP OR INSURANCE IS APPROPRIATE, AND WHAT FORM IT COULD TAKE, MUST BE
+     SETTLED WITH QUALIFIED COUNSEL BEFORE THIS DRAFT IS TREATED AS FINAL. THE
+     QUESTION IS RECORDED IN `NOTICE` ("OPEN QUESTIONS FOR LEGAL REVIEW") AND IS
+     NOT PRESENTED HERE AS SETTLED LAW.
 
 14. GENERAL
 
@@ -665,12 +733,25 @@ AT YOUR OWN RISK.
      permissions without the Copyright Holder's prior written consent. The
      Copyright Holder may assign the copyright and this license.
 
-14.4 Entire agreement. This license, together with `NOTICE` and
-     `TRADEMARKS.md`, is the entire statement of the permissions granted for
-     the Software, and replaces any earlier statement about licensing the
-     Software, except rights already granted for copies obtained under a
-     previous license (section 3.6). A separate written permission under section
-     5 governs where it applies.
+14.4 Document hierarchy and entire agreement. The documents that make up this
+     licensing documentation have separate and limited roles:
+
+     (a) `LICENSE` (this document) governs the permissions in the Software, and
+         it is the only one of these documents that grants or limits those
+         permissions;
+     (b) `TRADEMARKS.md` governs use of the Brand and any trademark right. It
+         grants no permission in the Software;
+     (c) `NOTICE` provides copyright notices, attribution, third-party
+         disclosures and factual statements about the current state of the
+         Software. It grants no permission in the Software.
+
+     Where `NOTICE` or `TRADEMARKS.md` appears to state a permission or a
+     restriction in the Software that differs from this license, this license
+     governs and the other document does not override it. A separate written
+     permission under section 5 governs where it applies. Together these
+     documents replace any earlier statement about licensing the Software,
+     except rights already granted for copies obtained under a previous license
+     (section 3.6).
 
 14.5 Governing law and venue. NOT DESIGNATED IN THIS DRAFT. The governing law,
      jurisdiction and dispute-resolution forum are unresolved and must be
@@ -680,4 +761,4 @@ AT YOUR OWN RISK.
 14.6 Language. This license is written in English. A translation is for
      convenience only; the English text expresses the Copyright Holder's intent.
 
-— End of draft license (version 0.2, 2026-11-19) —
+— End of draft license (version 0.3, 2026-11-19) —
