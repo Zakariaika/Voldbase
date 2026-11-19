@@ -21,10 +21,14 @@ owner intends to use from this point on.
 
 VOLDBASE is source-available, not open source. It is distributed under the
 VOLDBASE Source-Available License (draft), in `LICENSE`. That license permits
-personal, educational and other non-commercial use, personal non-commercial
+personal, educational and other non-commercial use, non-commercial
 modification, and non-commercial contributions, and requires prior written
 permission for commercial use (including internal business use), selling,
-sublicensing and commercial redistribution.
+sublicensing and commercial distribution. Non-commercial redistribution of
+unmodified copies is permitted, and so is non-commercial distribution of a
+modified version that meets the conditions in `LICENSE` section 4.2: a different
+name, no official identity, a clear unofficial-and-unaffiliated statement,
+preserved notices, and the license texts included for recipients.
 
 The license text is a draft. It has not been reviewed or approved by a lawyer,
 and it is not a claim that its terms are enforceable in any jurisdiction.
@@ -144,5 +148,9 @@ This draft deliberately leaves the following unresolved rather than guessing:
 - Whether any dependency, tool or asset imposes notice or redistribution
   obligations beyond those recorded in section 4.
 - Whether the name and logo have any registered or common-law trademark status.
+- Whether the conditions in `LICENSE` section 4.2 are sufficient in practice to
+  stop a modified version from becoming a substitute commercial product, and
+  whether the naming requirement can be applied consistently to package names,
+  repository names and hosted forks.
 
 — End of NOTICE —

@@ -58,10 +58,12 @@ factual, non-misleading references:
     "approved by VOLDBASE", or a logo lockup with another product's mark.
 
 4.3 Distributing a modified version under the VOLDBASE name, or under a name
-    that suggests it is the official Software. A modified version may only be
-    distributed with the prior written permission required by `LICENSE`
-    section 4.2, and must be presented under a different name, with a clear
-    statement that it is modified and not the official Software.
+    that suggests it is the official Software. A modified version may be
+    distributed non-commercially only if it is presented under a different name,
+    uses none of the official identity, and says clearly that it is modified,
+    unofficial and not affiliated with the project (`LICENSE` section 4.2).
+    Commercial distribution requires the prior written permission required by
+    `LICENSE` section 5.
 
 4.4 Using the logo, logotype, icon or visual identity in your own product,
     website, repository, documentation, merchandise, advertising or
@@ -78,7 +80,8 @@ factual, non-misleading references:
 
 5. NAMING FORKS AND DERIVATIVES
 
-If you are permitted to distribute a Modification, you must:
+If you distribute a Modification — which `LICENSE` section 4.2 permits for
+non-commercial use — you must:
 
 5.1 give it a different name that does not include "VOLDBASE" or a confusingly
     similar term;

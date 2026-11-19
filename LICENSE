@@ -143,7 +143,7 @@ grants the rights that an open-source license such as the MIT License grants.
     non-sublicensable and revocable permission to:
 
     (a) use, run, reproduce and display the Software for Non-Commercial Use;
-    (b) Modify the Software for your own personal, non-commercial purposes;
+    (b) Modify the Software for Non-Commercial Use;
     (c) Distribute unmodified copies of the Software for Non-Commercial Use,
         provided that:
         (i) every copy keeps this license, `NOTICE` and `TRADEMARKS.md` intact
@@ -156,45 +156,94 @@ grants the rights that an open-source license such as the MIT License grants.
               them directly; and
         (iv) you do not present the copy as your own work or as endorsed by the
              Copyright Holder;
-    (d) make your Modifications available to others as a contribution under
-        section 8, and not otherwise.
+    (d) publish, Distribute and make available Modifications for Non-Commercial
+        Use, subject to the conditions in section 4.2, and make your
+        Modifications available to others as a contribution under section 8.
 
     This permission is personal to you. Except as described in section 4.1(c)
     and section 4.4, you may not transfer it, assign it, or sublicense any of
     the rights it grants.
 
-4.2 Modified versions may not be Distributed without the prior written
-    permission of the Copyright Holder. This includes publishing a fork, a
-    patch series, or a modified build. Reading, studying, running and privately
-    modifying the Software for Non-Commercial Use remain permitted.
+4.2 Modified versions may be Distributed only for Non-Commercial Use, and only
+    if every Distribution satisfies all of the following conditions:
+
+    (a) Different name. The modified version is presented under a name that is
+        not "VOLDBASE", does not contain "VOLDBASE", and is not confusingly
+        similar to it or to the VOLDBASE name or visual identity. The name may
+        appear only in a factual statement of origin such as "derived from
+        VOLDBASE".
+    (b) No official identity. The official VOLDBASE logo, logotype, icon and
+        visual identity are not used at all — not in the modified version's
+        name, icon, splash screen, documentation, repository or promotion.
+    (c) Clear unofficial statement. The distribution and its documentation
+        state prominently and in plain language that it is a modified version,
+        that it is unofficial, and that it is not affiliated with, endorsed by
+        or supported by the Copyright Holder or the VOLDBASE project.
+    (d) Notices preserved. Every applicable copyright notice, this license,
+        `NOTICE`, `TRADEMARKS.md` and all third-party notices are included
+        unmodified with the distribution, together with the notices for any
+        third-party component the modified version adds.
+    (e) No implied endorsement. Nothing in the modified version's name,
+        presentation, documentation or metadata states or suggests that the
+        Copyright Holder endorses, certifies, sponsors or supports it.
+    (f) License terms for recipients. The distribution includes the complete
+        text of this license, `NOTICE` and `TRADEMARKS.md`, so every recipient
+        can read the terms that apply to the Software.
+    (g) Non-commercial only. The Distribution is free of charge, is not sold,
+        licensed, rented or monetised in any way, and is not bundled into
+        anything that is sold, licensed or monetised.
+
+    A Distribution of a modified version conveys no commercial right of any
+    kind. Distributing a modified version for a commercial purpose, or on terms
+    outside this section, requires the prior written permission of the Copyright
+    Holder under section 5. Reading, studying, running and privately modifying
+    the Software for Non-Commercial Use remain permitted without these
+    conditions; they apply when a Modification is Distributed.
+
+    You may license your own original contributions in the modified version on
+    terms of your choosing, but you may not impose terms that narrow a
+    recipient's rights in the Software itself, and you must not describe the
+    Software as available to the recipient under any additional or different
+    license.
 
 4.3 This license grants only the permissions stated in it. All other rights are
     reserved by the Copyright Holder. No permission is granted by implication,
     estoppel, exhaustion or otherwise, and no permission is granted to use the
-    Software in any way that competes with, substitutes for, or commercially
-    exploits the Software.
+    Software in any way that commercially exploits it, or that competes with or
+    substitutes for the Software commercially.
 
-4.4 Redistribution of an unmodified copy is a direct grant, not a sublicense
-    and not a transfer. When you pass on an unmodified copy under section
-    4.1(c), you do not sublicense the Software, you do not transfer or assign
-    your own permission, and you do not act as the Copyright Holder's agent.
-    Each recipient receives their own non-commercial permission directly from
-    the Copyright Holder under section 4.1 by obtaining the copy, and that
-    permission is subject to the same conditions as yours. This is why the
-    permission granted in section 4.1 is non-transferable and non-sublicensable
-    without contradicting section 4.1(c): the copy is passed on, the permission
-    is not moved. Your own permission ends if you breach this license, but a
-    recipient who complies with section 4.1 keeps the permission they received
-    with the copy.
+4.4 Redistribution is a direct grant, not a sublicense. When you pass on a copy
+    of the Software — unmodified under section 4.1(c), or modified under section
+    4.1(d) and section 4.2 — you do not sublicense the Software, you do not
+    transfer or assign your own permission, and you do not act as the Copyright
+    Holder's agent. You distribute a copy, and the recipient's permission to the
+    Software comes directly from the Copyright Holder under section 4.1,
+    including the permission to modify and to redistribute non-commercially
+    under sections 4.1(b), 4.1(d) and 4.2, subject to the same conditions as
+    yours. This is why the permission granted in section 4.1 is non-transferable
+    and non-sublicensable without contradicting sections 4.1(c) and 4.2: the
+    copy is passed on, the permission is not moved. Your own permission ends if
+    you breach this license, but a recipient who complies with section 4.1
+    keeps the permission they received with the copy.
+
+    Two limits follow. A recipient of a modified version receives the Copyright
+    Holder's permission in the Software, not a permission in the modifier's own
+    original contributions, which the modifier licenses separately. And no
+    Distribution under section 4.1(c) or section 4.2 grants the recipient any
+    commercial right: a recipient who wants one must obtain it from the
+    Copyright Holder under section 5.
 
 4.5 No commercial redistribution. Selling, licensing, renting, sublicensing or
     otherwise commercially redistributing the Software or a Modification —
     including bundling it into a paid product, a paid service, a paid course, a
     paid support or hosting offering, or an ad-monetised distribution —
     requires the prior written permission of the Copyright Holder under section
-    5. Passing on an unmodified copy free of charge under section 4.1(c) is the
-    only redistribution this license permits, and it conveys no right to
-    distribute the Software commercially.
+    5. Passing on an unmodified copy free of charge under section 4.1(c), and
+    Distributing a modified version free of charge under section 4.1(d) and
+    section 4.2, are the only redistributions this license permits. Neither
+    conveys any commercial right to the recipient, neither may be used as a step
+    toward a commercial distribution, and neither may remove or relax the
+    conditions in section 4.2.
 
 5. COMMERCIAL USE REQUIRES PRIOR WRITTEN PERMISSION
 
