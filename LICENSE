@@ -35,13 +35,13 @@ grants the rights that an open-source license such as the MIT License grants.
     commercial advantage or monetary compensation. It includes personal study
     and hobby projects; classroom teaching and coursework; academic research
     that is neither commissioned nor sponsored by a commercial entity and does
-    not deliver a service to third parties; use by a charitable or non-profit
-    organisation in furtherance of its mission where the organisation charges
-    nothing for the use and derives no revenue from it; and evaluation of the
-    Software for the purpose of deciding whether to request a commercial
-    license, provided the evaluation is not put to production or commercial use
-    and its results are not delivered to third parties for payment. Section 1.8
-    states which specific cases this draft resolves and which it leaves open.
+    not deliver a service to third parties; and evaluation of the Software for
+    the purpose of deciding whether to request a commercial license, provided
+    the evaluation is not put to production or commercial use and its results
+    are not delivered to third parties for payment. Section 1.8 states which
+    specific cases this draft resolves and which it leaves open; non-profit and
+    public-sector internal use is deliberately left open there rather than
+    classified here.
 
 1.4 "Commercial Use" means any use that is not Non-Commercial Use, including:
 
