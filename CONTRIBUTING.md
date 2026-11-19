@@ -30,6 +30,11 @@ It is perpetual, irrevocable, worldwide, royalty-free, non-exclusive,
 transferable and sublicensable for those purposes. It is a licence, not an
 assignment.
 
+The grant is to the copyright holder only. Recipients of VOLDBASE receive the
+non-commercial permissions in `LICENSE` section 4.1 in your contribution, not
+the rights in section 8.4, so no downstream recipient or fork maintainer can
+relicense your work on commercial terms (`LICENSE` 4.4 and 8.5).
+
 **The commercial relicensing permission.** The last row is the commercial
 element, and it is the reason the grant is broad: `LICENSE` section 5 makes
 commercial use available only by written permission, so the copyright holder
@@ -71,6 +76,13 @@ and a contribution without a recorded statement is not merged.
 The statement above is the whole of the acceptance: nothing is agreed by
 silence, by a commit trailer, or by a "looks good to me" review.
 
+An acceptance posted on a pull request covers the commits in it when the
+statement was posted and any further commits you push to that same pull request
+before it is merged. If the change becomes materially different, a maintainer
+may ask you to confirm again before the merge. Opening a new pull request
+requires a new statement, and if a pull request is split or replaced, post a
+statement on each replacement.
+
 ## What maintainers must do
 
 - Do not merge a contribution that has no recorded acceptance statement from
@@ -91,6 +103,14 @@ relicensing flexibility. Non-waivable moral rights, corporate contributors,
 contributors who are minors and the evidential weight of a pull request comment
 are open questions recorded in [`NOTICE`](NOTICE) and
 [ADR-0020](docs/adr/0020-licensing-model.md).
+
+The statement identifies you by the name or handle you choose. It does not
+verify your legal identity, that you own what you submit, or that you have
+authority to license it; a GitHub account is not proof of any of those things.
+If you are a minor, if you contribute in the course of employment or under a
+contract that gives your employer rights in your work, or if your jurisdiction
+requires a particular form of agreement, do not submit until the copyright
+holder has agreed how to handle it.
 
 ## Practical notes
 
