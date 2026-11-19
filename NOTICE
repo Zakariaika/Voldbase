@@ -30,6 +30,11 @@ modified version that meets the conditions in `LICENSE` section 4.2: a different
 name, no official identity, a clear unofficial-and-unaffiliated statement,
 preserved notices, and the license texts included for recipients.
 
+Non-commercial use is defined in `LICENSE` section 1.3, and `LICENSE` section
+1.8 lists the cases this draft classifies as non-commercial or commercial and
+the cases it deliberately leaves open. An open case should be treated as
+commercial until the Copyright Holder decides otherwise in writing.
+
 The license text is a draft. It has not been reviewed or approved by a lawyer,
 and it is not a claim that its terms are enforceable in any jurisdiction.
 
@@ -66,8 +71,10 @@ no release artifacts to place on either side of the boundary.
 the pull request that introduces these documents. That commit did not exist when
 this NOTICE was written, so its identifier is not recorded here and has not been
 guessed; until it exists on `main`, no version on `main` is distributed under
-this draft, and copies taken from an unmerged branch are drafts, not releases.
-The identifier should be filled in when the change lands. Still unresolved: how
+this draft. Copies taken from an unmerged branch are not releases and carry the
+draft text, but that label does not by itself decide what legal effect, if any,
+the draft has on such a copy; that is a question for counsel. The identifier
+should be filled in when the change lands. Still unresolved: how
 a repository or product that contains files under both licenses should be
 described (MIT, source-available or both), how version numbers should be
 labelled across the change, and whether any copy of an earlier version was
@@ -90,6 +97,12 @@ licenses, not by `LICENSE`:
 | TypeScript | 5.9.3 | Apache-2.0 | Build and type-checking; listed as a dependency |
 | @types/node | 24.19.2 | MIT | Node.js type definitions (development) |
 | undici-types | 7.24.6 | MIT | Transitive dependency of @types/node |
+
+This table was checked against `package-lock.json` for version and license, and
+against `package.json` for the dependency/development split. Only these three
+packages are resolved by the lockfile; no other runtime or build dependency is
+installed. The names and licenses are recorded as the packages state them, not
+independently verified with each upstream project.
 
 Each package's license text is distributed with it in `node_modules/` when
 installed. Redistributing VOLDBASE or a build of it must preserve those
@@ -118,10 +131,23 @@ and a maintainer must not merge a contribution that lacks it (`LICENSE` 8.1 and
 procedure is a documented consent mechanism, not a legal conclusion: whether it
 is sufficient in any jurisdiction is an open question, recorded in section 8.
 
-No external contribution had been merged at the time of this draft. The commit
-history was authored by the copyright holder's account or by an automated coding
-agent acting for it. If contributions from other people are later merged, their
-notices must be preserved here.
+**Authorship and metadata.** The Git history records commit authors, and those
+fields are reproduced by Git, not verified by the project. At the time of this
+draft, the commits were authored by the copyright holder's account or by an
+automated coding agent acting on the copyright holder's instructions, and no
+external contribution had been merged. A commit author field, an account name or
+the use of an automated coding tool is not by itself proof of authorship,
+ownership or the scope of anyone's rights, and this NOTICE does not treat it as
+such.
+
+**Materials requiring verification.** The repository contains original source,
+tests and documentation, and does not vendor third-party code, copy upstream
+source, or include third-party images, fonts or data files. The only third-party
+material is the dependency set in section 4, whose licenses are recorded there.
+Whether any prose, algorithm or design element was adapted from another source,
+and whether any AI-assisted output reproduces protected material, has not been
+independently verified and is listed under "Open questions". If contributions
+from other people are later merged, their notices must be preserved here.
 
 6. CURRENT PRODUCT SCOPE AND LIMITATIONS
 
@@ -130,13 +156,22 @@ notice, not marketing:
 
 6.1 No execution of imported project code. VOLDBASE does not execute project
     code. It imports, parses, analyzes and records metadata about a project's
-    files. It has no executor, no container runtime and no sandbox, and it does
-    not run a project's tests, scripts or build commands. A run that was not
-    executed is reported as `NOT_TESTED` or `BLOCKED`, never as `PASS`.
+    files. Product code (`src/` and `bin/`) has no executor, no container
+    runtime, no sandbox and no `node:child_process` import, and it does not run
+    a project's tests, scripts or build commands. The result taxonomy is a
+    closed set of five states in `src/domain/result.ts`; a `PASS` or `FAIL`
+    requires evidence, and a run that was not executed is recorded as
+    `NOT_TESTED`, never as `PASS`. `BLOCKED` is used when execution was attempted
+    but could not proceed.
 
 6.2 No validated security guarantee. VOLDBASE does not provide a security
-    guarantee of any kind. It has not been certified, penetration-tested,
-    audited or formally verified. The security documentation in this repository
+    guarantee or certification of any kind. No independent third-party security
+    audit, penetration test or formal verification has been performed. The
+    repository does contain internal security design work, threat models and
+    automated checks — for example, tests asserting that product code does not
+    import `node:child_process` — but those are development artifacts. They are
+    not a security audit, not a certification, and not evidence that the
+    Software is secure. The security documentation in this repository
     (including ADR-0005, ADR-0018 and the execution safety specification)
     describes requirements for a future execution engine; those requirements
     are not implemented, and their presence is not evidence that untrusted code
@@ -183,6 +218,27 @@ This draft deliberately leaves the following unresolved rather than guessing:
   additional steps (a separate signed agreement, a CLA service, a corporate
   signatory) a lawyer would require. Also whether a contributor who is a minor,
   or who contributes as part of employment, needs a different mechanism.
+- Whether an acceptance recorded for a pull request can validly cover later
+  commits pushed to that request before merge (`LICENSE` 8.1), or whether each
+  commit needs a fresh statement.
+- Whether the direct-grant construction in `LICENSE` 4.4 is effective in the
+  intended jurisdictions, in particular whether a recipient's permission truly
+  survives a redistributor's breach, and whether `LICENSE` 8.5 limits a
+  recipient's grant to non-commercial rights in every legal system.
+- Whether `LICENSE` section 11's materiality standard, 30-day cure period,
+  notice mechanics and post-termination deletion duty are appropriate and
+  enforceable, and how they interact with rights that cannot be waived or
+  revoked.
+- What liability position can be stated where exclusion is not permitted, and
+  whether a monetary cap or insurance is appropriate (`LICENSE` 13.2). This
+  draft sets no cap because none could be chosen responsibly without advice.
+- How the open non-commercial cases in `LICENSE` 1.8(j)–(n) should be classified:
+  non-profit internal use, government and public-sector use, mixed-funded
+  research, donation-funded hosted services, and donations to contributors.
+- Whether the scope of the evaluation allowance in `LICENSE` 1.3(d) — no fixed
+  period, no production use, no paid delivery of results — is workable.
+- Whether any prose, algorithm, design element or AI-assisted output in the
+  repository reproduces or adapts protected third-party material.
 - Whether any dependency, tool or asset imposes notice or redistribution
   obligations beyond those recorded in section 4.
 - Whether the name and logo have any registered or common-law trademark status.
