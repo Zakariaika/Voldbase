@@ -1,0 +1,120 @@
+VOLDBASE — NOTICE
+
+This NOTICE is part of the distribution of VOLDBASE. Keep it with every copy.
+It does not replace the license; read `LICENSE` first.
+
+1. COPYRIGHT
+
+VOLDBASE — Universal Experiment & Verification Infrastructure for software and
+AI projects.
+
+Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
+
+The copyright line above is the one supplied by the project owner for this
+draft. Earlier versions of this repository carried the line
+"Copyright (c) 2026 Zakariaika", which names the GitHub account that authored
+the commit history rather than the individual named here. This is a
+documentation change only, not a transfer of copyright, and it is one of the
+items the owner should confirm during legal review (see "Open questions").
+
+2. LICENSE STATUS
+
+VOLDBASE is source-available, not open source. It is distributed under the
+VOLDBASE Source-Available License (draft), in `LICENSE`. That license permits
+personal, educational and other non-commercial use, personal non-commercial
+modification, and non-commercial contributions, and requires prior written
+permission for commercial use (including internal business use), selling,
+sublicensing and commercial redistribution.
+
+The license text is a draft. It has not been reviewed or approved by a lawyer,
+and it is not a claim that its terms are enforceable in any jurisdiction.
+
+3. PRIOR LICENSING (MIT)
+
+Releases and commits of this repository published before this change were
+distributed under the MIT License. The MIT grant already made for those copies
+is not withdrawn by this change: anyone who obtained a copy under MIT may still
+rely on the MIT terms for that copy. This notice records the conflict rather
+than hiding it. Which versions are governed by which license, and whether any
+earlier MIT grant can be narrowed for future versions, are unresolved legal
+questions listed below.
+
+4. THIRD-PARTY COMPONENTS
+
+VOLDBASE does not vendor third-party source in this repository. It depends on
+the following packages, installed through npm and governed by their own
+licenses, not by `LICENSE`:
+
+| Component | Version (lockfile) | License | Role |
+| --- | --- | --- | --- |
+| TypeScript | 5.9.3 | Apache-2.0 | Build and type-checking; listed as a dependency |
+| @types/node | 24.19.2 | MIT | Node.js type definitions (development) |
+| undici-types | 7.24.6 | MIT | Transitive dependency of @types/node |
+
+Each package's license text is distributed with it in `node_modules/` when
+installed. Redistributing VOLDBASE or a build of it must preserve those
+notices and comply with the Apache-2.0 and MIT terms, including any NOTICE
+requirements of Apache-2.0.
+
+No ownership of the components above is claimed. Their copyright holders
+retain all rights. See `LICENSE` section 3.2 and section 9.
+
+5. CONTRIBUTORS
+
+Contributors retain copyright in their contributions and license them to the
+project under `LICENSE` section 8. The project does not claim ownership of
+contributors' work. The commit history of this repository at the time of this
+draft was authored entirely under one GitHub account; if contributions from
+other people are later merged, their notices must be preserved here.
+
+6. CURRENT PRODUCT SCOPE AND LIMITATIONS
+
+These statements describe the current state of VOLDBASE and are part of the
+notice, not marketing:
+
+6.1 No execution of imported project code. VOLDBASE does not execute project
+    code. It imports, parses, analyzes and records metadata about a project's
+    files. It has no executor, no container runtime and no sandbox, and it does
+    not run a project's tests, scripts or build commands. A run that was not
+    executed is reported as `NOT_TESTED` or `BLOCKED`, never as `PASS`.
+
+6.2 No validated security guarantee. VOLDBASE does not provide a security
+    guarantee of any kind. It has not been certified, penetration-tested,
+    audited or formally verified. The security documentation in this repository
+    (including ADR-0005, ADR-0018 and the execution safety specification)
+    describes requirements for a future execution engine; those requirements
+    are not implemented, and their presence is not evidence that untrusted code
+    can be run safely.
+
+6.3 Results are not a warranty of correctness. VOLDBASE reports what it
+    observed. A `PASS` is bounded by the conditions that were checked; absence
+    of a failure is not proof of absence of defects. Do not rely on VOLDBASE
+    output as the sole basis for a security, safety or compliance decision.
+
+6.4 Alpha software. The current version is an alpha (`0.2.0-alpha.0`). Formats,
+    storage layout and command-line behavior may change without notice.
+
+7. TRADEMARKS
+
+The VOLDBASE name, logo and visual identity are not licensed by `LICENSE`. See
+`TRADEMARKS.md` for permitted and prohibited uses.
+
+8. OPEN QUESTIONS FOR LEGAL REVIEW
+
+This draft deliberately leaves the following unresolved rather than guessing:
+
+- The correct legal copyright holder line, and whether "Zakariaika" refers to
+  the same person as Taqiyeddin Maatlia.
+- The effect of the earlier MIT grant on existing commits, releases and copies,
+  and how to label versions across the change.
+- Governing law, jurisdiction and dispute-resolution forum (`LICENSE` 14.5).
+- Whether the non-commercial definitions cover the intended cases, in
+  particular academic research with industry funding, non-profit internal use,
+  and evaluation by a company considering a commercial license.
+- Whether the contribution terms (section 8) are sufficient for the project's
+  intended relicensing flexibility.
+- Whether any dependency, tool or asset imposes notice or redistribution
+  obligations beyond those recorded in section 4.
+- Whether the name and logo have any registered or common-law trademark status.
+
+— End of NOTICE —

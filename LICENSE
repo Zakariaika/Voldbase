@@ -1,21 +1,336 @@
-MIT License
+VOLDBASE SOURCE-AVAILABLE LICENSE (DRAFT)
+Draft version 0.1 — 2026-11-19
 
-Copyright (c) 2026 Zakariaika
+Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+READ THIS FIRST
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This document is a DRAFT written to record the copyright holder's intended
+licensing policy. It has not been reviewed or approved by a lawyer, it is not a
+statement that its terms are enforceable in any jurisdiction, and it is not
+legal advice. Until a reviewed version replaces it, no one should rely on this
+draft as a settled legal position. If you need to rely on these terms for a
+commercial arrangement, ask the copyright holder for written permission (see
+section 5), which is separate from this draft.
+
+VOLDBASE is SOURCE-AVAILABLE, not open source. The source is published so that
+people can read, study, learn from and improve it for non-commercial purposes.
+It is not published under an OSI-approved license, and nothing in this document
+grants the rights that an open-source license such as the MIT License grants.
+
+1. DEFINITIONS
+
+1.1 "Software" means the source code, documentation, tests, configuration and
+    other files in this repository that are covered by this license under
+    section 3, together with any part of them.
+
+1.2 "Copyright Holder" means Taqiyeddin Maatlia, the copyright holder of the
+    Software, and any successor that holds the copyright in the Software.
+
+1.3 "Non-Commercial Use" means use that is not directed toward or intended for
+    commercial advantage or monetary compensation. Personal study, hobby
+    projects, classroom and academic teaching, academic research that is not
+    commissioned or sponsored by a commercial entity, and evaluation of the
+    Software for the purpose of deciding whether to request a commercial
+    license are Non-Commercial Use.
+
+1.4 "Commercial Use" means any use that is not Non-Commercial Use, including:
+
+    (a) use by or for a for-profit or non-profit business, organization,
+        institution or government body in the operation of its activities,
+        including purely internal use with no product or revenue attached;
+    (b) incorporation into a product, service or internal tool that is sold,
+        licensed, subscription-based, ad-supported, or used to deliver services
+        to third parties;
+    (c) use in paid consulting, contracting, development or support work;
+    (d) use to provide a hosted, managed or software-as-a-service offering;
+    (e) use in training, fine-tuning, benchmarking or evaluating a commercial
+        model, product or service.
+
+1.5 "Modify" means to copy, adapt, translate, arrange, alter or create a
+    derivative work of the Software, and "Modification" means any resulting
+    work.
+
+1.6 "Distribute" means to provide the Software or a Modification to any other
+    person or entity, by any means, including publishing it, uploading it,
+    bundling it, or shipping it inside another work. "Distribution" has a
+    corresponding meaning.
+
+1.7 "You" means the individual or entity exercising rights under this license.
+
+2. DRAFT STATUS AND NO LEGAL REVIEW
+
+2.1 This license is a draft. It is published for review. It is not a final
+    license, it has not been reviewed by a lawyer, and it has not been approved
+    or endorsed by any legal professional or standards body.
+
+2.2 The Copyright Holder does not represent that these terms are enforceable in
+    whole or in part in any jurisdiction, or that they are complete. No term of
+    this draft should be read as a guarantee of any legal outcome.
+
+2.3 If any provision of this draft is uncertain or unenforceable, that provision
+    is to be read down to the minimum extent necessary (see section 13.2); the
+    remaining provisions continue to express the Copyright Holder's intent.
+
+3. SCOPE: WHAT THIS LICENSE COVERS AND WHAT IT DOES NOT
+
+3.1 Covered. This license applies to the original contents of this repository,
+    namely:
+
+    (a) `src/` — the TypeScript source of the VOLDBASE domain, application,
+        infrastructure and public module surface;
+    (b) `bin/` — the command-line entry point;
+    (c) `tests/` — the test suites;
+    (d) `docs/` — architecture, decision records and security documentation,
+        except any file that carries its own copyright or license statement;
+    (e) the original text of `README.md`, `NOTICE`, `TRADEMARKS.md`, this
+        license, and the repository configuration files (`package.json`,
+        `package-lock.json`, `tsconfig.json`, `tsconfig.build.json`,
+        `.editorconfig`, `.gitignore`, `.env.example`, and `.github/`).
+
+3.2 Excluded — third-party components. This license does NOT apply to any
+    third-party software, package, type definition or other material, whether
+    vendored in this repository or installed as a dependency. Those components
+    remain governed by their own licenses and their own copyright holders. See
+    `NOTICE` for the components this repository currently depends on. Nothing
+    in this license claims ownership of, or grants rights in, third-party code.
+
+3.3 Excluded — contributors' work. This license does NOT transfer or claim
+    ownership of any contribution made by anyone other than the Copyright
+    Holder. A contributor retains copyright in their contribution and licenses
+    it as described in section 8. Nothing in this license should be read as an
+    assignment of a contributor's copyright.
+
+3.4 Excluded — names, logos and brand identity. This license grants no rights
+    in the VOLDBASE name, logo, wordmark, visual identity or any other
+    trademark or brand element. See `TRADEMARKS.md`.
+
+3.5 Excluded — files with their own terms. If a file in this repository carries
+    an explicit copyright or license header, that file is governed by that
+    header, and this license does not override it.
+
+3.6 Excluded — commit history and earlier releases. This license applies to the
+    contents of the repository as distributed under this license. It does not
+    withdraw, narrow or replace rights that were already granted under a
+    previous license for copies obtained under that license. See `NOTICE`,
+    "Prior licensing", and ADR-0020.
+
+4. PERMISSION GRANTED FOR NON-COMMERCIAL USE
+
+4.1 Subject to your compliance with this license, the Copyright Holder grants
+    you a worldwide, royalty-free, non-exclusive, non-transferable,
+    non-sublicensable and revocable permission to:
+
+    (a) use, run, reproduce and display the Software for Non-Commercial Use;
+    (b) Modify the Software for your own personal, non-commercial purposes;
+    (c) Distribute unmodified copies of the Software for Non-Commercial Use,
+        provided every copy keeps this license, `NOTICE` and `TRADEMARKS.md`
+        intact and unmodified, and provided you do not charge for the copy or
+        for access to it beyond the reasonable cost of the media or transfer;
+    (d) make your Modifications available to others as a contribution under
+        section 8, and not otherwise.
+
+4.2 Modified versions may not be Distributed without the prior written
+    permission of the Copyright Holder. This includes publishing a fork, a
+    patch series, or a modified build. Reading, studying, running and privately
+    modifying the Software for Non-Commercial Use remain permitted.
+
+4.3 This license grants only the permissions stated in it. All other rights are
+    reserved by the Copyright Holder. No permission is granted by implication,
+    estoppel, exhaustion or otherwise, and no permission is granted to use the
+    Software in any way that competes with, substitutes for, or commercially
+    exploits the Software.
+
+5. COMMERCIAL USE REQUIRES PRIOR WRITTEN PERMISSION
+
+5.1 Commercial Use is not permitted under this license, including internal
+    business use that produces no direct revenue.
+
+5.2 Commercial Use, selling, sublicensing and commercial redistribution each
+    require the prior written permission of the Copyright Holder, granted
+    separately and in writing. A permission granted for one use, entity or
+    period is not permission for any other use, entity or period.
+
+5.3 To request permission, contact the Copyright Holder through the repository
+    owner account on GitHub (github.com/Zakariaika). State the entity, the
+    intended use, whether the Software or a Modification will be Distributed,
+    and the commercial context. No permission exists until the Copyright Holder
+    confirms it in writing; a request, an inquiry or a silence is not
+    permission.
+
+5.4 This section does not limit any right the Copyright Holder has under
+    copyright law, contract or otherwise.
+
+6. CONDITIONS ON ALL PERMITTED USE
+
+6.1 You must keep every copyright notice, this license, `NOTICE` and
+    `TRADEMARKS.md` with every copy of the Software you make or distribute, and
+    must not remove, obscure or alter them.
+
+6.2 You must not represent the Software as your own work, must not remove
+    attribution, and must not state or imply that the Copyright Holder endorses
+    you, your Modification or your use.
+
+6.3 You must not use the Software to violate any law, to infringe anyone's
+    rights, or to build a product that misrepresents its verification results.
+    VOLDBASE's documented output states what was and was not tested; suppressing
+    `INCONCLUSIVE`, `NOT_TESTED` or `BLOCKED` outcomes, or presenting an
+    unexecuted run as a `PASS`, is a material breach of this license.
+
+6.4 You must not circumvent, disable or remove any technical measure in the
+    Software that records provenance, integrity or limitations of results.
+
+7. NO EXECUTION CAPABILITY, NO SECURITY GUARANTEE
+
+7.1 The current version of VOLDBASE does not execute imported project code. It
+    reads, analyzes and records metadata about projects. It has no execution
+    engine, no container runtime and no sandbox, and it does not run a
+    project's tests, scripts or build commands.
+
+7.2 VOLDBASE does not provide a validated security guarantee. It has not
+    undergone a security certification, penetration test, audit or formal
+    verification of its isolation properties. Documentation in this repository
+    describing future execution isolation states requirements, not
+    capabilities. Do not treat any part of this repository as a claim that
+    running untrusted code with VOLDBASE is safe.
+
+7.3 You are responsible for the security of the environment in which you run the
+    Software and for any project data you point it at.
+
+8. CONTRIBUTIONS
+
+8.1 Non-commercial contributions are welcome and are accepted under the terms of
+    this section (the "Contribution Terms").
+
+8.2 By submitting a contribution (a pull request, patch, issue attachment or any
+    other material intended for inclusion), you confirm that:
+
+    (a) you are the author of the contribution or have the right to submit it;
+    (b) the contribution is your original work, or any third-party material in
+        it is clearly identified and properly licensed, with its notices
+        preserved;
+    (c) to your knowledge the contribution does not infringe anyone's rights;
+    (d) you are not submitting it on behalf of, or as part of work for, a
+        commercial entity that expects to receive commercial rights in the
+        Software, unless that entity has separately agreed terms in writing
+        with the Copyright Holder.
+
+8.3 You retain copyright in your contribution. You grant the Copyright Holder a
+    perpetual, irrevocable, worldwide, royalty-free, non-exclusive license to
+    use, reproduce, modify, distribute and sublicense your contribution as part
+    of the Software, including the right to license it under this license or
+    under different terms. You do not grant the Copyright Holder ownership of
+    your contribution, and the Copyright Holder does not claim it.
+
+8.4 You grant the same permissions in your contribution to every recipient of
+    the Software, as part of the Software, under this license.
+
+8.5 No contribution creates an employment, agency, partnership or fiduciary
+    relationship, and no contribution entitles you to compensation, revenue
+    share or ownership in the project.
+
+8.6 The Copyright Holder is not obliged to accept, review, merge or keep any
+    contribution, and may remove a contribution at any time.
+
+8.7 Contributions are provided "as is", without warranty of any kind, and the
+    contributor is not liable for their contribution except to the extent the
+    law does not allow that limitation.
+
+9. THIRD-PARTY COMPONENTS AND NOTICES
+
+9.1 Third-party components included in or required by the Software remain under
+    their own licenses. `NOTICE` lists the components this repository currently
+    depends on and identifies their licenses. You must comply with those
+    licenses independently of this one.
+
+9.2 This license does not grant you any rights in third-party components beyond
+    what their own licenses grant, and does not claim any ownership of them.
+
+9.3 If a third-party license conflicts with this license as applied to that
+    component, the third-party license governs that component, and this license
+    governs the rest of the Software.
+
+10. TRADEMARKS
+
+10.1 This license grants no trademark, service mark, trade name, logo or brand
+     rights. Use of the VOLDBASE name, logo and visual identity is governed by
+     `TRADEMARKS.md`.
+
+10.2 In particular, you may not use the VOLDBASE name or logo in a way that
+     suggests sponsorship, endorsement or official affiliation, and a
+     Modification you are permitted to make must not be presented under the
+     VOLDBASE name as if it were the official Software.
+
+11. TERM AND TERMINATION
+
+11.1 This license takes effect when you first exercise a permission it grants
+     and continues until terminated.
+
+11.2 This license terminates automatically, without notice, if you breach any of
+     its terms. It also terminates if you bring a claim asserting that the
+     Copyright Holder's exercise of rights in the Software infringes your
+     rights.
+
+11.3 On termination you must stop all use and Distribution of the Software and
+     of any Modification, and destroy or delete all copies you hold, except
+     copies you are required by law to retain.
+
+11.4 Termination does not affect any permission the Copyright Holder has
+     separately granted in writing, and does not limit any remedy the Copyright
+     Holder has for a breach that occurred before termination.
+
+11.5 Sections 3, 6.2, 7, 9, 10, 12, 13 and this section survive termination.
+
+12. DISCLAIMER OF WARRANTY
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, ACCURACY AND NON-INFRINGEMENT. THE
+COPYRIGHT HOLDER DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE, SECURE, FIT
+FOR ANY PARTICULAR PURPOSE, OR THAT ANY RESULT IT REPORTS IS CORRECT,
+COMPLETE OR SUFFICIENT TO ESTABLISH THAT SOFTWARE WORKS. YOU USE THE SOFTWARE
+AT YOUR OWN RISK.
+
+13. LIMITATION OF LIABILITY
+
+13.1 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER IS
+     NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+     CONSEQUENTIAL DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA, GOODWILL OR
+     BUSINESS OPPORTUNITY, ARISING FROM OR RELATED TO THE SOFTWARE OR THIS
+     LICENSE, WHETHER IN CONTRACT, TORT, NEGLIGENCE OR OTHERWISE, EVEN IF
+     ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+13.2 WHERE LIABILITY CANNOT BE EXCLUDED, THE COPYRIGHT HOLDER'S TOTAL
+     AGGREGATE LIABILITY IS LIMITED TO THE GREATER OF (a) THE AMOUNT YOU PAID
+     FOR THE SOFTWARE, WHICH IS ZERO FOR NON-COMMERCIAL USE, AND (b) THE MINIMUM
+     AMOUNT REQUIRED BY APPLICABLE LAW.
+
+14. GENERAL
+
+14.1 No waiver. A failure or delay in enforcing a term is not a waiver of that
+     term or of any other term.
+
+14.2 Severability. If a provision is held invalid or unenforceable, it is
+     modified to the minimum extent necessary to make it enforceable, and the
+     remaining provisions stay in force.
+
+14.3 No assignment. You may not assign or transfer this license or its
+     permissions without the Copyright Holder's prior written consent. The
+     Copyright Holder may assign the copyright and this license.
+
+14.4 Entire agreement. This license, together with `NOTICE` and
+     `TRADEMARKS.md`, is the entire statement of the permissions granted for
+     the Software, and replaces any earlier statement about licensing the
+     Software, except rights already granted for copies obtained under a
+     previous license (section 3.6). A separate written permission under section
+     5 governs where it applies.
+
+14.5 Governing law and venue. NOT DESIGNATED IN THIS DRAFT. The governing law,
+     jurisdiction and dispute-resolution forum are unresolved and must be
+     chosen with legal advice before this draft is treated as final. Nothing in
+     this draft should be read as choosing them by implication.
+
+14.6 Language. This license is written in English. A translation is for
+     convenience only; the English text expresses the Copyright Holder's intent.
+
+— End of draft license (version 0.1, 2026-11-19) —
