@@ -1,5 +1,5 @@
 VOLDBASE SOURCE-AVAILABLE LICENSE (DRAFT)
-Draft version 0.3 — 2026-11-19
+Draft version 0.4 — 2026-11-19
 
 Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
 
@@ -63,15 +63,20 @@ grants the rights that an open-source license such as the MIT License grants.
     (f) accepting payment, sponsorship, advertising revenue or other
         consideration in connection with distributing, operating or supporting
         the Software or a Modification, or using the Software to deliver a paid
-        service. Consideration is commercial when it is given in exchange for,
-        or in expectation of, a product, service, influence, access or other
-        benefit, or when it is received by the person or entity that
-        distributes, operates or supports the Software. A personal gift or
-        donation to a contributor that is not connected with the Software and
-        exchanges no such benefit is addressed in section 1.8(n) and is not
-        classified by this paragraph. A donation that funds the free public
-        service in section 1.8(m) is governed by that paragraph and not by this
-        one;
+        service, where that consideration is commercial as this paragraph
+        defines it. Consideration is commercial here when it is given in
+        exchange for, or in expectation of, a product, service, influence,
+        access, promotion or other benefit, or when it is a sponsorship or
+        payment tied to the commercial operation, distribution, support or
+        promotion of the Software. Receipt alone does not decide the question:
+        a donation or gift is not commercial consideration merely because it
+        is received by the person or entity that distributes, operates or
+        supports the Software. Section 1.8 states the three donation cases —
+        an unconditional personal gift, a donation that funds the free public
+        service in section 1.8(m), and a payment or sponsorship given for a
+        benefit — and only the third is commercial consideration under this
+        paragraph. A donation that funds the free service in section 1.8(m) is
+        governed by that paragraph and not by this one;
     (g) use by an employee, contractor or agent in the course of their work for
         an employer or principal, where the use by that employer or principal
         would itself be Commercial Use.
@@ -134,17 +139,46 @@ grants the rights that an open-source license such as the MIT License grants.
         the results;
     (m) a donation-funded project that operates the Software as a free public
         service, where access is free of charge and the project derives no
-        revenue from the service other than donations that are not
-        consideration for it. Section 1.4(d) does not classify this case, and
-        this draft leaves it open rather than deciding it there;
-    (n) whether a personal donation or gift to a contributor is itself a
-        commercial use, where nothing is exchanged for it, it is not connected
-        with distributing, operating or supporting the Software, and no
-        product, service, influence, access or other benefit is given or
-        promised. Section 1.4(f) classifies a donation, sponsorship or payment
-        that is connected with the Software or that buys any such benefit; a
-        donation that funds the free service in paragraph (m) is governed by
-        that paragraph.
+        revenue from the service other than donations that fund the free
+        service itself. Such a donation is not consideration for the service
+        where it buys no access, priority, promotion, support or other benefit
+        and is not a payment or sponsorship tied to commercial operation.
+        Section 1.4(d) does not classify this case, section 1.4(f) does not
+        treat those donations as consideration, and this draft leaves the case
+        open rather than deciding it;
+    (n) whether an unconditional personal gift, or a donation that funds the
+        free service in paragraph (m), is itself a Commercial Use in any wider
+        sense. Paragraph (i) does not classify either case. The three donation
+        cases are distinguished below, and this draft decides only the third.
+
+    Donations, gifts and sponsorship are not one case. This draft distinguishes
+    three, and classifies only the third:
+
+    Case 1 — an unconditional personal gift or donation, given with no benefit
+    promised or expected in return and not connected with distributing,
+    operating or supporting the Software. Nothing is exchanged for it and it
+    buys no product, service, influence, access, promotion or other benefit, so
+    it is not commercial consideration under section 1.4(f). Whether accepting
+    such a gift is itself a Commercial Use in a wider sense is left open under
+    paragraph (n);
+
+    Case 2 — a donation that funds the free public service in paragraph (m),
+    where access remains free and the donation buys no access, priority,
+    promotion, support or other benefit. It is not consideration for the
+    service, and paragraph (m) governs it; the case is left open with that
+    paragraph;
+
+    Case 3 — a payment, sponsorship, advertising arrangement or donation tied
+    to the commercial operation, distribution, support, access, promotion or
+    other benefit connected with the Software or a Modification, or given in
+    exchange for, or in expectation of, any such benefit. This is commercial
+    consideration under section 1.4(f) and is Commercial Use under paragraph
+    (i).
+
+    Receipt by a project operator, maintainer or contributor does not by itself
+    make a donation commercial consideration. What decides Case 3 is the
+    benefit given or promised, or the tie to commercial operation, not who
+    receives the money.
 
     For an open case this draft does not choose a classification. Pending the
     Copyright Holder's written decision, an open case should be treated as
@@ -489,15 +523,18 @@ grants the rights that an open-source license such as the MIT License grants.
         whole contribution, and you grant only the rights you actually hold or
         are authorised to grant.
 
-8.3 You retain copyright in your contribution. Nothing in this license
-    transfers, assigns or otherwise conveys ownership of your contribution to
-    the Copyright Holder, and the Copyright Holder does not claim ownership of
-    it. Copyright in your contribution stays with you (or with whoever held it
-    before you), subject only to the license you grant in section 8.4. If your
-    employer, client or another organisation owns or controls that copyright,
-    this section applies to that holder in the same way: nothing here transfers
-    their copyright, and the license in section 8.4 is granted only to the
-    extent you are authorised to grant it.
+8.3 No transfer of ownership. Nothing in this license transfers, assigns or
+    otherwise conveys ownership of any contribution to the Copyright Holder,
+    and the Copyright Holder does not claim ownership of any contribution.
+    Copyright in a contribution stays with whoever actually holds it: a
+    contributor retains the rights the contributor owns, and an employer,
+    client or other organisation that owns or controls the contribution retains
+    those rights. This section does not assert that a contributor owns
+    copyright in every contribution, and it does not decide who owns a
+    contribution; it records only that no ownership is transferred by this
+    license. The project receives only the license expressly granted in section
+    8.4, to the extent the grantor holds, or is authorised to grant, the rights
+    in it, and nothing here implies an ownership transfer from any holder.
 
 8.4 License granted to the Copyright Holder. When you record acceptance under
     section 8.1, you grant the Copyright Holder, for each contribution you
@@ -625,19 +662,48 @@ grants the rights that an open-source license such as the MIT License grants.
 
 11.2 Material breach and notice. If you materially breach this license, the
      Copyright Holder may terminate your permission only by written notice that
-     identifies the breach and, where the breach can be cured, states what is
-     required to cure it. Where the breach can be cured, termination takes
-     effect 30 days after the notice unless, before then, you cure the breach
-     and confirm the cure in writing to the Copyright Holder; a cure within that
-     period means no termination occurs. Where the breach cannot be cured,
-     termination takes effect when the notice is given. A breach is material
-     only if it defeats the purpose of this license. Commercial use or
-     commercial distribution without permission under section 5, and presenting
-     an unexecuted run as a `PASS` in breach of section 6.3, are material. A
-     failure to keep the notices required by section 6.1 is material only where
-     it defeats that purpose — for example, removing notices in order to pass
-     the Software off as unlicensed or as the distributor's own work — and not
-     where it is an accidental or technical omission corrected after notice.
+     identifies the breach and states what is required to address it. A breach
+     is material only if it defeats the purpose of this license. Commercial use
+     or commercial distribution without permission under section 5, and
+     presenting an unexecuted run as a `PASS` in breach of section 6.3, are
+     material. A failure to keep the notices required by section 6.1 is
+     material only where it defeats that purpose — for example, removing
+     notices in order to pass the Software off as unlicensed or as the
+     distributor's own work — and not where it is an accidental or technical
+     omission corrected after notice.
+
+     This draft distinguishes three kinds of material breach. It does not treat
+     a breach as incurable, and so immediately terminable, merely because
+     something that has already happened cannot be reversed:
+
+     (a) Curable breach. The breach can be fully cured — for example, a
+         missing notice can be restored, or an unauthorised use can be stopped
+         and its copies withdrawn before any further distribution. The notice
+         states what is required to cure it. Termination takes effect 30 days
+         after the notice unless, before then, you fully cure the breach and
+         confirm the cure in writing to the Copyright Holder; a full cure
+         within that period means no termination occurs for that breach;
+
+     (b) Breach whose continuing effects can be stopped or mitigated, but whose
+         past occurrence cannot literally be undone — for example, an
+         unauthorised distribution that has already reached recipients. The
+         notice states the steps reasonably required to stop or mitigate the
+         continuing effects. Termination takes effect 30 days after the notice
+         unless those steps are taken and confirmed in writing before then.
+         Taking them prevents termination for that breach, but does not undo
+         the breach, does not make the past occurrence lawful, and does not
+         limit any remedy the Copyright Holder has for it;
+
+     (c) Genuinely incurable breach. Neither the breach nor its continuing
+         effects can be stopped or mitigated — for example, a continuing
+         unauthorised commercial use that the breaching party does not stop.
+         Termination takes effect when the notice is given.
+
+     Termination under this section is never automatic. Whether taking the
+     steps described in paragraph (b) amounts to a cure, and whether that
+     paragraph is the right construction in a given legal system, are questions
+     for qualified counsel; they are recorded in `NOTICE` ("Open questions for
+     legal review") rather than settled here.
 
 11.3 Minor, technical and accidental breaches. Termination is not automatic
      and is not available for a breach that is not material. An accidental or
@@ -647,8 +713,11 @@ grants the rights that an open-source license such as the MIT License grants.
      not by itself become material. The Copyright Holder may require you to
      correct it. Only if you fail to correct it after written notice, and that
      continued failure defeats the purpose of this license, may it become a
-     material breach under section 11.2. Nothing in this section creates a
-     termination right that section 11.2 does not give.
+     material breach under section 11.2. A breach does not move into paragraph
+     (b) or (c) of section 11.2 merely because correcting it cannot erase what
+     has already happened; the question under this section is whether it was
+     material in the first place. Nothing in this section creates a termination
+     right that section 11.2 does not give.
 
 11.4 Claims and challenges. Bringing a claim that the Copyright Holder's rights
      in the Software are invalid, or that the Copyright Holder's exercise of
@@ -682,13 +751,13 @@ grants the rights that an open-source license such as the MIT License grants.
 
      Survival preserves the terms, not a terminated party's permission. What a
      terminated party and its recipients may still do is governed by sections
-     11.5 and 11.6. Section 8.3 survives because a contributor's retained
-     copyright is not affected by the termination of any license granted under
-     this document. Section 8.9 survives only so that a contribution already
-     part of a copy lawfully distributed before termination may continue to be
-     distributed under the permissions that survive under section 11.6; it does
-     not give a terminated party any new right to modify or distribute the
-     Software.
+     11.5 and 11.6. Section 8.3 survives because the copyright held by a
+     contributor or any other rights holder is not affected by the termination
+     of any license granted under this document. Section 8.9 survives only so
+     that a contribution already part of a copy lawfully distributed before
+     termination may continue to be distributed under the permissions that
+     survive under section 11.6; it does not give a terminated party any new
+     right to modify or distribute the Software.
 
 12. DISCLAIMER OF WARRANTY
 
@@ -761,4 +830,4 @@ AT YOUR OWN RISK.
 14.6 Language. This license is written in English. A translation is for
      convenience only; the English text expresses the Copyright Holder's intent.
 
-— End of draft license (version 0.3, 2026-11-19) —
+— End of draft license (version 0.4, 2026-11-19) —
