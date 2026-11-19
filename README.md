@@ -454,10 +454,13 @@ The order is binding, not advisory. **2C models experiments and runs without exe
 ## License
 
 VOLDBASE is **source-available, not open source**. The current draft license
-permits personal, educational and other non-commercial use, personal
-non-commercial modification, and non-commercial contributions. Commercial use
-— including internal business use — selling, sublicensing and commercial
-redistribution each require prior written permission from the copyright holder.
+permits personal, educational and other non-commercial use, non-commercial
+modification, non-commercial contributions, and non-commercial distribution of
+modified versions that are renamed, carry no official branding, state that they
+are unofficial, and keep the notices. Commercial use — including internal
+business use — selling, sublicensing and any commercial distribution of the
+Software or of a modified version require prior written permission from the
+copyright holder.
 
 - [LICENSE](LICENSE) — the license text (draft, not legally reviewed)
 - [NOTICE](NOTICE) — copyright, third-party components, prior licensing and
