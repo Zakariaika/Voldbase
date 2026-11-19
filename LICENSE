@@ -695,15 +695,17 @@ grants the rights that an open-source license such as the MIT License grants.
          limit any remedy the Copyright Holder has for it;
 
      (c) Genuinely incurable breach. Neither the breach nor its continuing
-         effects can be stopped or mitigated — for example, a continuing
-         unauthorised commercial use that the breaching party does not stop.
-         Termination takes effect when the notice is given.
+         effects can be stopped or mitigated. This paragraph applies only where
+         neither can be stopped or mitigated; where either can be, the breach
+         falls under paragraph (a) or (b). Termination takes effect when the
+         notice is given.
 
      Termination under this section is never automatic. Whether taking the
-     steps described in paragraph (b) amounts to a cure, and whether that
-     paragraph is the right construction in a given legal system, are questions
-     for qualified counsel; they are recorded in `NOTICE` ("Open questions for
-     legal review") rather than settled here.
+     steps described in paragraph (b) amounts to a cure, whether that paragraph
+     is the right construction in a given legal system, and how a breach is
+     allocated among paragraphs (a) to (c), are questions for qualified
+     counsel; they are recorded in `NOTICE` ("Open questions for legal
+     review") rather than settled here.
 
 11.3 Minor, technical and accidental breaches. Termination is not automatic
      and is not available for a breach that is not material. An accidental or
