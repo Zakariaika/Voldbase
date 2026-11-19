@@ -29,7 +29,7 @@ be claimed yet, and the documents must not pretend otherwise.
 ## Decision
 
 1. **Replace the MIT license text with a clearly labelled draft** of a
-   source-available, non-commercial license in `LICENSE`, versioned `0.3-draft`.
+   source-available, non-commercial license in `LICENSE`, versioned `0.4-draft`.
    The draft states that it has not been legally reviewed and is not a claim of
    enforceability, in its own first section rather than in a footnote.
 
@@ -180,8 +180,9 @@ be claimed yet, and the documents must not pretend otherwise.
     licence. `LICENSE` 11.3 now says expressly that an accidental or technical
     violation — including an inadvertent notice omission, a metadata error or a
     momentary failure corrected promptly — is not material and does not become
-    material unless it continues after written notice. `LICENSE` 11.8 also
-    preserves 8.3 and 8.9, and explains that survival preserves terms rather
+    material unless it continues after written notice. Decision 22 later
+    separates a third, stoppable-but-not-undoable class of breach. `LICENSE`
+    11.8 also preserves 8.3 and 8.9, and explains that survival preserves terms rather
     than a terminated party's permission, with 11.5 and 11.6 controlling what
     may still be done. No termination right is added outside section 11.
 
@@ -230,6 +231,35 @@ be claimed yet, and the documents must not pretend otherwise.
     first commit on `main` whose tree contains the documents, however it was
     created, and the identifier is recorded when it exists rather than guessed.
     The same correction is made in `LICENSE` 3.6(e) and decision 11.
+
+21. **Separate the three donation cases from the receipt-based rule.**
+    `LICENSE` 1.4(f) no longer treats consideration as commercial merely
+    because it is received by the person or entity that distributes, operates
+    or supports the Software; the test is the benefit given or promised, or a
+    tie to commercial operation, distribution, support, access or promotion.
+    `LICENSE` 1.8 states the three cases explicitly — an unconditional
+    personal gift, a donation that funds the free public service in 1.8(m),
+    and a payment, sponsorship or donation tied to commercial operation or a
+    benefit — and classifies only the third. Paragraphs (m) and (n) stay open
+    for the first two, 1.4(f) cross-refers to them, and no paragraph treats
+    every donation a project operator receives as commercial consideration.
+
+22. **Make the ownership wording neutral and give section 11 three breach
+    classes.** `LICENSE` 8.3 no longer opens by stating that a contributor
+    retains copyright. It records that no ownership is transferred, that
+    copyright stays with whoever actually holds it — contributor, employer,
+    client or other organisation — and that the project receives only the 8.4
+    licence to the extent the grantor holds or is authorised to grant it.
+    `NOTICE` 5 is aligned with that wording, and 11.8 explains survival in terms
+    of the rights holder rather than the contributor. `LICENSE` 11.2 separates
+    a fully curable breach, a breach whose continuing effects can be stopped or
+    mitigated although the past cannot be undone, and a genuinely incurable
+    breach; the middle class gets the 30-day period instead of immediate
+    termination, so the change narrows rather than expands the termination
+    right, and 11.3 says a breach does not become material merely because it
+    cannot be erased. Whether mitigation amounts to cure, and whether the
+    middle class is the right construction, is left to counsel and recorded in
+    `NOTICE`.
 
 ## Consequences
 
