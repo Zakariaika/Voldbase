@@ -20,9 +20,11 @@ elsewhere would leave two contradictory grants in the same repository, and the
 more permissive one would win for anyone who relied on it.
 
 The repository is also only at the stage of documenting a policy: it has not had
-legal review, the governing law is not chosen, and the copyright holder line is
-being corrected from a GitHub handle to a person's name. A final license cannot
-honestly be claimed yet, and the documents must not pretend otherwise.
+legal review and the governing law is not chosen. The copyright holder line is
+being restated as the person's name, the owner having confirmed that the GitHub
+handle "Zakariaika" and Taqiyeddin Maatlia are the same person, so no separate
+author and no transfer of copyright is involved. A final license cannot honestly
+be claimed yet, and the documents must not pretend otherwise.
 
 ## Decision
 
@@ -62,22 +64,41 @@ honestly be claimed yet, and the documents must not pretend otherwise.
 7. **Do not rewrite the historical record.** ADR-0001 is marked superseded for
    its licensing decision only; its product-scope decisions remain in force. The
    README license section is corrected so no current document still advertises
-   MIT.
+   MIT for future distributions.
+
+8. **Make redistribution a direct grant, not a sublicense.** Passing on an
+   unmodified copy free of charge is permitted; the recipient receives their own
+   non-commercial permission from the Copyright Holder under `LICENSE` 4.1, and
+   the redistributor grants nothing and adds no terms. Non-transferability and
+   non-sublicensability therefore do not conflict with 4.1(c): the copy is
+   passed on, the permission is not moved (`LICENSE` 4.4). Commercial
+   redistribution remains prohibited (`LICENSE` 4.5).
+
+9. **State the contribution grant precisely.** Contributors keep copyright; the
+   license back is a perpetual, irrevocable, transferable, sublicensable right
+   to reproduce, modify, distribute and relicense the contribution as part of
+   the Software, including under commercial terms, and it is accepted only by
+   submitting under these terms or under separate written terms. It is a
+   license, not an assignment, and no ownership of a contribution is claimed
+   (`LICENSE` 8).
 
 ## Consequences
 
 - **The project is no longer open source** in the OSI sense, and must not be
   described as such. "Source-available" is the accurate term. The roadmap,
   marketing copy and package metadata must not claim otherwise.
-- **Existing MIT grants survive for copies already obtained.** A license change
-  cannot reach back and withdraw permissions already exercised or granted for
-  prior commits and releases. What applies to a given version therefore depends
-  on when it was obtained — an unresolved question, recorded rather than
-  resolved in `NOTICE`.
+- **Earlier MIT grants are not revoked for copies already obtained.** This
+  license applies to repository contents from the commit that introduces it. It
+  is not retroactive and does not cancel permissions already granted for earlier
+  versions, releases or copies (`LICENSE` 3.6, `NOTICE` 3). What applies to a
+  given version therefore depends on when it was obtained; the exact
+  commit/tag/release boundary is left as an open question rather than asserted.
 - **Contribution friction increases.** Contributors must accept the terms in
-  `LICENSE` section 8, which include a license back to the Copyright Holder
-  broad enough to relicense the project later. Some contributors will decline
-  that; that is a consequence of the policy, not a defect in the draft.
+  `LICENSE` section 8, which license the contribution to the Copyright Holder
+  broadly enough to relicense the project commercially, while copyright stays
+  with the contributor. Some contributors will decline that; it is a consequence
+  of the policy, not a defect in the draft. Jurisdictions with non-waivable
+  moral rights still need legal review (recorded as an open question).
 - **Commercial enquiries need a real channel.** `LICENSE` section 5 points to
   the repository owner account. A written permission process (scope, term,
   fee, attribution) does not exist yet and is a follow-up deliverable.

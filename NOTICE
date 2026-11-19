@@ -10,12 +10,12 @@ AI projects.
 
 Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
 
-The copyright line above is the one supplied by the project owner for this
-draft. Earlier versions of this repository carried the line
-"Copyright (c) 2026 Zakariaika", which names the GitHub account that authored
-the commit history rather than the individual named here. This is a
-documentation change only, not a transfer of copyright, and it is one of the
-items the owner should confirm during legal review (see "Open questions").
+"Zakariaika" is the GitHub account name used by Taqiyeddin Maatlia. Earlier
+versions of this repository carried the line "Copyright (c) 2026 Zakariaika".
+The owner has confirmed that the account and the person are the same, so the
+two lines identify one copyright holder: no separate author, no separate legal
+person and no transfer of copyright is involved. The line above is the form the
+owner intends to use from this point on.
 
 2. LICENSE STATUS
 
@@ -31,13 +31,28 @@ and it is not a claim that its terms are enforceable in any jurisdiction.
 
 3. PRIOR LICENSING (MIT)
 
-Releases and commits of this repository published before this change were
-distributed under the MIT License. The MIT grant already made for those copies
-is not withdrawn by this change: anyone who obtained a copy under MIT may still
-rely on the MIT terms for that copy. This notice records the conflict rather
-than hiding it. Which versions are governed by which license, and whether any
-earlier MIT grant can be narrowed for future versions, are unresolved legal
-questions listed below.
+Versions of this repository distributed before this license was introduced were
+distributed under the MIT License. This change does not retroactively cancel
+those permissions, and it must not be read as doing so:
+
+- **Earlier versions.** A version distributed under MIT remains available under
+  MIT for anyone who obtained it under MIT. That grant permits commercial use,
+  modification, sublicensing and sale of those copies, and this draft neither
+  withdraws nor narrows it for them.
+- **Future distributions.** A version of the repository that includes this
+  license is offered under this draft, not under MIT. Commercial use of such a
+  version requires prior written permission.
+- **Past use.** This draft does not recharacterise rights already exercised and
+  does not describe past use as unlicensed.
+
+Where the boundary sits is an open question. This repository has no tagged
+releases at the time of this draft, so the only definite boundary is the commit
+that introduces this file. Which commits, tags and release artifacts count as
+"earlier versions" and which count as "future distributions", whether a
+repository or product that contains files under both licenses should be
+described as MIT, source-available or both, and how version numbers should be
+labelled across the change, are listed under "Open questions" rather than
+resolved here.
 
 4. THIRD-PARTY COMPONENTS
 
@@ -61,11 +76,19 @@ retain all rights. See `LICENSE` section 3.2 and section 9.
 
 5. CONTRIBUTORS
 
-Contributors retain copyright in their contributions and license them to the
-project under `LICENSE` section 8. The project does not claim ownership of
-contributors' work. The commit history of this repository at the time of this
-draft was authored entirely under one GitHub account; if contributions from
-other people are later merged, their notices must be preserved here.
+Contributors keep their copyright. A contribution is licensed to the project,
+not assigned to it: `LICENSE` section 8 grants the Copyright Holder a
+perpetual, irrevocable, transferable and sublicensable license to reproduce,
+modify, distribute and relicense the contribution as part of the Software,
+including under commercial terms. That permission is accepted only by
+submitting under those terms, or under separate written terms agreed with the
+Copyright Holder. The project does not claim ownership of contributors' work,
+and no contribution becomes the Copyright Holder's property.
+
+The commit history of this repository at the time of this draft was authored
+under one account, which belongs to the copyright holder named in section 1. If
+contributions from other people are later merged, their notices must be
+preserved here.
 
 6. CURRENT PRODUCT SCOPE AND LIMITATIONS
 
@@ -103,16 +126,21 @@ The VOLDBASE name, logo and visual identity are not licensed by `LICENSE`. See
 
 This draft deliberately leaves the following unresolved rather than guessing:
 
-- The correct legal copyright holder line, and whether "Zakariaika" refers to
-  the same person as Taqiyeddin Maatlia.
-- The effect of the earlier MIT grant on existing commits, releases and copies,
-  and how to label versions across the change.
+- The final form of the copyright line (for example whether a year range is
+  wanted, and whether the name should carry a legal-entity suffix). The identity
+  question is settled: "Zakariaika" is the GitHub handle of Taqiyeddin Maatlia,
+  confirmed by the owner.
+- The exact boundary between earlier MIT versions and future distributions
+  (commits, tags, release artifacts), whether a mixed repository or product
+  should be labelled MIT, source-available or both, and whether any artifact
+  was published under MIT outside this repository.
 - Governing law, jurisdiction and dispute-resolution forum (`LICENSE` 14.5).
 - Whether the non-commercial definitions cover the intended cases, in
   particular academic research with industry funding, non-profit internal use,
   and evaluation by a company considering a commercial license.
-- Whether the contribution terms (section 8) are sufficient for the project's
-  intended relicensing flexibility.
+- Whether the contribution terms (`LICENSE` section 8) are sufficient for the
+  project's intended relicensing flexibility, including how moral rights that
+  cannot be waived in some jurisdictions are handled.
 - Whether any dependency, tool or asset imposes notice or redistribution
   obligations beyond those recorded in section 4.
 - Whether the name and logo have any registered or common-law trademark status.

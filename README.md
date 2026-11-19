@@ -465,6 +465,8 @@ redistribution each require prior written permission from the copyright holder.
 - [TRADEMARKS.md](TRADEMARKS.md) — name, logo and brand-use rules
 
 The license text is a draft: it has not been reviewed by a lawyer and is not a
-claim of enforceability in any jurisdiction. Earlier releases of this
-repository were published under the MIT License; the change and its open
-questions are recorded in [ADR-0020](docs/adr/0020-licensing-model.md).
+claim of enforceability in any jurisdiction. Versions distributed before this
+license were published under the MIT License and remain available under MIT for
+anyone who obtained them; versions that include this license are offered under
+the draft only. The change and its open questions are recorded in
+[ADR-0020](docs/adr/0020-licensing-model.md).
