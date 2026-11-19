@@ -30,7 +30,7 @@ Rules:
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-product-scope.md) | Product scope and result taxonomy | Accepted (decision 5 superseded by 0020) |
+| [0001](0001-product-scope.md) | Product scope and result taxonomy | Superseded by 0020 (decision 5 only; decisions 1–4 remain in force) |
 | [0002](0002-language-and-runtime.md) | Language, runtime and toolchain | Accepted |
 | [0003](0003-modular-monolith.md) | Modular monolith with ports and adapters | Accepted |
 | [0004](0004-local-first.md) | Local-first V0.1 with a hosted-ready seam | Accepted |
