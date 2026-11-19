@@ -29,7 +29,7 @@ be claimed yet, and the documents must not pretend otherwise.
 ## Decision
 
 1. **Replace the MIT license text with a clearly labelled draft** of a
-   source-available, non-commercial license in `LICENSE`, versioned `0.1-draft`.
+   source-available, non-commercial license in `LICENSE`, versioned `0.2-draft`.
    The draft states that it has not been legally reviewed and is not a claim of
    enforceability, in its own first section rather than in a footnote.
 
@@ -111,9 +111,59 @@ be claimed yet, and the documents must not pretend otherwise.
     starts at the merge commit of this pull request. That commit does not exist
     yet, so its identifier is not asserted; it must be recorded when the change
     lands, and until then nothing on `main` is distributed under the draft.
-    Copies taken from an unmerged branch are drafts, not releases. No historical
+    Copies taken from an unmerged branch are not releases and carry the draft
+    text; that label does not by itself decide their legal effect. No historical
     MIT notice is rewritten or removed; `package.json` metadata is not treated as
     a grant.
+
+12. **Keep the commercial relicensing right with the Copyright Holder, and say
+    so in every place a recipient could read it the other way.** `LICENSE` 8.5
+    now grants recipients only the non-commercial permission in 4.1 in a
+    contribution; the rights in 8.4 — including relicensing on commercial or
+    other terms — run to the Copyright Holder alone and are not granted to
+    recipients, redistributors or downstream fork maintainers. `LICENSE` 4.4
+    states the direct-grant construction and its three limits: no commercial
+    right downstream, no contributor grant downstream, and no licence in a
+    modifier's own original additions. `LICENSE` 4.2 says the same for a fork's
+    additions, which stay the modifier's to license and do not become part of the
+    Software by being combined with it. The construction is still described as
+    the Copyright Holder's intent, not as settled law.
+
+13. **Replace automatic, disproportionate termination with notice and cure, and
+    stop inventing a liability cap.** `LICENSE` 11 now terminates only for
+    material breach, on written notice, with a 30-day cure period where cure is
+    possible; minor, technical and accidental breaches do not terminate the
+    licence. The clause that terminated a licence for challenging the Copyright
+    Holder's rights is removed, and bringing or defending a claim is expressly
+    not a termination event. Post-termination duties are limited to stopping use,
+    stopping distribution and deleting copies, preserving copies required by law
+    and permissions already granted to compliant recipients, and expressly not
+    revoking what law does not allow to be revoked; reinstatement is in writing.
+    `LICENSE` 13.2 no longer states a cap formula: it limits liability to the
+    smallest amount applicable law permits and marks the choice of any cap as a
+    question for counsel, because an invented cap can be unenforceable or fall
+    below a statutory minimum.
+
+14. **Classify the non-commercial edge cases, and name the ones left open.**
+    `LICENSE` 1.3 and 1.4 are rewritten so that classroom teaching and unfunded
+    academic research are non-commercial, while an activity that is charged for,
+    revenue-generating or commercially sponsored is commercial, and 1.8 lists
+    the resolved cases (individual, classroom, unfunded research, evaluation;
+    for-profit internal use, employee use, hosted services, commercial
+    distribution, paid sponsorship) and the open ones (non-profit internal use,
+    government and public-sector use, mixed-funded research, donation-funded
+    hosting, donations to contributors). An open case defaults to commercial
+    pending written permission and is recorded in `NOTICE` rather than settled
+    by guesswork.
+
+15. **State only trademark rights that exist.** `TRADEMARKS.md` separates
+    copyright in logo artwork from trademark rights in names and marks, claims no
+    registration, stops treating the palette, screenshots, iconography, package
+    name and command name as trademarks, and replaces the prohibition on uses
+    that "disparage" the project with a restriction on misleading affiliation,
+    false endorsement, deceptive naming and confusing presentation. Criticism,
+    negative reviews, independent reporting, comparison and educational
+    references are expressly permitted.
 
 ## Consequences
 
@@ -147,6 +197,14 @@ be claimed yet, and the documents must not pretend otherwise.
 - **Commercial enquiries need a real channel.** `LICENSE` section 5 points to
   the repository owner account. A written permission process (scope, term,
   fee, attribution) does not exist yet and is a follow-up deliverable.
+- **Termination and liability now have a defensible shape, not a settled
+  substance.** Notice, cure and materiality replace automatic termination, and
+  the liability section refuses to invent a cap. Whether those choices are
+  enforceable, and what cap or insurance is appropriate, still require counsel.
+- **The trademark policy claims less than it did.** It asserts no registration
+  and no exclusive right beyond what law provides, and it permits criticism and
+  reporting explicitly. That is more accurate but also weaker as an enforcement
+  document; registration remains an open question for the owner.
 - **The draft is not a control.** Nothing here prevents copying, and a draft
   that is never reviewed provides weaker protection than a reviewed final
   license. Legal review is the next step, not an optional one.
@@ -185,3 +243,22 @@ be claimed yet, and the documents must not pretend otherwise.
   MIT grants cannot be withdrawn by editing the current file, and the record of
   what was distributed under which terms is the point of `LICENSE` 3.6 and
   `NOTICE` 3.
+- **Terminate automatically on any breach, including a challenge to the
+  Copyright Holder's rights.** Rejected: it makes an accidental or technical
+  slip indistinguishable from a commercial violation, offers no opportunity to
+  cure, and turns a legal disagreement into a licensing event. Notice, cure and
+  a materiality standard are the proportionate alternative.
+- **Set a nominal liability cap, such as the amount paid or a small fixed sum.**
+  Rejected: for non-commercial use the amount paid is zero, a fixed sum has no
+  legal basis in this draft, and a cap chosen without advice can be
+  unenforceable or below a statutory minimum. The section says what it knows and
+  marks the rest for counsel.
+- **Grant every recipient the same rights as the Copyright Holder, including
+  commercial relicensing.** Rejected: it would let any recipient sell or
+  sublicense the Software and would undo the commercial protection the model
+  exists to preserve. The relicensing right stays with the Copyright Holder
+  (`LICENSE` 4.4, 8.4, 8.5).
+- **Keep the "disparage" prohibition and treat colours, screenshots and command
+  names as trademarks.** Rejected: it would restrict truthful criticism, claim
+  rights that are not established, and confuse copyright in assets with
+  trademark rights in marks.
