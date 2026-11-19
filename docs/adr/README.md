@@ -30,7 +30,7 @@ Rules:
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-product-scope.md) | Product scope and result taxonomy | Accepted |
+| [0001](0001-product-scope.md) | Product scope and result taxonomy | Accepted (decision 5 superseded by 0020) |
 | [0002](0002-language-and-runtime.md) | Language, runtime and toolchain | Accepted |
 | [0003](0003-modular-monolith.md) | Modular monolith with ports and adapters | Accepted |
 | [0004](0004-local-first.md) | Local-first V0.1 with a hosted-ready seam | Accepted |
@@ -49,3 +49,4 @@ Rules:
 | [0017](0017-architecture-intelligence.md) | Architecture intelligence: a derived, non-persisted projection | Accepted |
 | [0018](0018-execution-control-plane-and-sandbox-boundaries.md) | Execution control plane and sandbox boundaries | Proposed |
 | [0019](0019-isolation-runtime-selection.md) | Isolation runtime selection for the execution engine | Proposed |
+| [0020](0020-licensing-model.md) | Licensing model: source-available, non-commercial by default | Proposed |

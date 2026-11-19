@@ -396,7 +396,9 @@ Further reading:
 ├── tests/                       # Node test runner suites
 ├── .github/workflows/ci.yml     # Typecheck + build + tests on every PR
 ├── .env.example                 # Documented configuration surface
-└── LICENSE                      # MIT
+├── LICENSE                      # Source-available license (draft)
+├── NOTICE                       # Copyright, third-party and scope notices
+└── TRADEMARKS.md                # Name, logo and brand-use policy
 ```
 
 ## Development
@@ -451,4 +453,18 @@ The order is binding, not advisory. **2C models experiments and runs without exe
 
 ## License
 
-MIT — see [LICENSE](LICENSE). VOLDBASE V0.1 is a public, open-source project.
+VOLDBASE is **source-available, not open source**. The current draft license
+permits personal, educational and other non-commercial use, personal
+non-commercial modification, and non-commercial contributions. Commercial use
+— including internal business use — selling, sublicensing and commercial
+redistribution each require prior written permission from the copyright holder.
+
+- [LICENSE](LICENSE) — the license text (draft, not legally reviewed)
+- [NOTICE](NOTICE) — copyright, third-party components, prior licensing and
+  current product-scope statements
+- [TRADEMARKS.md](TRADEMARKS.md) — name, logo and brand-use rules
+
+The license text is a draft: it has not been reviewed by a lawyer and is not a
+claim of enforceability in any jurisdiction. Earlier releases of this
+repository were published under the MIT License; the change and its open
+questions are recorded in [ADR-0020](docs/adr/0020-licensing-model.md).
