@@ -79,13 +79,18 @@ be claimed yet, and the documents must not pretend otherwise.
    license, and no redistribution grants a recipient a commercial right
    (`LICENSE` 4.5).
 
-9. **State the contribution grant precisely.** Contributors keep copyright; the
-   license back is a perpetual, irrevocable, transferable, sublicensable right
-   to reproduce, modify, distribute and relicense the contribution as part of
-   the Software, including under commercial terms, and it is accepted only by
-   submitting under these terms or under separate written terms. It is a
-   license, not an assignment, and no ownership of a contribution is claimed
-   (`LICENSE` 8).
+9. **State the contribution grant precisely, and record consent explicitly.**
+   Contributors keep copyright; the license back is a perpetual, irrevocable,
+   transferable, sublicensable right to reproduce, modify, distribute and
+   relicense the contribution as part of the Software, including under
+   commercial terms. It is a license, not an assignment, and no ownership of a
+   contribution is claimed (`LICENSE` 8). Consent is not inferred from the act
+   of submitting: a contribution is accepted only after the contributor posts
+   the signed statement specified in `CONTRIBUTING.md`, which identifies them
+   and the date and is kept with the contribution's history, and a maintainer
+   must not merge without it (`LICENSE` 8.1, 8.10; `.github/pull_request_template.md`
+   prompts for it). The procedure is described as a documented consent
+   mechanism, never as legally sufficient (`LICENSE` 8.11).
 
 10. **Permit non-commercial distribution of modified versions, under named
     conditions.** `LICENSE` 4.2 allows a modified version to be distributed
@@ -98,6 +103,18 @@ be claimed yet, and the documents must not pretend otherwise.
     keeps commercial distribution behind `LICENSE` 5. `LICENSE` 4.3 and 4.5 are
     worded so that the new permission cannot be read as a commercial right.
 
+11. **Record the MIT boundary in commit terms, and state what cannot be known.**
+    `LICENSE` 3.6 and `NOTICE` 3 now give the verified prior side: MIT applied to
+    every commit on `main` from the initial commit `5aee287` (2026-11-14)
+    through `1768aad` (2026-11-18), the `LICENSE` blob being unchanged across
+    that range, and the repository has no tags and no releases. The new side
+    starts at the merge commit of this pull request. That commit does not exist
+    yet, so its identifier is not asserted; it must be recorded when the change
+    lands, and until then nothing on `main` is distributed under the draft.
+    Copies taken from an unmerged branch are drafts, not releases. No historical
+    MIT notice is rewritten or removed; `package.json` metadata is not treated as
+    a grant.
+
 ## Consequences
 
 - **The project is no longer open source** in the OSI sense, and must not be
@@ -106,15 +123,22 @@ be claimed yet, and the documents must not pretend otherwise.
 - **Earlier MIT grants are not revoked for copies already obtained.** This
   license applies to repository contents from the commit that introduces it. It
   is not retroactive and does not cancel permissions already granted for earlier
-  versions, releases or copies (`LICENSE` 3.6, `NOTICE` 3). What applies to a
-  given version therefore depends on when it was obtained; the exact
-  commit/tag/release boundary is left as an open question rather than asserted.
-- **Contribution friction increases.** Contributors must accept the terms in
-  `LICENSE` section 8, which license the contribution to the Copyright Holder
-  broadly enough to relicense the project commercially, while copyright stays
-  with the contributor. Some contributors will decline that; it is a consequence
-  of the policy, not a defect in the draft. Jurisdictions with non-waivable
-  moral rights still need legal review (recorded as an open question).
+  versions or copies (`LICENSE` 3.6, `NOTICE` 3). The prior side is recorded
+  exactly (`5aee287` through `1768aad`, no tags, no releases); the first commit
+  under this license is the merge commit of this change and its identifier can
+  only be recorded after the merge. What applies to a given copy therefore
+  depends on when it was obtained, and a repository mixing both licences is a
+  labelling question still open.
+- **Contribution friction increases, and consent costs a step.** Contributors
+  must accept the terms in `LICENSE` section 8, which license the contribution
+  to the Copyright Holder broadly enough to relicense the project commercially,
+  while copyright stays with the contributor. They must also record that
+  acceptance explicitly, because the project no longer treats a submitted pull
+  request as agreement; a contributor who does not post the statement is not
+  merged. Some contributors will decline either way; it is a consequence of the
+  policy, not a defect in the draft. Jurisdictions with non-waivable moral
+  rights, corporate contributors and the sufficiency of the consent record still
+  need legal review (recorded as open questions).
 - **Non-commercial forks are now permitted, and the controls are names and
   notices.** A fork may be published, renamed and distributed free of charge,
   so `LICENSE` 4.2's conditions and the trademark policy are what keep the
@@ -153,3 +177,11 @@ be claimed yet, and the documents must not pretend otherwise.
   publishing a non-commercial fork is part of the intended permission, and the
   conditions in `LICENSE` 4.2 address renaming, branding and notices without a
   case-by-case permission request.
+- **Treat submitting a pull request as implicit consent.** Rejected: it produces
+  no record of what a contributor agreed to or when, it depends on a term buried
+  in a document the contributor may not have read, and the owner asked for
+  documented, affirmative consent instead (`CONTRIBUTING.md`).
+- **Rewrite `LICENSE` history so the MIT period disappears.** Rejected: prior
+  MIT grants cannot be withdrawn by editing the current file, and the record of
+  what was distributed under which terms is the point of `LICENSE` 3.6 and
+  `NOTICE` 3.

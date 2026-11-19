@@ -49,14 +49,35 @@ those permissions, and it must not be read as doing so:
 - **Past use.** This draft does not recharacterise rights already exercised and
   does not describe past use as unlicensed.
 
-Where the boundary sits is an open question. This repository has no tagged
-releases at the time of this draft, so the only definite boundary is the commit
-that introduces this file. Which commits, tags and release artifacts count as
-"earlier versions" and which count as "future distributions", whether a
-repository or product that contains files under both licenses should be
-described as MIT, source-available or both, and how version numbers should be
-labelled across the change, are listed under "Open questions" rather than
-resolved here.
+**The boundary, as verified in this repository's history:**
+
+| Range | License |
+| --- | --- |
+| `main`, initial commit `5aee287` (2026-11-14) through commit `1768aad` (2026-11-18), inclusive | MIT |
+| `main`, from the first commit that contains this NOTICE and the draft `LICENSE` onward | VOLDBASE Source-Available License (draft) |
+
+Two facts make the prior side exact. `LICENSE` was committed once, in the
+initial commit, and was not modified again on `main`: the MIT text at `5aee287`
+and at `1768aad` is the identical file, so every commit in that range carried
+MIT. And the repository has **no tags and no published releases**, so there are
+no release artifacts to place on either side of the boundary.
+
+**The limitation.** The first commit under this license is the merge commit of
+the pull request that introduces these documents. That commit did not exist when
+this NOTICE was written, so its identifier is not recorded here and has not been
+guessed; until it exists on `main`, no version on `main` is distributed under
+this draft, and copies taken from an unmerged branch are drafts, not releases.
+The identifier should be filled in when the change lands. Still unresolved: how
+a repository or product that contains files under both licenses should be
+described (MIT, source-available or both), how version numbers should be
+labelled across the change, and whether any copy of an earlier version was
+distributed outside this repository. These are listed under "Open questions"
+rather than resolved here.
+
+Repository-level license metadata is not a grant. GitHub's license detection
+reports the repository's `LICENSE` file, and may keep reporting MIT while a
+merge is pending or if detection lags. What governs a copy is the license text
+that accompanied it, not the metadata badge.
 
 4. THIRD-PARTY COMPONENTS
 
@@ -84,15 +105,23 @@ Contributors keep their copyright. A contribution is licensed to the project,
 not assigned to it: `LICENSE` section 8 grants the Copyright Holder a
 perpetual, irrevocable, transferable and sublicensable license to reproduce,
 modify, distribute and relicense the contribution as part of the Software,
-including under commercial terms. That permission is accepted only by
-submitting under those terms, or under separate written terms agreed with the
-Copyright Holder. The project does not claim ownership of contributors' work,
-and no contribution becomes the Copyright Holder's property.
+including under commercial terms. The project does not claim ownership of
+contributors' work, and no contribution becomes the Copyright Holder's property.
 
-The commit history of this repository at the time of this draft was authored
-under one account, which belongs to the copyright holder named in section 1. If
-contributions from other people are later merged, their notices must be
-preserved here.
+**Consent is recorded, not presumed.** Submitting a pull request, pushing a
+commit, attaching a patch or opening an issue does not by itself agree to those
+terms, and the project does not treat it as agreement. A contribution is
+accepted only after the contributor has recorded the explicit statement
+specified in `CONTRIBUTING.md` — signed with their name or handle and a date —
+and a maintainer must not merge a contribution that lacks it (`LICENSE` 8.1 and
+8.10). The recorded statement stays with the contribution's history. The
+procedure is a documented consent mechanism, not a legal conclusion: whether it
+is sufficient in any jurisdiction is an open question, recorded in section 8.
+
+No external contribution had been merged at the time of this draft. The commit
+history was authored by the copyright holder's account or by an automated coding
+agent acting for it. If contributions from other people are later merged, their
+notices must be preserved here.
 
 6. CURRENT PRODUCT SCOPE AND LIMITATIONS
 
@@ -134,10 +163,13 @@ This draft deliberately leaves the following unresolved rather than guessing:
   wanted, and whether the name should carry a legal-entity suffix). The identity
   question is settled: "Zakariaika" is the GitHub handle of Taqiyeddin Maatlia,
   confirmed by the owner.
-- The exact boundary between earlier MIT versions and future distributions
-  (commits, tags, release artifacts), whether a mixed repository or product
-  should be labelled MIT, source-available or both, and whether any artifact
-  was published under MIT outside this repository.
+- The exact identifier of the first commit under this license. The prior side
+  is verified (`5aee287` through `1768aad` under MIT, with no tags or releases);
+  the new side begins at the merge commit of the pull request that introduces
+  these documents, which does not exist yet and must be recorded when it does.
+- Whether a repository or product that contains files under both licenses should
+  be labelled MIT, source-available or both, and whether any copy of an earlier
+  version was distributed under MIT outside this repository.
 - Governing law, jurisdiction and dispute-resolution forum (`LICENSE` 14.5).
 - Whether the non-commercial definitions cover the intended cases, in
   particular academic research with industry funding, non-profit internal use,
@@ -145,6 +177,12 @@ This draft deliberately leaves the following unresolved rather than guessing:
 - Whether the contribution terms (`LICENSE` section 8) are sufficient for the
   project's intended relicensing flexibility, including how moral rights that
   cannot be waived in some jurisdictions are handled.
+- Whether the consent procedure in `CONTRIBUTING.md` — an explicit signed
+  statement recorded on the pull request, with no consent inferred from the
+  submission itself — is legally sufficient to bind a contributor, and what
+  additional steps (a separate signed agreement, a CLA service, a corporate
+  signatory) a lawyer would require. Also whether a contributor who is a minor,
+  or who contributes as part of employment, needs a different mechanism.
 - Whether any dependency, tool or asset imposes notice or redistribution
   obligations beyond those recorded in section 4.
 - Whether the name and logo have any registered or common-law trademark status.
