@@ -29,7 +29,7 @@ be claimed yet, and the documents must not pretend otherwise.
 ## Decision
 
 1. **Replace the MIT license text with a clearly labelled draft** of a
-   source-available, non-commercial license in `LICENSE`, versioned `0.2-draft`.
+   source-available, non-commercial license in `LICENSE`, versioned `0.3-draft`.
    The draft states that it has not been legally reviewed and is not a claim of
    enforceability, in its own first section rather than in a footnote.
 
@@ -108,9 +108,11 @@ be claimed yet, and the documents must not pretend otherwise.
     every commit on `main` from the initial commit `5aee287` (2026-11-14)
     through `1768aad` (2026-11-18), the `LICENSE` blob being unchanged across
     that range, and the repository has no tags and no releases. The new side
-    starts at the merge commit of this pull request. That commit does not exist
-    yet, so its identifier is not asserted; it must be recorded when the change
-    lands, and until then nothing on `main` is distributed under the draft.
+    starts at the first commit on `main` whose tree contains these documents,
+    whatever its commit message and whether it is a merge, a squash or a direct
+    commit. That commit does not exist yet, so its identifier is not asserted;
+    it must be recorded when the change lands, and until then nothing on `main`
+    is distributed under the draft.
     Copies taken from an unmerged branch are not releases and carry the draft
     text; that label does not by itself decide their legal effect. No historical
     MIT notice is rewritten or removed; `package.json` metadata is not treated as
@@ -139,10 +141,11 @@ be claimed yet, and the documents must not pretend otherwise.
     stopping distribution and deleting copies, preserving copies required by law
     and permissions already granted to compliant recipients, and expressly not
     revoking what law does not allow to be revoked; reinstatement is in writing.
-    `LICENSE` 13.2 no longer states a cap formula: it limits liability to the
-    smallest amount applicable law permits and marks the choice of any cap as a
-    question for counsel, because an invented cap can be unenforceable or fall
-    below a statutory minimum.
+    `LICENSE` 13.2 sets no cap, formula or fixed amount: it records the
+    exclusion intended in 13.1, leaves the extent of any liability where
+    exclusion is not permitted to applicable law as unresolved, and marks any
+    cap or insurance as a question for counsel, because an invented cap can be
+    unenforceable or fall below a statutory minimum.
 
 14. **Classify the non-commercial edge cases, and name the ones left open.**
     `LICENSE` 1.3 and 1.4 are rewritten so that classroom teaching and unfunded
@@ -165,6 +168,69 @@ be claimed yet, and the documents must not pretend otherwise.
     negative reviews, independent reporting, comparison and educational
     references are expressly permitted.
 
+16. **Make "revocable" mean section 11, and narrow materiality.** `LICENSE` 4.1
+    now says the permission is revocable only through the procedure in section
+    11, and states that no provision grants a right to withdraw it at will, on
+    mere notice or for convenience; the reservation of other rights in 4.3 is
+    unchanged. `LICENSE` 11.2 requires a written notice that identifies the
+    breach and, where cure is possible, what cure requires; a cure within 30
+    days means no termination occurs. Commercial use or distribution without
+    permission and presenting an unexecuted run as `PASS` remain material, but a
+    failure to keep notices is material only when it defeats the purpose of the
+    licence. `LICENSE` 11.3 now says expressly that an accidental or technical
+    violation — including an inadvertent notice omission, a metadata error or a
+    momentary failure corrected promptly — is not material and does not become
+    material unless it continues after written notice. `LICENSE` 11.8 also
+    preserves 8.3 and 8.9, and explains that survival preserves terms rather
+    than a terminated party's permission, with 11.5 and 11.6 controlling what
+    may still be done. No termination right is added outside section 11.
+
+17. **Remove the last trace of an invented liability formula.** `LICENSE` 13.2
+    now sets no cap, no formula and no fixed amount, and does not assert that
+    any limitation is enforceable. It records the exclusion intended in 13.1,
+    leaves the extent of liability where exclusion is not permitted to
+    applicable law as unresolved in the draft, and marks any cap or insurance as
+    a question for counsel. The earlier "smallest amount applicable law
+    permits" wording, which read as a limitation formula, is gone.
+
+18. **Resolve the donation and hosted-service overlap instead of leaving two
+    rules.** `LICENSE` 1.4(d) no longer classifies the donation-funded free
+    public service that 1.8(m) leaves open. `LICENSE` 1.4(f) now defines when a
+    payment or sponsorship is commercial consideration, excludes a personal
+    gift to a contributor that 1.8(n) addresses, and leaves a donation funding
+    the 1.8(m) service to that paragraph. `LICENSE` 1.8(m) states what it leaves
+    open (free access, and no revenue other than donations that are not
+    consideration), and 1.8(n) distinguishes a personal donation from support
+    connected with the Software or given for influence, access or another
+    benefit, which is commercial under 1.4(f).
+
+19. **Take only the rights a contributor actually has, and state which document
+    governs what.** `LICENSE` 8.2 now asks for the authority a contributor
+    holds, not a claim of personal ownership: third-party material must be
+    licensed in a way that permits the 8.4 grant, and an employer, client or
+    other organisation that owns the contribution must authorise the submission
+    and the grant, or agree separate written terms. `LICENSE` 8.1 records that
+    requirement, 8.3 applies the retained-copyright position to that
+    organisation, and 8.4 grants only to the extent the contributor holds or is
+    authorised to grant the rights. The consent statement in `CONTRIBUTING.md`
+    and the pull request template no longer ask a contributor to confirm that
+    they retain copyright they may not hold; they ask the contributor to
+    identify the rights holder and their authority when they do not. `LICENSE`
+    14.4 now states the hierarchy: `LICENSE` governs permissions in the
+    Software, `TRADEMARKS.md` governs the Brand and grants no software right,
+    and `NOTICE` carries notices and factual disclosures and grants no
+    permission; neither can override `LICENSE`.
+
+20. **Distinguish internal review from independent audit, and stop assuming how
+    the change lands.** `NOTICE` 6.2 now says expressly that the internal
+    security work is produced by the copyright holder or by automated tooling
+    acting for the project, not by an external auditor or certification body,
+    and that a passing automated check establishes only what it tests. `NOTICE`
+    3 no longer assumes the change lands as a merge: the new side begins at the
+    first commit on `main` whose tree contains the documents, however it was
+    created, and the identifier is recorded when it exists rather than guessed.
+    The same correction is made in `LICENSE` 3.6(e) and decision 11.
+
 ## Consequences
 
 - **The project is no longer open source** in the OSI sense, and must not be
@@ -175,8 +241,9 @@ be claimed yet, and the documents must not pretend otherwise.
   is not retroactive and does not cancel permissions already granted for earlier
   versions or copies (`LICENSE` 3.6, `NOTICE` 3). The prior side is recorded
   exactly (`5aee287` through `1768aad`, no tags, no releases); the first commit
-  under this license is the merge commit of this change and its identifier can
-  only be recorded after the merge. What applies to a given copy therefore
+  under this license is the first commit on `main` that contains these
+  documents, whatever its commit message, and its identifier can only be
+  recorded once that commit exists. What applies to a given copy therefore
   depends on when it was obtained, and a repository mixing both licences is a
   labelling question still open.
 - **Contribution friction increases, and consent costs a step.** Contributors
