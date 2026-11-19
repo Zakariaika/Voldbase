@@ -67,24 +67,27 @@ and at `1768aad` is the identical file, so every commit in that range carried
 MIT. And the repository has **no tags and no published releases**, so there are
 no release artifacts to place on either side of the boundary.
 
-**The limitation.** The first commit under this license is the merge commit of
-the pull request that introduces these documents. That commit did not exist when
-this NOTICE was written, so its identifier is not recorded here and has not been
-guessed; until it exists on `main`, no version on `main` is distributed under
-this draft. Copies taken from an unmerged branch are not releases and carry the
-draft text, but that label does not by itself decide what legal effect, if any,
-the draft has on such a copy; that is a question for counsel. The identifier
-should be filled in when the change lands. Still unresolved: how
-a repository or product that contains files under both licenses should be
-described (MIT, source-available or both), how version numbers should be
-labelled across the change, and whether any copy of an earlier version was
-distributed outside this repository. These are listed under "Open questions"
-rather than resolved here.
+**The limitation.** The first commit under this license is the first commit on
+`main` whose tree contains this NOTICE and the draft `LICENSE`. It is identified
+by that fact alone, not by a commit message or by a particular way of landing
+the change: whether it is a merge commit, a squashed commit or a direct commit,
+the boundary is the first commit on `main` that contains these documents. That
+commit did not exist when this NOTICE was written, so its identifier is not
+recorded here and has not been guessed; until it exists on `main`, no version on
+`main` is distributed under this draft. Copies taken from an unmerged branch
+are not releases and carry the draft text, but that label does not by itself
+decide what legal effect, if any, the draft has on such a copy; that is a
+question for counsel. The identifier should be filled in when the change lands.
+Still unresolved: how a repository or product that contains files under both
+licenses should be described (MIT, source-available or both), how version
+numbers should be labelled across the change, and whether any copy of an earlier
+version was distributed outside this repository. These are listed under "Open
+questions" rather than resolved here.
 
 Repository-level license metadata is not a grant. GitHub's license detection
 reports the repository's `LICENSE` file, and may keep reporting MIT while a
-merge is pending or if detection lags. What governs a copy is the license text
-that accompanied it, not the metadata badge.
+licence change is pending or if detection lags. What governs a copy is the
+license text that accompanied it, not the metadata badge.
 
 4. THIRD-PARTY COMPONENTS
 
@@ -131,6 +134,15 @@ and a maintainer must not merge a contribution that lacks it (`LICENSE` 8.1 and
 procedure is a documented consent mechanism, not a legal conclusion: whether it
 is sufficient in any jurisdiction is an open question, recorded in section 8.
 
+**Contributions owned by an organisation.** A contribution may be owned or
+controlled by an employer, client or other organisation rather than by the
+individual who submits it. In that case the project requires that the
+organisation's authority to submit the contribution and to grant the `LICENSE`
+section 8.4 licence be recorded, either in the contributor's acceptance
+statement or in separate written terms with the Copyright Holder (`LICENSE` 8.1
+and 8.2(d)). Copyright is not claimed from that organisation either, and a
+contributor is not asked to claim copyright they do not hold.
+
 **Authorship and metadata.** The Git history records commit authors, and those
 fields are reproduced by Git, not verified by the project. At the time of this
 draft, the commits were authored by the copyright holder's account or by an
@@ -175,7 +187,12 @@ notice, not marketing:
     (including ADR-0005, ADR-0018 and the execution safety specification)
     describes requirements for a future execution engine; those requirements
     are not implemented, and their presence is not evidence that untrusted code
-    can be run safely.
+    can be run safely. The internal security work is not independent: it is
+    produced by the copyright holder or by automated tooling acting for the
+    project, not by an external auditor, a certification body or a third party.
+    An automated check that passes establishes only what that check tests; it is
+    not an audit, a penetration test, a certification or a guarantee, and it
+    does not make the Software secure.
 
 6.3 Results are not a warranty of correctness. VOLDBASE reports what it
     observed. A `PASS` is bounded by the conditions that were checked; absence
@@ -198,10 +215,11 @@ This draft deliberately leaves the following unresolved rather than guessing:
   wanted, and whether the name should carry a legal-entity suffix). The identity
   question is settled: "Zakariaika" is the GitHub handle of Taqiyeddin Maatlia,
   confirmed by the owner.
-- The exact identifier of the first commit under this license. The prior side
-  is verified (`5aee287` through `1768aad` under MIT, with no tags or releases);
-  the new side begins at the merge commit of the pull request that introduces
-  these documents, which does not exist yet and must be recorded when it does.
+- The exact identifier of the first commit under this license: the first commit
+  on `main` whose tree contains these documents, however the change is landed.
+  The prior side is verified (`5aee287` through `1768aad` under MIT, with no
+  tags or releases); the new-side commit does not exist yet and must be recorded
+  when it does, without assuming a merge or a commit message.
 - Whether a repository or product that contains files under both licenses should
   be labelled MIT, source-available or both, and whether any copy of an earlier
   version was distributed under MIT outside this repository.
@@ -217,7 +235,9 @@ This draft deliberately leaves the following unresolved rather than guessing:
   submission itself — is legally sufficient to bind a contributor, and what
   additional steps (a separate signed agreement, a CLA service, a corporate
   signatory) a lawyer would require. Also whether a contributor who is a minor,
-  or who contributes as part of employment, needs a different mechanism.
+  or who contributes as part of employment, needs a different mechanism, and
+  whether an organisation's recorded authority for a contribution it owns is
+  sufficient without separate written terms (`LICENSE` 8.1, 8.2(d)).
 - Whether an acceptance recorded for a pull request can validly cover later
   commits pushed to that request before merge (`LICENSE` 8.1), or whether each
   commit needs a fresh statement.
@@ -231,7 +251,8 @@ This draft deliberately leaves the following unresolved rather than guessing:
   revoked.
 - What liability position can be stated where exclusion is not permitted, and
   whether a monetary cap or insurance is appropriate (`LICENSE` 13.2). This
-  draft sets no cap because none could be chosen responsibly without advice.
+  draft sets no cap, formula or fixed amount, and asserts no particular
+  limitation, because none could be chosen responsibly without advice.
 - How the open non-commercial cases in `LICENSE` 1.8(j)–(n) should be classified:
   non-profit internal use, government and public-sector use, mixed-funded
   research, donation-funded hosted services, and donations to contributors.
