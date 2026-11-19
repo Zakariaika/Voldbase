@@ -396,7 +396,10 @@ Further reading:
 ├── tests/                       # Node test runner suites
 ├── .github/workflows/ci.yml     # Typecheck + build + tests on every PR
 ├── .env.example                 # Documented configuration surface
-└── LICENSE                      # MIT
+├── LICENSE                      # Source-available license (draft)
+├── CONTRIBUTING.md              # Contribution terms and consent procedure
+├── NOTICE                       # Copyright, third-party and scope notices
+└── TRADEMARKS.md                # Name, logo and brand-use policy
 ```
 
 ## Development
@@ -451,4 +454,31 @@ The order is binding, not advisory. **2C models experiments and runs without exe
 
 ## License
 
-MIT — see [LICENSE](LICENSE). VOLDBASE V0.1 is a public, open-source project.
+VOLDBASE is **source-available, not open source**. The current draft license
+permits personal, educational and other non-commercial use, non-commercial
+modification, non-commercial contributions, and non-commercial distribution of
+modified versions that are renamed, carry no official branding, state that they
+are unofficial, and keep the notices. Commercial use — including internal
+business use — selling, sublicensing and any commercial distribution of the
+Software or of a modified version require prior written permission from the
+copyright holder.
+
+- [LICENSE](LICENSE) — the license text (draft, not legally reviewed)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution terms and the procedure
+  that records a contributor's explicit consent
+- [NOTICE](NOTICE) — copyright, third-party components, prior licensing and
+  current product-scope statements
+- [TRADEMARKS.md](TRADEMARKS.md) — name, logo and brand-use rules
+
+The license text is a draft: it has not been reviewed by a lawyer and is not a
+claim of enforceability in any jurisdiction. Every commit on `main` up to and
+including `1768aad` (2026-11-18) was distributed under the MIT License and
+remains available under MIT for anyone who obtained it; the repository has no
+tags and no releases, so there is no other release boundary. Versions that
+include this license are offered under the draft only, from the commit that
+introduces it onward — `NOTICE` section 3 records that boundary and the one part
+of it that cannot be known before the change is merged. A contribution is
+accepted only with a recorded, explicit acceptance of the contribution terms;
+submitting a pull request alone does not record it (see
+[`CONTRIBUTING.md`](CONTRIBUTING.md)). The change and its open questions are
+recorded in [ADR-0020](docs/adr/0020-licensing-model.md).

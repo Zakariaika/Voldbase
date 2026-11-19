@@ -1,0 +1,286 @@
+VOLDBASE — NOTICE
+
+This NOTICE is part of the distribution of VOLDBASE. Keep it with every copy.
+It does not replace the license; read `LICENSE` first.
+
+1. COPYRIGHT
+
+VOLDBASE — Universal Experiment & Verification Infrastructure for software and
+AI projects.
+
+Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
+
+"Zakariaika" is the GitHub account name used by Taqiyeddin Maatlia. Earlier
+versions of this repository carried the line "Copyright (c) 2026 Zakariaika".
+The owner has confirmed that the account and the person are the same, so the
+two lines identify one copyright holder: no separate author, no separate legal
+person and no transfer of copyright is involved. The line above is the form the
+owner intends to use from this point on.
+
+2. LICENSE STATUS
+
+VOLDBASE is source-available, not open source. It is distributed under the
+VOLDBASE Source-Available License (draft), in `LICENSE`. That license permits
+personal, educational and other non-commercial use, non-commercial
+modification, and non-commercial contributions, and requires prior written
+permission for commercial use (including internal business use), selling,
+sublicensing and commercial distribution. Non-commercial redistribution of
+unmodified copies is permitted, and so is non-commercial distribution of a
+modified version that meets the conditions in `LICENSE` section 4.2: a different
+name, no official identity, a clear unofficial-and-unaffiliated statement,
+preserved notices, and the license texts included for recipients.
+
+Non-commercial use is defined in `LICENSE` section 1.3, and `LICENSE` section
+1.8 lists the cases this draft classifies as non-commercial or commercial and
+the cases it deliberately leaves open. An open case should be treated as
+commercial until the Copyright Holder decides otherwise in writing.
+
+The license text is a draft. It has not been reviewed or approved by a lawyer,
+and it is not a claim that its terms are enforceable in any jurisdiction.
+
+3. PRIOR LICENSING (MIT)
+
+Versions of this repository distributed before this license was introduced were
+distributed under the MIT License. This change does not retroactively cancel
+those permissions, and it must not be read as doing so:
+
+- **Earlier versions.** A version distributed under MIT remains available under
+  MIT for anyone who obtained it under MIT. That grant permits commercial use,
+  modification, sublicensing and sale of those copies, and this draft neither
+  withdraws nor narrows it for them.
+- **Future distributions.** A version of the repository that includes this
+  license is offered under this draft, not under MIT. Commercial use of such a
+  version requires prior written permission.
+- **Past use.** This draft does not recharacterise rights already exercised and
+  does not describe past use as unlicensed.
+
+**The boundary, as verified in this repository's history:**
+
+| Range | License |
+| --- | --- |
+| `main`, initial commit `5aee287` (2026-11-14) through commit `1768aad` (2026-11-18), inclusive | MIT |
+| `main`, from the first commit that contains this NOTICE and the draft `LICENSE` onward | VOLDBASE Source-Available License (draft) |
+
+Two facts make the prior side exact. `LICENSE` was committed once, in the
+initial commit, and was not modified again on `main`: the MIT text at `5aee287`
+and at `1768aad` is the identical file, so every commit in that range carried
+MIT. And the repository has **no tags and no published releases**, so there are
+no release artifacts to place on either side of the boundary.
+
+**The limitation.** The first commit under this license is the first commit on
+`main` whose tree contains this NOTICE and the draft `LICENSE`. It is identified
+by that fact alone, not by a commit message or by a particular way of landing
+the change: whether it is a merge commit, a squashed commit or a direct commit,
+the boundary is the first commit on `main` that contains these documents. That
+commit did not exist when this NOTICE was written, so its identifier is not
+recorded here and has not been guessed; until it exists on `main`, no version on
+`main` is distributed under this draft. Copies taken from an unmerged branch
+are not releases and carry the draft text, but that label does not by itself
+decide what legal effect, if any, the draft has on such a copy; that is a
+question for counsel. The identifier should be filled in when the change lands.
+Still unresolved: how a repository or product that contains files under both
+licenses should be described (MIT, source-available or both), how version
+numbers should be labelled across the change, and whether any copy of an earlier
+version was distributed outside this repository. These are listed under "Open
+questions" rather than resolved here.
+
+Repository-level license metadata is not a grant. GitHub's license detection
+reports the repository's `LICENSE` file, and may keep reporting MIT while a
+licence change is pending or if detection lags. What governs a copy is the
+license text that accompanied it, not the metadata badge.
+
+4. THIRD-PARTY COMPONENTS
+
+VOLDBASE does not vendor third-party source in this repository. It depends on
+the following packages, installed through npm and governed by their own
+licenses, not by `LICENSE`:
+
+| Component | Version (lockfile) | License | Role |
+| --- | --- | --- | --- |
+| TypeScript | 5.9.3 | Apache-2.0 | Build and type-checking; listed as a dependency |
+| @types/node | 24.19.2 | MIT | Node.js type definitions (development) |
+| undici-types | 7.24.6 | MIT | Transitive dependency of @types/node |
+
+This table was checked against `package-lock.json` for version and license, and
+against `package.json` for the dependency/development split. Only these three
+packages are resolved by the lockfile; no other runtime or build dependency is
+installed. The names and licenses are recorded as the packages state them, not
+independently verified with each upstream project.
+
+Each package's license text is distributed with it in `node_modules/` when
+installed. Redistributing VOLDBASE or a build of it must preserve those
+notices and comply with the Apache-2.0 and MIT terms, including any NOTICE
+requirements of Apache-2.0.
+
+No ownership of the components above is claimed. Their copyright holders
+retain all rights. See `LICENSE` section 3.2 and section 9.
+
+5. CONTRIBUTORS
+
+**Copyright stays where it is held.** The project does not claim ownership of
+contributors' work, and no contribution becomes the Copyright Holder's
+property. Copyright in a contribution remains with whoever actually holds it:
+an individual contributor to the extent they own it, or an employer, client or
+other organisation that owns or controls it. The project does not assert that
+every contributor personally owns copyright in what they submit, and it does
+not decide ownership. A contribution is licensed to the project, not assigned
+to it: `LICENSE` section 8.4 grants the Copyright Holder a perpetual,
+irrevocable, transferable and sublicensable license to reproduce, modify,
+distribute and relicense the contribution as part of the Software, including
+under commercial terms, but only to the extent the grantor holds, or is
+authorised to grant, those rights.
+
+**Consent is recorded, not presumed.** Submitting a pull request, pushing a
+commit, attaching a patch or opening an issue does not by itself agree to those
+terms, and the project does not treat it as agreement. A contribution is
+accepted only after the contributor has recorded the explicit statement
+specified in `CONTRIBUTING.md` — signed with their name or handle and a date —
+and a maintainer must not merge a contribution that lacks it (`LICENSE` 8.1 and
+8.10). The recorded statement stays with the contribution's history. The
+procedure is a documented consent mechanism, not a legal conclusion: whether it
+is sufficient in any jurisdiction is an open question, recorded in section 8.
+
+**Contributions owned by an organisation.** A contribution may be owned or
+controlled by an employer, client or other organisation rather than by the
+individual who submits it. In that case the project requires that the
+organisation's authority to submit the contribution and to grant the `LICENSE`
+section 8.4 licence be recorded, either in the contributor's acceptance
+statement or in separate written terms with the Copyright Holder (`LICENSE` 8.1
+and 8.2(d)). Copyright is not claimed from that organisation either, and a
+contributor is not asked to claim copyright they do not hold.
+
+**Authorship and metadata.** The Git history records commit authors, and those
+fields are reproduced by Git, not verified by the project. At the time of this
+draft, the commits were authored by the copyright holder's account or by an
+automated coding agent acting on the copyright holder's instructions, and no
+external contribution had been merged. A commit author field, an account name or
+the use of an automated coding tool is not by itself proof of authorship,
+ownership or the scope of anyone's rights, and this NOTICE does not treat it as
+such.
+
+**Materials requiring verification.** The repository contains original source,
+tests and documentation, and does not vendor third-party code, copy upstream
+source, or include third-party images, fonts or data files. The only third-party
+material is the dependency set in section 4, whose licenses are recorded there.
+Whether any prose, algorithm or design element was adapted from another source,
+and whether any AI-assisted output reproduces protected material, has not been
+independently verified and is listed under "Open questions". If contributions
+from other people are later merged, their notices must be preserved here.
+
+6. CURRENT PRODUCT SCOPE AND LIMITATIONS
+
+These statements describe the current state of VOLDBASE and are part of the
+notice, not marketing:
+
+6.1 No execution of imported project code. VOLDBASE does not execute project
+    code. It imports, parses, analyzes and records metadata about a project's
+    files. Product code (`src/` and `bin/`) has no executor, no container
+    runtime, no sandbox and no `node:child_process` import, and it does not run
+    a project's tests, scripts or build commands. The result taxonomy is a
+    closed set of five states in `src/domain/result.ts`; a `PASS` or `FAIL`
+    requires evidence, and a run that was not executed is recorded as
+    `NOT_TESTED`, never as `PASS`. `BLOCKED` is used when execution was attempted
+    but could not proceed.
+
+6.2 No validated security guarantee. VOLDBASE does not provide a security
+    guarantee or certification of any kind. No independent third-party security
+    audit, penetration test or formal verification has been performed. The
+    repository does contain internal security design work, threat models and
+    automated checks — for example, tests asserting that product code does not
+    import `node:child_process` — but those are development artifacts. They are
+    not a security audit, not a certification, and not evidence that the
+    Software is secure. The security documentation in this repository
+    (including ADR-0005, ADR-0018 and the execution safety specification)
+    describes requirements for a future execution engine; those requirements
+    are not implemented, and their presence is not evidence that untrusted code
+    can be run safely. The internal security work is not independent: it is
+    produced by the copyright holder or by automated tooling acting for the
+    project, not by an external auditor, a certification body or a third party.
+    An automated check that passes establishes only what that check tests; it is
+    not an audit, a penetration test, a certification or a guarantee, and it
+    does not make the Software secure.
+
+6.3 Results are not a warranty of correctness. VOLDBASE reports what it
+    observed. A `PASS` is bounded by the conditions that were checked; absence
+    of a failure is not proof of absence of defects. Do not rely on VOLDBASE
+    output as the sole basis for a security, safety or compliance decision.
+
+6.4 Alpha software. The current version is an alpha (`0.2.0-alpha.0`). Formats,
+    storage layout and command-line behavior may change without notice.
+
+7. TRADEMARKS
+
+The VOLDBASE name, logo and visual identity are not licensed by `LICENSE`. See
+`TRADEMARKS.md` for permitted and prohibited uses.
+
+8. OPEN QUESTIONS FOR LEGAL REVIEW
+
+This draft deliberately leaves the following unresolved rather than guessing:
+
+- The final form of the copyright line (for example whether a year range is
+  wanted, and whether the name should carry a legal-entity suffix). The identity
+  question is settled: "Zakariaika" is the GitHub handle of Taqiyeddin Maatlia,
+  confirmed by the owner.
+- The exact identifier of the first commit under this license: the first commit
+  on `main` whose tree contains these documents, however the change is landed.
+  The prior side is verified (`5aee287` through `1768aad` under MIT, with no
+  tags or releases); the new-side commit does not exist yet and must be recorded
+  when it does, without assuming a merge or a commit message.
+- Whether a repository or product that contains files under both licenses should
+  be labelled MIT, source-available or both, and whether any copy of an earlier
+  version was distributed under MIT outside this repository.
+- Governing law, jurisdiction and dispute-resolution forum (`LICENSE` 14.5).
+- Whether the non-commercial definitions cover the intended cases, in
+  particular academic research with industry funding, non-profit internal use,
+  and evaluation by a company considering a commercial license.
+- Whether the contribution terms (`LICENSE` section 8) are sufficient for the
+  project's intended relicensing flexibility, including how moral rights that
+  cannot be waived in some jurisdictions are handled.
+- Whether the consent procedure in `CONTRIBUTING.md` — an explicit signed
+  statement recorded on the pull request, with no consent inferred from the
+  submission itself — is legally sufficient to bind a contributor, and what
+  additional steps (a separate signed agreement, a CLA service, a corporate
+  signatory) a lawyer would require. Also whether a contributor who is a minor,
+  or who contributes as part of employment, needs a different mechanism, and
+  whether an organisation's recorded authority for a contribution it owns is
+  sufficient without separate written terms (`LICENSE` 8.1, 8.2(d)).
+- Whether an acceptance recorded for a pull request can validly cover later
+  commits pushed to that request before merge (`LICENSE` 8.1), or whether each
+  commit needs a fresh statement.
+- Whether the direct-grant construction in `LICENSE` 4.4 is effective in the
+  intended jurisdictions, in particular whether a recipient's permission truly
+  survives a redistributor's breach, and whether `LICENSE` 8.5 limits a
+  recipient's grant to non-commercial rights in every legal system.
+- Whether `LICENSE` section 11's materiality standard, its three classes of
+  breach — fully curable, stoppable-but-not-undoable, and genuinely
+  incurable — the 30-day cure period, the notice mechanics and the
+  post-termination deletion duty are appropriate and enforceable, and how they
+  interact with rights that cannot be waived or revoked. In particular,
+  whether treating cessation or mitigation of continuing effects as a cure,
+  rather than as an incurable breach, is correct in each intended
+  jurisdiction, and whether a past occurrence that cannot be undone must still
+  carry a remedy.
+- What liability position can be stated where exclusion is not permitted, and
+  whether a monetary cap or insurance is appropriate (`LICENSE` 13.2). This
+  draft sets no cap, formula or fixed amount, and asserts no particular
+  limitation, because none could be chosen responsibly without advice.
+- How the open non-commercial cases in `LICENSE` 1.8(j)–(n) should be
+  classified: non-profit internal use, government and public-sector use,
+  mixed-funded research, a donation-funded hosted service, and whether an
+  unconditional personal gift to a contributor or to the project is itself a
+  Commercial Use. The third donation case — a payment, sponsorship or donation
+  tied to commercial operation or a benefit — is classified as commercial in
+  `LICENSE` 1.4(f) and 1.8 and is not left open here.
+- Whether the scope of the evaluation allowance in `LICENSE` 1.3(d) — no fixed
+  period, no production use, no paid delivery of results — is workable.
+- Whether any prose, algorithm, design element or AI-assisted output in the
+  repository reproduces or adapts protected third-party material.
+- Whether any dependency, tool or asset imposes notice or redistribution
+  obligations beyond those recorded in section 4.
+- Whether the name and logo have any registered or common-law trademark status.
+- Whether the conditions in `LICENSE` section 4.2 are sufficient in practice to
+  stop a modified version from becoming a substitute commercial product, and
+  whether the naming requirement can be applied consistently to package names,
+  repository names and hosted forks.
+
+— End of NOTICE —

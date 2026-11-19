@@ -1,6 +1,6 @@
 # 0001 — Product scope and result taxonomy
 
-- Status: Accepted
+- Status: Superseded by [0020](0020-licensing-model.md) for decision 5 (licensing) only; decisions 1–4 remain Accepted
 - Date: 2026-11-15
 
 ## Context
