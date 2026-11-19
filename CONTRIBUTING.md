@@ -11,8 +11,11 @@ written permission from the copyright holder (`LICENSE` section 5).
 
 ## What acceptance means
 
-You keep the copyright in your contribution. You do not assign it, and the
-project does not claim ownership of it (`LICENSE` 8.3).
+You keep the copyright you hold in your contribution, and an organisation that
+holds it keeps it. Nothing is assigned, and the project does not claim ownership
+of it (`LICENSE` 8.3). If you contribute material you do not own, you grant only
+the rights you are authorised to grant, and the material must be identified and
+properly licensed (`LICENSE` 8.2(b), 8.4).
 
 By accepting the contribution terms you license your contribution to
 Taqiyeddin Maatlia, the copyright holder, so that the project can maintain and
@@ -56,17 +59,32 @@ and a contribution without a recorded statement is not merged.
    own name or GitHub handle filled in:
 
    > I have read and agree to the VOLDBASE Contribution Terms in `LICENSE`
-   > section 8 for the contributions in this pull request. I confirm that I am
-   > the author of these contributions or have the right to submit them, that I
-   > retain copyright in them, and that I have authority to grant the licence
-   > in `LICENSE` section 8.4 for the whole contribution.
+   > section 8 for the contributions in this pull request. I confirm that:
+   >
+   > - I am the author of these contributions, or I have the right to submit
+   >   them;
+   > - I hold the rights needed to grant the licence in `LICENSE` section 8.4
+   >   for the whole contribution, or the person or organisation that holds
+   >   those rights has authorised me to grant that licence on these terms, and
+   >   that authority is identified in this comment;
+   > - any third-party material in the contribution is identified, is properly
+   >   licensed, and its licence permits the grant in `LICENSE` section 8.4; and
+   > - I understand that I keep any copyright I hold, and that nothing in this
+   >   statement assigns copyright.
    >
    > Signed: _your name or GitHub handle_, _date (YYYY-MM-DD)_
 
+   If you do not hold copyright in the contribution — for example because your
+   employer, client or another organisation does — say so in the same comment,
+   identify the rights holder, and state the authority you have to submit it. Do
+   not claim copyright you do not hold.
+
 2. If you are contributing on behalf of an organisation, or the contribution is
-   part of work for a commercial entity, say so in the same comment and do not
-   submit until that entity has agreed separate written terms with the
-   copyright holder (`LICENSE` 8.2(d)).
+   owned or controlled by your employer, client or another organisation, that
+   organisation must either authorise you, in the same comment, to grant the
+   `LICENSE` section 8.4 licence, or agree separate written terms with the
+   copyright holder. Do not submit until one of these is in place (`LICENSE` 8.1
+   and 8.2(d)).
 
 3. If you cannot use the pull request interface, send the same statement to the
    copyright holder in writing — through the repository owner account on GitHub
@@ -119,5 +137,6 @@ holder has agreed how to handle it.
   change is implied by this document.
 - Do not contribute third-party code unless it is clearly identified, properly
   licensed for that use, and its notices are preserved (`LICENSE` 8.2(b)).
-- Do not contribute code you cannot license on these terms, including code your
-  employer owns.
+- Do not contribute code you are not authorised to license on these terms. If
+  your employer or another organisation owns the code, obtain its authority (or
+  separate written terms) before submitting.
