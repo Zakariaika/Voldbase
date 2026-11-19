@@ -34,11 +34,13 @@ be claimed yet, and the documents must not pretend otherwise.
    enforceability, in its own first section rather than in a footnote.
 
 2. **Grant non-commercial permission and reserve everything else.** Personal,
-   educational and other non-commercial use, personal non-commercial
-   modification, non-commercial redistribution of unmodified copies, and
-   non-commercial contributions are permitted. Commercial use (including purely
-   internal business use), selling, sublicensing and commercial as well as any
-   distribution of modified versions require prior written permission.
+   educational and other non-commercial use, non-commercial modification,
+   non-commercial redistribution of unmodified copies, non-commercial
+   distribution of modified versions that meet the conditions in `LICENSE` 4.2,
+   and non-commercial contributions are permitted. Commercial use (including
+   purely internal business use), selling, sublicensing and commercial
+   distribution — of the Software or of any modified version — require prior
+   written permission.
 
 3. **Define scope explicitly.** `LICENSE` section 3 lists covered paths
    (`src/`, `bin/`, `tests/`, `docs/`, original root documents and
@@ -67,12 +69,15 @@ be claimed yet, and the documents must not pretend otherwise.
    MIT for future distributions.
 
 8. **Make redistribution a direct grant, not a sublicense.** Passing on an
-   unmodified copy free of charge is permitted; the recipient receives their own
-   non-commercial permission from the Copyright Holder under `LICENSE` 4.1, and
-   the redistributor grants nothing and adds no terms. Non-transferability and
-   non-sublicensability therefore do not conflict with 4.1(c): the copy is
-   passed on, the permission is not moved (`LICENSE` 4.4). Commercial
-   redistribution remains prohibited (`LICENSE` 4.5).
+   unmodified copy, or distributing a modified version that meets `LICENSE` 4.2,
+   is permitted free of charge; the recipient receives their own non-commercial
+   permission from the Copyright Holder under `LICENSE` 4.1, and the
+   redistributor grants nothing in the Software and adds no terms to it.
+   Non-transferability and non-sublicensability therefore do not conflict with
+   4.1(c) or 4.2: the copy is passed on, the permission is not moved (`LICENSE`
+   4.4). A modified version's own original additions remain the modifier's to
+   license, and no redistribution grants a recipient a commercial right
+   (`LICENSE` 4.5).
 
 9. **State the contribution grant precisely.** Contributors keep copyright; the
    license back is a perpetual, irrevocable, transferable, sublicensable right
@@ -81,6 +86,17 @@ be claimed yet, and the documents must not pretend otherwise.
    submitting under these terms or under separate written terms. It is a
    license, not an assignment, and no ownership of a contribution is claimed
    (`LICENSE` 8).
+
+10. **Permit non-commercial distribution of modified versions, under named
+    conditions.** `LICENSE` 4.2 allows a modified version to be distributed
+    non-commercially only if it uses a different name, uses none of the official
+    identity, states that it is modified, unofficial and unaffiliated, preserves
+    every copyright, license and third-party notice, implies no endorsement, and
+    ships the license texts for recipients; the distribution must be free of
+    charge and unmonetised. This replaces the earlier draft's requirement of
+    written permission for every distribution of a modified version, and it
+    keeps commercial distribution behind `LICENSE` 5. `LICENSE` 4.3 and 4.5 are
+    worded so that the new permission cannot be read as a commercial right.
 
 ## Consequences
 
@@ -99,6 +115,11 @@ be claimed yet, and the documents must not pretend otherwise.
   with the contributor. Some contributors will decline that; it is a consequence
   of the policy, not a defect in the draft. Jurisdictions with non-waivable
   moral rights still need legal review (recorded as an open question).
+- **Non-commercial forks are now permitted, and the controls are names and
+  notices.** A fork may be published, renamed and distributed free of charge,
+  so `LICENSE` 4.2's conditions and the trademark policy are what keep the
+  official product identifiable. Compliance is not technically enforced; the
+  open question is whether the conditions are sufficient in practice.
 - **Commercial enquiries need a real channel.** `LICENSE` section 5 points to
   the repository owner account. A written permission process (scope, term,
   fee, attribution) does not exist yet and is a follow-up deliverable.
@@ -128,3 +149,7 @@ be claimed yet, and the documents must not pretend otherwise.
   repository; the record is superseded, not edited away.
 - **Claim the draft is a final, enforceable license.** Rejected as dishonest;
   the documents must state exactly what has not been reviewed.
+- **Forbid all distribution of modified versions.** Rejected by the owner:
+  publishing a non-commercial fork is part of the intended permission, and the
+  conditions in `LICENSE` 4.2 address renaming, branding and notices without a
+  case-by-case permission request.
