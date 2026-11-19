@@ -25,7 +25,11 @@ grants the rights that an open-source license such as the MIT License grants.
     section 3, together with any part of them.
 
 1.2 "Copyright Holder" means Taqiyeddin Maatlia, the copyright holder of the
-    Software, and any successor that holds the copyright in the Software.
+    Software, and any successor that holds the copyright in the Software. The
+    GitHub account name "Zakariaika" is a handle used by the same person. It is
+    not a separate author, copyright holder or legal person, and references to
+    it in this repository's earlier files, commit metadata or package metadata
+    identify that same person.
 
 1.3 "Non-Commercial Use" means use that is not directed toward or intended for
     commercial advantage or monetary compensation. Personal study, hobby
@@ -109,11 +113,28 @@ grants the rights that an open-source license such as the MIT License grants.
     an explicit copyright or license header, that file is governed by that
     header, and this license does not override it.
 
-3.6 Excluded — commit history and earlier releases. This license applies to the
-    contents of the repository as distributed under this license. It does not
-    withdraw, narrow or replace rights that were already granted under a
-    previous license for copies obtained under that license. See `NOTICE`,
-    "Prior licensing", and ADR-0020.
+3.6 Not retroactive: earlier versions and prior grants. This license applies to
+    the contents of this repository as distributed under this license, from the
+    commit that first includes it onward. It does not apply retroactively, and
+    it does not revoke, cancel, narrow, withdraw or replace any permission that
+    was already granted under a previous license for a version, release or copy
+    distributed under that previous license. In particular:
+
+    (a) A version distributed under the MIT License remains available under the
+        MIT License for anyone who obtained it under that license. This draft
+        does not claim that those permissions ended when it was published.
+    (b) Rights already exercised are not made retroactively unlicensed, and no
+        past use is recharacterised by this draft.
+    (c) A copy obtained under an earlier license continues to be governed by
+        that earlier license; a copy obtained under this license is governed by
+        this license.
+
+    This section records the Copyright Holder's intent not to revoke prior
+    grants. It does not decide the legal effect of a license change on any
+    particular distribution, and it does not identify which commits, tags or
+    release artifacts fall on each side of the boundary. That boundary, and how
+    versions should be labelled across the change, are unresolved and recorded
+    in `NOTICE` ("Prior licensing") and ADR-0020.
 
 4. PERMISSION GRANTED FOR NON-COMMERCIAL USE
 
@@ -124,11 +145,23 @@ grants the rights that an open-source license such as the MIT License grants.
     (a) use, run, reproduce and display the Software for Non-Commercial Use;
     (b) Modify the Software for your own personal, non-commercial purposes;
     (c) Distribute unmodified copies of the Software for Non-Commercial Use,
-        provided every copy keeps this license, `NOTICE` and `TRADEMARKS.md`
-        intact and unmodified, and provided you do not charge for the copy or
-        for access to it beyond the reasonable cost of the media or transfer;
+        provided that:
+        (i) every copy keeps this license, `NOTICE` and `TRADEMARKS.md` intact
+            and unmodified;
+        (ii) you charge nothing for the copy or for access to it beyond the
+             reasonable cost of the media or transfer, and you do not bundle it
+             into anything you sell, license or monetise;
+        (iii) you add no terms, conditions or restrictions of your own, and you
+              grant the recipient no permission beyond what this license gives
+              them directly; and
+        (iv) you do not present the copy as your own work or as endorsed by the
+             Copyright Holder;
     (d) make your Modifications available to others as a contribution under
         section 8, and not otherwise.
+
+    This permission is personal to you. Except as described in section 4.1(c)
+    and section 4.4, you may not transfer it, assign it, or sublicense any of
+    the rights it grants.
 
 4.2 Modified versions may not be Distributed without the prior written
     permission of the Copyright Holder. This includes publishing a fork, a
@@ -140,6 +173,28 @@ grants the rights that an open-source license such as the MIT License grants.
     estoppel, exhaustion or otherwise, and no permission is granted to use the
     Software in any way that competes with, substitutes for, or commercially
     exploits the Software.
+
+4.4 Redistribution of an unmodified copy is a direct grant, not a sublicense
+    and not a transfer. When you pass on an unmodified copy under section
+    4.1(c), you do not sublicense the Software, you do not transfer or assign
+    your own permission, and you do not act as the Copyright Holder's agent.
+    Each recipient receives their own non-commercial permission directly from
+    the Copyright Holder under section 4.1 by obtaining the copy, and that
+    permission is subject to the same conditions as yours. This is why the
+    permission granted in section 4.1 is non-transferable and non-sublicensable
+    without contradicting section 4.1(c): the copy is passed on, the permission
+    is not moved. Your own permission ends if you breach this license, but a
+    recipient who complies with section 4.1 keeps the permission they received
+    with the copy.
+
+4.5 No commercial redistribution. Selling, licensing, renting, sublicensing or
+    otherwise commercially redistributing the Software or a Modification —
+    including bundling it into a paid product, a paid service, a paid course, a
+    paid support or hosting offering, or an ad-monetised distribution —
+    requires the prior written permission of the Copyright Holder under section
+    5. Passing on an unmodified copy free of charge under section 4.1(c) is the
+    only redistribution this license permits, and it conveys no right to
+    distribute the Software commercially.
 
 5. COMMERCIAL USE REQUIRES PRIOR WRITTEN PERMISSION
 
@@ -199,8 +254,12 @@ grants the rights that an open-source license such as the MIT License grants.
 
 8. CONTRIBUTIONS
 
-8.1 Non-commercial contributions are welcome and are accepted under the terms of
-    this section (the "Contribution Terms").
+8.1 Non-commercial contributions are welcome and are accepted only under the
+    terms of this section (the "Contribution Terms"). Submitting a contribution
+    is the express agreement to these terms; if you do not agree to them, do not
+    submit a contribution. The Copyright Holder may also agree separate written
+    terms with a contributor, in which case those terms govern that contribution
+    to the extent they differ.
 
 8.2 By submitting a contribution (a pull request, patch, issue attachment or any
     other material intended for inclusion), you confirm that:
@@ -213,28 +272,61 @@ grants the rights that an open-source license such as the MIT License grants.
     (d) you are not submitting it on behalf of, or as part of work for, a
         commercial entity that expects to receive commercial rights in the
         Software, unless that entity has separately agreed terms in writing
-        with the Copyright Holder.
+        with the Copyright Holder; and
+    (e) you have authority to grant the license in section 8.4 for the whole
+        contribution.
 
-8.3 You retain copyright in your contribution. You grant the Copyright Holder a
-    perpetual, irrevocable, worldwide, royalty-free, non-exclusive license to
-    use, reproduce, modify, distribute and sublicense your contribution as part
-    of the Software, including the right to license it under this license or
-    under different terms. You do not grant the Copyright Holder ownership of
-    your contribution, and the Copyright Holder does not claim it.
+8.3 You retain copyright in your contribution. Nothing in this license
+    transfers, assigns or otherwise conveys ownership of your contribution to
+    the Copyright Holder, and the Copyright Holder does not claim ownership of
+    it. Copyright in your contribution stays with you (or with whoever held it
+    before you), subject only to the license you grant in section 8.4.
 
-8.4 You grant the same permissions in your contribution to every recipient of
+8.4 License granted to the Copyright Holder. By submitting a contribution, you
+    grant the Copyright Holder a perpetual, irrevocable, worldwide,
+    royalty-free, non-exclusive, transferable and sublicensable license to:
+
+    (a) reproduce, store and archive the contribution;
+    (b) modify it, adapt it and create derivative works of it;
+    (c) distribute it, publicly display it and make it available to the public,
+        in source or built form, as part of the Software or a derivative of the
+        Software;
+    (d) sublicense these rights through multiple tiers; and
+    (e) license the contribution, as part of the Software, under this license
+        or under any other terms, including commercial, paid or otherwise
+        restricted terms, and including a future license that replaces this
+        draft.
+
+    This is the permission the project needs in order to maintain, distribute
+    and commercially license VOLDBASE, and it is granted only for contributions
+    you submit under these Contribution Terms or under separate written terms.
+    It is a license, not an assignment: it does not make the Copyright Holder
+    the owner of your contribution.
+
+8.5 You grant the same permissions in your contribution to every recipient of
     the Software, as part of the Software, under this license.
 
-8.5 No contribution creates an employment, agency, partnership or fiduciary
+8.6 No contribution creates an employment, agency, partnership or fiduciary
     relationship, and no contribution entitles you to compensation, revenue
     share or ownership in the project.
 
-8.6 The Copyright Holder is not obliged to accept, review, merge or keep any
-    contribution, and may remove a contribution at any time.
+8.7 The Copyright Holder is not obliged to accept, review, merge or keep any
+    contribution, and may remove a contribution at any time. Removing a
+    contribution does not revoke the license granted in section 8.4 for the
+    period during which it was part of the Software.
 
-8.7 Contributions are provided "as is", without warranty of any kind, and the
+8.8 Contributions are provided "as is", without warranty of any kind, and the
     contributor is not liable for their contribution except to the extent the
     law does not allow that limitation.
+
+8.9 Moral rights. To the extent your jurisdiction allows it, you consent to the
+    modification, combination and distribution of your contribution under this
+    license without further attribution beyond the notices kept with the
+    Software, and you agree not to assert moral rights in a way that prevents
+    the Copyright Holder from exercising the license in section 8.4. If your
+    jurisdiction does not allow that consent, tell the Copyright Holder before
+    submitting, because the project cannot accept a contribution it is not able
+    to license as described.
 
 9. THIRD-PARTY COMPONENTS AND NOTICES
 
@@ -279,7 +371,7 @@ grants the rights that an open-source license such as the MIT License grants.
      separately granted in writing, and does not limit any remedy the Copyright
      Holder has for a breach that occurred before termination.
 
-11.5 Sections 3, 6.2, 7, 9, 10, 12, 13 and this section survive termination.
+11.5 Sections 3, 6.2, 7, 8.4, 9, 10, 12, 13 and this section survive termination.
 
 12. DISCLAIMER OF WARRANTY
 
