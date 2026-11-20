@@ -440,14 +440,14 @@ distribution test (`tests/dist-cli.test.ts`) spawns `bin/voldbase.js`, so run
 CI runs build before tests, so nothing is skipped there.
 
 `npm run smoke:clean-checkout` proves the first-run workflow from a state that
-has never been built. It refuses to run on a dirty working tree, clones the
-current commit (`HEAD` by default, or `--ref <git-ref>`) into a temporary
-directory, runs `npm ci` and `npm run build` there, imports and analyses a small
-prepared fixture, then runs `architecture --format json` through the built
-`bin/voldbase.js`. The JSON must parse, carry canonically sorted keys, name the
-fixture's files and cycles, and be byte-identical on a second run. Pass `--keep`
-to inspect the temporary checkout; the command exits non-zero on any failure.
-The test needs registry access for `npm ci`, nothing beyond that.
+has never been built. It clones the current commit (`HEAD` by default, or
+`--ref <git-ref>`) into a temporary directory, runs `npm ci` and
+`npm run build` there, imports and analyses a small prepared fixture, then runs
+`architecture --format json` through the built `bin/voldbase.js`. The JSON must
+parse, carry canonically sorted keys and name the fixture's files, and a second
+run must be byte-identical. Pass `--keep` to inspect the temporary checkout; the
+command exits non-zero on any failure. The test needs registry access for
+`npm ci`, nothing beyond that.
 
 ## Engineering conventions
 
