@@ -181,6 +181,7 @@ same command as `node bin/voldbase.js …`, or use the optional `npm link` above
 | `voldbase analyze <project-id>` | Statically analyse an imported snapshot (no execution) |
 | `voldbase analysis <analysis-id>` | Show a stored analysis: summary and findings |
 | `voldbase analysis <analysis-id> --format json` | Same stored snapshot as canonical JSON (files, findings, evidence, summary, digest) |
+| `voldbase analysis <analysis-id> --fail-on warning` | Exit `3` instead of `0` when a finding reaches that level |
 | `voldbase architecture <analysis-id>` | Derive the file/module dependency graph from a stored analysis |
 | `voldbase architecture <analysis-id> --format json` | Same model as canonical JSON |
 | `voldbase help` | Usage (also shown when no arguments are given) |
@@ -188,10 +189,14 @@ same command as `node bin/voldbase.js …`, or use the optional `npm link` above
 `<path>` may be absolute or relative to the current directory. `--format` accepts
 `text` (the default) or `json`, either as `--format json` or `--format=json`; the
 JSON form prints one canonical document — sorted keys, no human-readable text —
-and carries the stored snapshot's digest unchanged. Exit codes: `0` success, `1`
-runtime failure (missing path, unreadable file, storage error), `2` usage error
-(unknown command or option, missing/extra arguments). Errors are printed to
-stderr with the error code, for example:
+and carries the stored snapshot's digest unchanged. `--fail-on` accepts `error`,
+`warning`, `info` or `none` (the default) and only changes the exit code: the
+report, the stored snapshot and its digest are unaffected. Exit codes: `0`
+success, or the threshold was not reached; `1` runtime failure (missing path,
+unreadable file, storage error, unknown analysis id); `2` usage error (unknown
+command or option, missing/extra arguments, unsupported option value); `3` the
+analysis completed and a finding reached the `--fail-on` level. Errors are
+printed to stderr with the error code, for example:
 
 ```
 error: /home/me/missing does not exist
