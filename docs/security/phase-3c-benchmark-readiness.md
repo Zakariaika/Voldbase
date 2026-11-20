@@ -186,7 +186,7 @@ device's identity, and reports an unresolvable stack as `INCONCLUSIVE` rather th
 | PF-21 | `/dev/kvm` exists | `test -c /dev/kvm` | Character device present | `PF-21-kvm-device.txt` | `BLOCKED` — there is no container fallback (ADR-0018 decision 2; protocol §8.5) |
 | PF-22 | KVM permissions | `ls -l /dev/kvm`, `id`, `test -r /dev/kvm -a -w /dev/kvm` **as the benchmark user** | Benchmark user can read and write the device without root | `PF-22-kvm-access.txt` | `BLOCKED` |
 | PF-23 | KVM modules | `lsmod`, inspected for `kvm`, `kvm_intel` and `kvm_amd` | `kvm` and the matching `kvm_intel`/`kvm_amd` are loaded, or their absence is recorded as a pending load | `PF-23-kvm-modules.txt` | `INCONCLUSIVE` when the module is not loaded and cannot be loaded without a host change |
-| PF-24 | KVM acceleration usable | `kvm-ok` output when the host provides it, recorded verbatim as diagnostic; the recorded PF-05, PF-08, PF-21 and PF-22 evidence otherwise | The stage-H result is `DEFERRED` in every run, with or without `kvm-ok`: acceleration is demonstrated only by an actual microVM start in stage R, and no stage-H output can prove it. A `kvm-ok` diagnostic that reports a problem is recorded, and the prerequisite it concerns (PF-21, PF-22, PF-23) is classified on its own evidence | `PF-24-kvm-ok.txt` | `DEFERRED` in every stage-H run; `BLOCKED` only through a prerequisite row that its own evidence or the diagnostic fails, never through PF-24 itself |
+| PF-24 | KVM acceleration usable | `kvm-ok` output when the host provides it, recorded verbatim as diagnostic; the recorded PF-05, PF-08, PF-21 and PF-22 evidence otherwise | The stage-H result is `DEFERRED` in every run, with or without `kvm-ok`: acceleration is demonstrated only by an actual microVM start in stage R, and no stage-H output can prove it. A `kvm-ok` diagnostic that reports a problem is recorded, and the prerequisite it concerns (PF-05, PF-08, PF-21, PF-22 or PF-23, where applicable) is classified from its own evidence under §5; a diagnostic alone never makes PF-24 `BLOCKED`, and one that cannot be reliably attributed is recorded and carried to stage R without inventing a failure classification | `PF-24-kvm-ok.txt` | `DEFERRED` in every stage-H run; `BLOCKED` only through a prerequisite row that its own evidence or the diagnostic fails, never through PF-24 itself |
 
 **PF-24 never decides stage H, with or without `kvm-ok`.** `kvm-ok` is an optional
 diagnostic utility, and its output — present, absent, or reporting a problem — is not proof
@@ -195,9 +195,13 @@ requires the KVM device (PF-21) and access to it (PF-22), both `BLOCKED` on fail
 PF-24 stays `DEFERRED` in every stage-H run. The acceleration result is the first actual
 microVM start in stage R, a mandatory precondition of R → B (§8.1). Until that start has
 succeeded, no report may describe KVM acceleration as demonstrated, and none may cite
-`kvm-ok` as the demonstration. A negative diagnostic is neither ignored nor rounded up: it
-is recorded verbatim, carried to stage R, and attributed to the prerequisite row it
-concerns, which is classified on its own evidence.
+`kvm-ok` as the demonstration. A negative diagnostic is neither ignored nor rounded up. It
+is recorded verbatim and, where it can be reliably attributed, attributed to the
+prerequisite it concerns — PF-05, PF-08, PF-21, PF-22 or PF-23, where applicable — which is
+then classified from its own evidence under §5; the diagnostic alone never makes PF-24
+`BLOCKED`, and it never substitutes for a prerequisite's own check. A diagnostic that
+cannot be reliably attributed to a prerequisite is recorded and carried forward to stage R
+without inventing a failure classification.
 
 ### 3.5 cgroup v2 and systemd
 
