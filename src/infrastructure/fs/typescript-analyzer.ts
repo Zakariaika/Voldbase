@@ -520,7 +520,9 @@ export class TypeScriptStaticAnalyzer implements ProjectAnalyzer {
     for (const scanned of sourceFiles) {
       const absolutePath = path.join(root, ...scanned.relPath.split('/'));
       const bytes = await readVerifiedBytes(absolutePath, scanned.relPath, {
-        allowance: Math.min(bounds.maxFileBytes, scanned.size),
+        // An empty file is valid source with size 0; the verified reader rejects
+        // an allowance of 0, so ask for at least one byte of headroom.
+        allowance: Math.min(bounds.maxFileBytes, Math.max(scanned.size, 1)),
         limits: bounds,
         hooks: this.#hooks,
         changedCode: 'analysis_source_changed',
