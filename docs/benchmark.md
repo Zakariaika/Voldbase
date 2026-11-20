@@ -162,7 +162,7 @@ PY
 
 This is a Git-tracked candidate count, not the analyzer's final discovered-file count. VOLDBASE excludes certain directories, including `node_modules`, `dist`, `build`, `coverage`, and VCS directories. Therefore, the preflight count must not be presented as the exact number VOLDBASE analyzed.
 
-For the pinned webpack revision, a previous audit reported 26,513 tracked candidate source paths after correcting a path-with-spaces counting error. The earlier figure of 17,324 is not valid. This count is a preflight observation, not a performance measurement or proof of the final scanner count.
+For the pinned webpack revision, the preflight script reports 26,514 tracked candidate source paths, verified by re-running the script against that exact commit. The earlier figure of 17,324 is not valid and must not be cited. This count is a preflight observation, not a performance measurement or proof of the final scanner count.
 
 The benchmark must still run the actual VOLDBASE import and analysis checks below. The first real limit reached determines the blocking stage.
 
@@ -180,13 +180,26 @@ Import the pinned sample:
 ```bash
 cd "$VOLDBASE_DIR"
 
-if IMPORT_OUTPUT="$(node bin/voldbase.js import "$WEBPACK_DIR" 2>&1)"; then
-  printf '%s\n' "$IMPORT_OUTPUT"
-else
-  IMPORT_STATUS=$?
-  printf '%s\n' "$IMPORT_OUTPUT"
-  printf 'Import failed with exit code %s\n' "$IMPORT_STATUS"
-  exit 0
+set +e
+IMPORT_OUTPUT="$(node bin/voldbase.js import "$WEBPACK_DIR" 2>&1)"
+IMPORT_STATUS=$?
+set -e
+
+printf '%s\n' "$IMPORT_OUTPUT"
+printf 'Import exit status: %s\n' "$IMPORT_STATUS"
+
+if [ "$IMPORT_STATUS" -ne 0 ]; then
+  if printf '%s' "$IMPORT_OUTPUT" | grep -q 'scan_limit_exceeded'; then
+    printf 'Result: BLOCKED\n'
+    printf 'Stage: import\n'
+    printf 'Reason: scan_limit_exceeded\n'
+  else
+    printf 'Result: BLOCKED\n'
+    printf 'Stage: import\n'
+    printf 'Reason: import_failed\n'
+  fi
+  printf 'Exit status: %s\n' "$IMPORT_STATUS"
+  exit "$IMPORT_STATUS"
 fi
 ```
 
@@ -200,8 +213,10 @@ PROJECT_ID="$(
 )"
 
 if [ -z "$PROJECT_ID" ]; then
-  echo "BLOCKED: could not extract a newly imported project ID."
-  exit 0
+  printf 'Result: BLOCKED\n'
+  printf 'Stage: import\n'
+  printf 'Reason: project_id_not_extracted\n'
+  exit 1
 fi
 
 printf 'PROJECT_ID=%s\n' "$PROJECT_ID"
@@ -215,7 +230,7 @@ Imported project proj_...
 
 Do not use a pattern expecting `Project proj_...`. The latter does not match the import command's output.
 
-If import fails because the scanner's 20,000-file limit is exceeded, record:
+If import fails because the scanner's 20,000-file limit is exceeded, the script above records:
 
 ```text
 Result: BLOCKED
@@ -223,14 +238,36 @@ Stage: import
 Reason: scan_limit_exceeded
 ```
 
+A failed import is never treated as a completed step: the exit status is printed and preserved, the attempt is classified `BLOCKED` because the import prerequisite or a configured limit prevented it, and the script exits with the import's own status. No warm-up, no measured run and no reported timing follows a failed import.
+
 Do not proceed to analysis and do not report analysis timings.
 
 ## 7. Analysis eligibility
 
-Before collecting timings, verify that the imported project can be analyzed:
+Before collecting timings, verify that the imported project can be analyzed. The exit status is captured explicitly, so a failed eligibility check stops the protocol instead of being timed as if it had succeeded:
 
 ```bash
-node bin/voldbase.js analyze "$PROJECT_ID"
+set +e
+ANALYZE_OUTPUT="$(node bin/voldbase.js analyze "$PROJECT_ID" 2>&1)"
+ANALYZE_STATUS=$?
+set -e
+
+printf '%s\n' "$ANALYZE_OUTPUT"
+printf 'Analyze exit status: %s\n' "$ANALYZE_STATUS"
+
+if [ "$ANALYZE_STATUS" -ne 0 ]; then
+  if printf '%s' "$ANALYZE_OUTPUT" | grep -q 'analysis_limit_exceeded'; then
+    printf 'Result: BLOCKED\n'
+    printf 'Stage: static analysis\n'
+    printf 'Reason: analysis_limit_exceeded\n'
+  else
+    printf 'Result: FAIL\n'
+    printf 'Stage: static analysis\n'
+    printf 'Reason: analyze exited with status %s\n' "$ANALYZE_STATUS"
+  fi
+  printf 'Exit status: %s\n' "$ANALYZE_STATUS"
+  exit "$ANALYZE_STATUS"
+fi
 ```
 
 If analysis fails with `analysis_limit_exceeded`, record:
@@ -245,6 +282,8 @@ Do not report a successful analysis benchmark.
 
 A blocked result is a valid benchmark outcome. It is not a performance result and must not be converted into a zero, an estimated duration, or a successful run.
 
+A non-zero exit status from either eligibility stage ends this run: sections 8 and 9 are not executed, and no timing of any kind is reported. A configured limit is recorded as `BLOCKED`; an analyzer that started and then failed for another reason is recorded as `FAIL` (section 11), with its exit status.
+
 ## 8. Analysis measurements
 
 Only proceed if import and analysis eligibility checks succeed.
@@ -253,26 +292,67 @@ Perform 3 warm-up runs, followed by 20 measured runs.
 
 The measured operation is the complete CLI analysis command. It includes the CLI, analysis service, parsing, and local persistence. It is not a parser-only microbenchmark.
 
+Section 4 enables `set -e`, and GNU `/usr/bin/time` exits with the status of the command it wraps. Each run is therefore wrapped in `set +e` / `set -e` so that a failed run is recorded and classified instead of aborting the protocol without a result.
+
 ```bash
 RESULTS="$WORK_DIR/analysis-results.tsv"
 : > "$RESULTS"
 
+WARMUP_RESULTS="$WORK_DIR/warmup-status.tsv"
+: > "$WARMUP_RESULTS"
+
 for i in 1 2 3; do
+  set +e
   /usr/bin/time -f '%e\t%M' \
     -o "$WORK_DIR/warmup-$i.time" \
     node bin/voldbase.js analyze "$PROJECT_ID" \
-    > "$WORK_DIR/warmup-$i.log"
+    > "$WORK_DIR/warmup-$i.log" 2>&1
+  STATUS=$?
+  set -e
+
+  printf '%s\t%s\n' "$i" "$STATUS" >> "$WARMUP_RESULTS"
+
+  if [ "$STATUS" -ne 0 ]; then
+    printf 'Result: FAIL\n'
+    printf 'Stage: analysis measurements (warm-up run %s)\n' "$i"
+    printf 'Reason: warm-up exited with status %s\n' "$STATUS"
+    printf 'Exit status: %s\n' "$STATUS"
+    exit "$STATUS"
+  fi
 done
 
+FAILED_RUNS=0
+FAILED_RUN_LIST="$WORK_DIR/analysis-failures.tsv"
+: > "$FAILED_RUN_LIST"
+
 for i in $(seq 1 20); do
+  set +e
   /usr/bin/time -f '%e\t%M' \
     -o "$WORK_DIR/run-$i.time" \
     node bin/voldbase.js analyze "$PROJECT_ID" \
-    > "$WORK_DIR/run-$i.log"
+    > "$WORK_DIR/run-$i.log" 2>&1
+  STATUS=$?
+  set -e
 
-  printf '%s\t' "$i" >> "$RESULTS"
-  cat "$WORK_DIR/run-$i.time" >> "$RESULTS"
+  if [ "$STATUS" -eq 0 ]; then
+    printf '%s\t' "$i" >> "$RESULTS"
+    cat "$WORK_DIR/run-$i.time" >> "$RESULTS"
+  else
+    FAILED_RUNS=$((FAILED_RUNS + 1))
+    printf '%s\t%s\n' "$i" "$STATUS" >> "$FAILED_RUN_LIST"
+  fi
 done
+
+printf 'Failed runs: %s of 20\n' "$FAILED_RUNS"
+
+if [ "$FAILED_RUNS" -ne 0 ]; then
+  cat "$FAILED_RUN_LIST"
+  printf 'Result: FAIL\n'
+  printf 'Stage: analysis measurements\n'
+  printf 'Reason: %s of 20 measured runs failed; see %s\n' \
+    "$FAILED_RUNS" "$FAILED_RUN_LIST"
+  exit 1
+fi
 ```
 
 The TSV columns are:
@@ -281,9 +361,13 @@ The TSV columns are:
 2. Elapsed wall-clock seconds.
 3. Maximum resident set size in KiB, as reported by GNU `/usr/bin/time`.
 
-Keep all raw logs and timing files. Do not silently discard failed runs.
+Keep all raw logs and timing files, including `warmup-<n>.log`, `warmup-<n>.time`, `run-<n>.log`, `run-<n>.time`, `warmup-status.tsv` and `analysis-failures.tsv`. A failed run keeps its log and time file, and its exit status is recorded in `analysis-failures.tsv`. Do not silently discard failed runs.
+
+A failed run is never counted as a successful observation. If any measured run fails, the attempt is classified `FAIL` under section 11, the completed-run count is 20 minus the failed-run count, and no statistic may be presented with n = 20.
 
 ## 9. Architecture determinism
+
+This stage is reached only when the eligibility check and all 23 runs exited 0; `run-20.log` exists only then.
 
 Extract the analysis ID from a successful analysis output:
 
@@ -326,11 +410,19 @@ For the 20 measured analysis runs, report:
 - Median and maximum reported RSS.
 - Failed-run count.
 
-Use the nearest-rank percentile convention:
+Use the nearest-rank percentile convention for every reported quantile:
 
 `rank = ceil(p × n)`
 
 For p95 with 20 observations, report the 19th value after sorting in ascending order.
+
+The IQR uses the same nearest-rank convention, applied to the sorted elapsed times in column 2 of the TSV:
+
+`Q1 = value at rank ceil(0.25 × n)`, `Q3 = value at rank ceil(0.75 × n)`, `IQR = Q3 − Q1`.
+
+Values are read at those ranks without interpolation. For n = 20 that is Q1 = the 5th value, Q3 = the 15th value and IQR = 15th − 5th; the median (p50) is the 10th value (rank ceil(0.5 × 20) = 10), not the average of the 10th and 11th. State this convention in the report so the numbers can be reproduced.
+
+If any measured run failed, do not compute these statistics as though all 20 runs completed and do not present n = 20. Report the failed-run count, the number of completed runs, and any statistic labelled with its actual n; the attempt is classified `FAIL` under section 11.
 
 Do not report the arithmetic mean alone. Do not remove outliers unless the exclusion rule was written before the benchmark and every excluded observation is disclosed.
 
