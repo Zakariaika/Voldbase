@@ -472,9 +472,9 @@ command exits non-zero on any failure. The test needs registry access for
   [ADR-0005](docs/adr/0005-execution-isolation.md); a PR that shells out to user
   code before that design is implemented will be rejected.
 - **Every change is a pull request.** CI must pass before merge. Branch protection
-  is **not yet enabled** on `main`, so this is currently a review convention
-  rather than a technical control; enabling it is a repository-settings task, not
-  a code change.
+  is **not yet enabled** on `main`, so this is currently a review convention rather
+  than a technical control; enabling it is a repository-settings task, not a code
+  change.
 
 ## Roadmap
 
