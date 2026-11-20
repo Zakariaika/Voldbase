@@ -199,3 +199,61 @@ under the same id:
 | Re-import, contents changed | Refused; tells you to import with `--name` |
 | Re-import, contents changed, new `--name` | Recorded as a new project |
 | Two directories with identical contents | Two projects |
+
+## Storage
+
+Everything lives under `VOLDBASE_HOME` (default `~/.voldbase`):
+
+```
+~/.voldbase/
+├── projects.json      # schemaVersion + imported projects
+└── analyses.json      # schemaVersion + analysis snapshots (append-only)
+```
+
+Override it for a portable or throwaway store:
+
+```bash
+VOLDBASE_HOME=/tmp/voldbase-dev voldbase import ./demo
+```
+
+The store is **versioned** (`schemaVersion: 1`), **migrated** forward when an
+older layout is found (version 0 = a bare array), **written atomically** (temporary
+file + rename), and **validated on load** — a corrupted file fails with
+`storage_corrupted` instead of being silently discarded. A document written by a
+newer VOLDBASE is refused rather than partially read. Format details:
+[ADR-0009](docs/adr/0009-local-storage-format.md).
+
+**Concurrent writes are serialized.** A `projects.json.lock` file is created with
+`O_EXCL` around each read-modify-write; the store is re-read while the lock is held,
+so two `voldbase` processes cannot lose each other's projects. Waiting is bounded
+(5 s by default).
+
+A lock is recovered only when its owner is **provably gone** — same host and a PID
+that no longer exists — never merely because the lock is old. A paused, stalled or
+long-running writer therefore keeps its exclusion. If a lock is ever displaced while
+its owner is alive, the displaced file blocks every other writer
+(`storage_lock_unsafe`) until that owner releases, instead of admitting a second
+writer; release never deletes or moves a lock it does not own. The quarantine check
+fails closed: a lock directory that cannot be listed, or a quarantined file that
+cannot be read, refuses entry rather than being treated as empty. Limits that matter:
+a PID check cannot prove death across PID namespaces/containers or reused PIDs (the
+store then stays locked until a human removes the file), the check is POSIX-verified
+only, and this is cooperative locking for local filesystems — a tool that ignores
+the lock can still overwrite the store. See
+[ADR-0015](docs/adr/0015-liveness-based-lock-recovery.md).
+
+### Analysis storage
+
+Analyses live in their own document, `analyses.json`, so a damaged analysis file
+can never affect project data. They are append-only and content-addressed: an
+analysis id may not be re-saved with different content (`analysis_immutable`), and
+every snapshot's digest is recomputed when it is loaded — a file that was edited by
+hand is refused with `analysis_corrupted` rather than displayed as evidence.
+Writes are atomic and use the same lock as projects. Details:
+[Phase 2A architecture](docs/architecture/phase-2a-static-analysis.md).
+
+**Architecture models are not stored.** `voldbase architecture` derives them from a
+stored analysis on demand and prints them; the result is a pure function of that
+analysis (no timestamp, no generated id), so re-running the command reproduces the
+same model and digest. See
+[ADR-0017](docs/adr/0017-architecture-intelligence.md).
