@@ -6,8 +6,10 @@
  * driven by a future HTTP server without changes.
  *
  * Exit codes: `0` success, `1` runtime failure (unreadable path, storage error),
- * `2` usage error (bad arguments). Scripts can therefore tell "you typed it
- * wrong" from "it did not work".
+ * `2` usage error (bad arguments), `3` findings met the `--fail-on` threshold
+ * (the analysis completed and its output was written). Scripts can therefore
+ * tell "you typed it wrong" from "it did not work" from "this code has
+ * findings".
  */
 
 import * as path from 'node:path';
