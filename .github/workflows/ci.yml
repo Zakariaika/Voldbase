@@ -43,3 +43,22 @@ jobs:
 
       - name: Test
         run: npm test
+
+  smoke:
+    name: clean-checkout smoke (node 24.x)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      # The smoke test does not use this workspace's build: it clones the
+      # commit into a temporary directory and runs `npm ci` + `npm run build`
+      # there, proving the documented first run works from an unbuilt checkout.
+      - name: Clean-checkout smoke test
+        run: npm run smoke:clean-checkout
