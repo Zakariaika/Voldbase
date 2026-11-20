@@ -1,0 +1,45 @@
+name: tmp-empty-patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-empty-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the empty-file allowance fix
+        run: |
+          cat > /tmp/patch.cjs <<'JS'
+          const fs = require('node:fs');
+          const file = 'src/infrastructure/fs/typescript-analyzer.ts';
+          const oldText = '        allowance: Math.min(bounds.maxFileBytes, scanned.size),';
+          const newText = [
+            '        // An empty file is valid source with size 0; the verified reader rejects',
+            '        // an allowance of 0, so ask for at least one byte of headroom.',
+            '        allowance: Math.min(bounds.maxFileBytes, Math.max(scanned.size, 1)),',
+          ].join('\n');
+          const text = fs.readFileSync(file, 'utf8');
+          if (!text.includes(oldText)) {
+            console.log('unexpected content; not patching');
+            process.exit(1);
+          }
+          fs.writeFileSync(file, text.replace(oldText, newText), 'utf8');
+          JS
+          node /tmp/patch.cjs
+          git diff --stat
+
+      - name: Commit and remove this workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -q .github/workflows/tmp-empty-patch.yml
+          git add src/infrastructure/fs/typescript-analyzer.ts
+          git commit -m 'fix(analysis): accept valid empty source files'
+          git push
