@@ -10,7 +10,11 @@ import {
   cloneAnalysisSnapshot,
   type AnalysisSnapshot,
 } from '../../domain/analysis.ts';
-import type { Experiment } from '../../domain/experiment.ts';
+import {
+  assertExperimentRevisionIntegrity,
+  cloneExperiment,
+  type Experiment,
+} from '../../domain/experiment.ts';
 import { DomainError } from '../../domain/errors.ts';
 import type { AnalysisId, ExperimentId, ProjectId, RunId } from '../../domain/ids.ts';
 import {
@@ -96,15 +100,28 @@ export class InMemoryExperimentRepository implements ExperimentRepository {
   readonly #byId = new Map<ExperimentId, Experiment>();
 
   async save(experiment: Experiment): Promise<void> {
-    this.#byId.set(experiment.id, experiment);
+    const existing = this.#byId.get(experiment.id);
+    if (existing !== undefined) {
+      // Every adapter enforces the same revision rule as durable storage.
+      assertExperimentRevisionIntegrity(existing, experiment);
+    }
+    // Store a detached copy: `readonly` is a compile-time promise only, so
+    // keeping the caller's references would let it mutate the definition behind
+    // the revision guard.
+    this.#byId.set(experiment.id, cloneExperiment(experiment));
   }
 
   async findById(id: ExperimentId): Promise<Experiment | undefined> {
-    return this.#byId.get(id);
+    const stored = this.#byId.get(id);
+    // Return a copy: a reader must not be able to mutate stored state through
+    // the object it was handed.
+    return stored === undefined ? undefined : cloneExperiment(stored);
   }
 
   async listByProject(projectId: ProjectId): Promise<Experiment[]> {
-    return [...this.#byId.values()].filter((item) => item.projectId === projectId);
+    return [...this.#byId.values()]
+      .filter((item) => item.projectId === projectId)
+      .map(cloneExperiment);
   }
 }
 

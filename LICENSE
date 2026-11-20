@@ -1,21 +1,835 @@
-MIT License
+VOLDBASE SOURCE-AVAILABLE LICENSE (DRAFT)
+Draft version 0.4 — 2026-11-19
 
-Copyright (c) 2026 Zakariaika
+Copyright (c) 2026 Taqiyeddin Maatlia. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+READ THIS FIRST
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This document is a DRAFT written to record the copyright holder's intended
+licensing policy. It has not been reviewed or approved by a lawyer, it is not a
+statement that its terms are enforceable in any jurisdiction, and it is not
+legal advice. Until a reviewed version replaces it, no one should rely on this
+draft as a settled legal position. If you need to rely on these terms for a
+commercial arrangement, ask the copyright holder for written permission (see
+section 5), which is separate from this draft.
+
+VOLDBASE is SOURCE-AVAILABLE, not open source. The source is published so that
+people can read, study, learn from and improve it for non-commercial purposes.
+It is not published under an OSI-approved license, and nothing in this document
+grants the rights that an open-source license such as the MIT License grants.
+
+1. DEFINITIONS
+
+1.1 "Software" means the source code, documentation, tests, configuration and
+    other files in this repository that are covered by this license under
+    section 3, together with any part of them.
+
+1.2 "Copyright Holder" means Taqiyeddin Maatlia, the copyright holder of the
+    Software, and any successor that holds the copyright in the Software. The
+    GitHub account name "Zakariaika" is a handle used by the same person. It is
+    not a separate author, copyright holder or legal person, and references to
+    it in this repository's earlier files, commit metadata or package metadata
+    identify that same person.
+
+1.3 "Non-Commercial Use" means use that is not directed toward or intended for
+    commercial advantage or monetary compensation. It includes personal study
+    and hobby projects; classroom teaching and coursework; academic research
+    that is neither commissioned nor sponsored by a commercial entity and does
+    not deliver a service to third parties; and evaluation of the Software for
+    the purpose of deciding whether to request a commercial license, provided
+    the evaluation is not put to production or commercial use and its results
+    are not delivered to third parties for payment. Section 1.8 states which
+    specific cases this draft resolves and which it leaves open; non-profit and
+    public-sector internal use is deliberately left open there rather than
+    classified here.
+
+1.4 "Commercial Use" means any use that is not Non-Commercial Use, including:
+
+    (a) use by or for a for-profit entity in the operation of its business,
+        including purely internal use with no product or revenue attached, and
+        use by any entity (including a non-profit, educational institution or
+        government body) in an activity that is charged for, generates revenue,
+        or is performed under an agreement with a commercial sponsor;
+    (b) incorporation into a product, service or internal tool that is sold,
+        licensed, subscription-based, ad-supported, or used to deliver services
+        to third parties;
+    (c) use in paid consulting, contracting, development or support work;
+    (d) use to provide a hosted, managed or software-as-a-service offering,
+        whether or not a fee is charged, where it is operated by or for an
+        entity as part of its activities, except the donation-funded free
+        public service that section 1.8(m) leaves open;
+    (e) use in training, fine-tuning, benchmarking or evaluating a commercial
+        model, product or service;
+    (f) accepting payment, sponsorship, advertising revenue or other
+        consideration in connection with distributing, operating or supporting
+        the Software or a Modification, or using the Software to deliver a paid
+        service, where that consideration is commercial as this paragraph
+        defines it. Consideration is commercial here when it is given in
+        exchange for, or in expectation of, a product, service, influence,
+        access, promotion or other benefit, or when it is a sponsorship or
+        payment tied to the commercial operation, distribution, support or
+        promotion of the Software. Receipt alone does not decide the question:
+        a donation or gift is not commercial consideration merely because it
+        is received by the person or entity that distributes, operates or
+        supports the Software. Section 1.8 states the three donation cases —
+        an unconditional personal gift, a donation that funds the free public
+        service in section 1.8(m), and a payment or sponsorship given for a
+        benefit — and only the third is commercial consideration under this
+        paragraph. A donation that funds the free service in section 1.8(m) is
+        governed by that paragraph and not by this one;
+    (g) use by an employee, contractor or agent in the course of their work for
+        an employer or principal, where the use by that employer or principal
+        would itself be Commercial Use.
+
+    Classifying a use as Commercial Use does not grant it: Commercial Use still
+    requires the prior written permission described in section 5.
+
+1.5 "Modify" means to copy, adapt, translate, arrange, alter or create a
+    derivative work of the Software, and "Modification" means any resulting
+    work.
+
+1.6 "Distribute" means to provide the Software or a Modification to any other
+    person or entity, by any means, including publishing it, uploading it,
+    bundling it, or shipping it inside another work. "Distribution" has a
+    corresponding meaning.
+
+1.7 "You" means the individual or entity exercising rights under this license.
+
+1.8 Cases this draft classifies, and cases it leaves open. The following list
+    states the Copyright Holder's intent for the cases that arise most often. It
+    is not a substitute for section 5, and it does not decide a case it marks as
+    open.
+
+    Resolved as Non-Commercial Use:
+
+    (a) personal study, hobby and other private use by an individual;
+    (b) classroom teaching and coursework at an educational institution, where
+        the Software is not itself sold or licensed to students;
+    (c) academic research that is not commissioned or sponsored by a commercial
+        entity and does not deliver a service to third parties;
+    (d) evaluation by any person or entity, including a company, solely to
+        decide whether to request a commercial license, provided the Software is
+        not put to production or commercial use during the evaluation and no
+        result is delivered to a third party for payment.
+
+    Resolved as Commercial Use:
+
+    (e) use by a for-profit entity in its business, including purely internal
+        use;
+    (f) use by an employee, contractor or agent in the course of work for an
+        employer or principal whose use would be Commercial Use;
+    (g) any hosted, managed or software-as-a-service offering operated by or for
+        an entity as part of its activities, whether or not a fee is charged,
+        other than the donation-funded case that paragraph (m) leaves open;
+    (h) commercial deployment, selling, sublicensing and commercial
+        redistribution, each of which also requires permission under section 5;
+    (i) accepting payment, sponsorship, advertising revenue or other commercial
+        consideration, as section 1.4(f) defines it, in connection with
+        distributing, operating or supporting the Software or a Modification,
+        other than the cases in paragraphs (m) and (n).
+
+    Left open; not classified by this draft:
+
+    (j) internal use by a non-profit organisation that charges nothing for the
+        use and derives no revenue from it;
+    (k) internal use by a government body, public authority, public university
+        or public research institute;
+    (l) academic research with mixed commercial and public funding, or research
+        performed under an agreement that gives a commercial sponsor rights in
+        the results;
+    (m) a donation-funded project that operates the Software as a free public
+        service, where access is free of charge and the project derives no
+        revenue from the service other than donations that fund the free
+        service itself. Such a donation is not consideration for the service
+        where it buys no access, priority, promotion, support or other benefit
+        and is not a payment or sponsorship tied to commercial operation.
+        Section 1.4(d) does not classify this case, section 1.4(f) does not
+        treat those donations as consideration, and this draft leaves the case
+        open rather than deciding it;
+    (n) whether an unconditional personal gift, or a donation that funds the
+        free service in paragraph (m), is itself a Commercial Use in any wider
+        sense. Paragraph (i) does not classify either case. The three donation
+        cases are distinguished below, and this draft decides only the third.
+
+    Donations, gifts and sponsorship are not one case. This draft distinguishes
+    three, and classifies only the third:
+
+    Case 1 — an unconditional personal gift or donation, given with no benefit
+    promised or expected in return and not connected with distributing,
+    operating or supporting the Software. Nothing is exchanged for it and it
+    buys no product, service, influence, access, promotion or other benefit, so
+    it is not commercial consideration under section 1.4(f). Whether accepting
+    such a gift is itself a Commercial Use in a wider sense is left open under
+    paragraph (n);
+
+    Case 2 — a donation that funds the free public service in paragraph (m),
+    where access remains free and the donation buys no access, priority,
+    promotion, support or other benefit. It is not consideration for the
+    service, and paragraph (m) governs it; the case is left open with that
+    paragraph;
+
+    Case 3 — a payment, sponsorship, advertising arrangement or donation tied
+    to the commercial operation, distribution, support, access, promotion or
+    other benefit connected with the Software or a Modification, or given in
+    exchange for, or in expectation of, any such benefit. This is commercial
+    consideration under section 1.4(f) and is Commercial Use under paragraph
+    (i).
+
+    Receipt by a project operator, maintainer or contributor does not by itself
+    make a donation commercial consideration. What decides Case 3 is the
+    benefit given or promised, or the tie to commercial operation, not who
+    receives the money.
+
+    For an open case this draft does not choose a classification. Pending the
+    Copyright Holder's written decision, an open case should be treated as
+    Commercial Use, and a person who needs certainty must request written
+    permission under section 5. These cases are repeated in `NOTICE` ("Open
+    questions for legal review") and are not presented as settled law.
+
+2. DRAFT STATUS AND NO LEGAL REVIEW
+
+2.1 This license is a draft. It is published for review. It is not a final
+    license, it has not been reviewed by a lawyer, and it has not been approved
+    or endorsed by any legal professional or standards body.
+
+2.2 The Copyright Holder does not represent that these terms are enforceable in
+    whole or in part in any jurisdiction, or that they are complete. No term of
+    this draft should be read as a guarantee of any legal outcome.
+
+2.3 If any provision of this draft is uncertain or unenforceable, that provision
+    is to be read down to the minimum extent necessary (see section 14.2); the
+    remaining provisions continue to express the Copyright Holder's intent.
+
+3. SCOPE: WHAT THIS LICENSE COVERS AND WHAT IT DOES NOT
+
+3.1 Covered. This license applies to the original contents of this repository,
+    namely:
+
+    (a) `src/` — the TypeScript source of the VOLDBASE domain, application,
+        infrastructure and public module surface;
+    (b) `bin/` — the command-line entry point;
+    (c) `tests/` — the test suites;
+    (d) `docs/` — architecture, decision records and security documentation,
+        except any file that carries its own copyright or license statement;
+    (e) the original text of `README.md`, `CONTRIBUTING.md`, `NOTICE`,
+        `TRADEMARKS.md`, this license, and the repository configuration files
+        (`package.json`, `package-lock.json`, `tsconfig.json`,
+        `tsconfig.build.json`, `.editorconfig`, `.gitignore`, `.env.example`,
+        and `.github/`).
+
+3.2 Excluded — third-party components. This license does NOT apply to any
+    third-party software, package, type definition or other material, whether
+    vendored in this repository or installed as a dependency. Those components
+    remain governed by their own licenses and their own copyright holders. See
+    `NOTICE` for the components this repository currently depends on. Nothing
+    in this license claims ownership of, or grants rights in, third-party code.
+
+3.3 Excluded — contributors' work. This license does NOT transfer or claim
+    ownership of any contribution made by anyone other than the Copyright
+    Holder. A contributor, or the person or organisation that holds the
+    copyright in the contribution, retains that copyright and licenses the
+    contribution as described in section 8. Nothing in this license should be
+    read as an assignment of a contributor's copyright.
+
+3.4 Excluded — names, logos and brand identity. This license grants no rights
+    in the VOLDBASE name, logo, wordmark, visual identity or any other
+    trademark or brand element. See `TRADEMARKS.md`.
+
+3.5 Excluded — files with their own terms. If a file in this repository carries
+    an explicit copyright or license header, that file is governed by that
+    header, and this license does not override it.
+
+3.6 Not retroactive: earlier versions and prior grants. This license applies to
+    the contents of this repository as distributed under this license, from the
+    commit that first includes it onward. It does not apply retroactively, and
+    it does not revoke, cancel, narrow, withdraw or replace any permission that
+    was already granted under a previous license for a version, release or copy
+    distributed under that previous license. In particular:
+
+    (a) A version distributed under the MIT License remains available under the
+        MIT License for anyone who obtained it under that license. This draft
+        does not claim that those permissions ended when it was published.
+    (b) Rights already exercised are not made retroactively unlicensed, and no
+        past use is recharacterised by this draft.
+    (c) A copy obtained under an earlier license continues to be governed by
+        that earlier license; a copy obtained under this license is governed by
+        this license.
+    (d) Verified boundary, prior side. The MIT License applied to every commit
+        on the `main` branch from the initial commit `5aee287` (2026-11-14)
+        through commit `1768aad` (2026-11-18) inclusive. `LICENSE` was not
+        modified between those two commits: the MIT text in the initial commit
+        and the text in `1768aad` are the same file. This draft does not apply
+        to any of those commits, and it does not apply to any copy obtained
+        from them.
+    (e) Start of this license, and the limit of what can be stated. This draft
+        applies to repository contents from the first commit on `main` whose
+        tree contains it. That commit is identified by that fact alone, not by
+        its commit message or by the way the change was landed: whether it is a
+        merge commit, a squashed commit or a direct commit, the boundary is the
+        first commit on `main` that contains this draft. It did not exist when
+        this section was written, so its identifier cannot be recorded here and
+        must not be guessed. Until such a commit exists on `main`, no version on
+        `main` is distributed under this draft.
+    (f) No releases. The repository has no tags and no published releases, so
+        the boundary is commit-based only: there are no release artifacts on
+        either side of it.
+
+    This section records the Copyright Holder's intent not to revoke prior
+    grants. It does not decide the legal effect of a license change on any
+    particular distribution. Copies taken from an unmerged branch that carries
+    this draft are not releases, and they carry the draft text rather than a
+    final license; that label does not by itself determine what legal effect, if
+    any, the draft has on such a copy. That question, the labelling of a product
+    or repository that contains files under both licenses, and whether any copy
+    of an earlier version was distributed outside this repository, remain
+    unresolved and are recorded in `NOTICE` ("Prior licensing") and ADR-0020.
+
+4. PERMISSION GRANTED FOR NON-COMMERCIAL USE
+
+4.1 Subject to your compliance with this license, the Copyright Holder grants
+    you a worldwide, royalty-free, non-exclusive, non-transferable,
+    non-sublicensable and revocable permission, revocable only through the
+    procedure in section 11, to:
+
+    (a) use, run, reproduce and display the Software for Non-Commercial Use;
+    (b) Modify the Software for Non-Commercial Use;
+    (c) Distribute unmodified copies of the Software for Non-Commercial Use,
+        provided that:
+        (i) every copy keeps this license, `NOTICE` and `TRADEMARKS.md` intact
+            and unmodified;
+        (ii) you charge nothing for the copy or for access to it beyond the
+             reasonable cost of the media or transfer, and you do not bundle it
+             into anything you sell, license or monetise;
+        (iii) you add no terms, conditions or restrictions of your own, and you
+              grant the recipient no permission beyond what this license gives
+              them directly; and
+        (iv) you do not present the copy as your own work or as endorsed by the
+             Copyright Holder;
+    (d) publish, Distribute and make available Modifications for Non-Commercial
+        Use, subject to the conditions in section 4.2; and, if you choose to
+        submit a Modification as a contribution, section 8 governs that
+        contribution (submitting it does not by itself accept section 8).
+
+    This permission is personal to you. Except as described in section 4.1(c)
+    and section 4.4, you may not transfer it, assign it, or sublicense any of
+    the rights it grants.
+
+    The word "revocable" in this section refers only to section 11. The
+    Copyright Holder does not reserve a right to withdraw this permission at
+    will, on mere notice or for convenience, and no other provision of this
+    license should be read as granting one.
+
+4.2 Modified versions may be Distributed only for Non-Commercial Use, and only
+    if every Distribution satisfies all of the following conditions:
+
+    (a) Different name. The modified version is presented under a name that is
+        not "VOLDBASE", does not contain "VOLDBASE", and is not confusingly
+        similar to it or to the VOLDBASE name or visual identity. The name may
+        appear only in a factual statement of origin such as "derived from
+        VOLDBASE".
+    (b) No official identity. The official VOLDBASE logo, logotype, icon and
+        visual identity are not used at all — not in the modified version's
+        name, icon, splash screen, documentation, repository or promotion.
+    (c) Clear unofficial statement. The distribution and its documentation
+        state prominently and in plain language that it is a modified version,
+        that it is unofficial, and that it is not affiliated with, endorsed by
+        or supported by the Copyright Holder or the VOLDBASE project.
+    (d) Notices preserved. Every applicable copyright notice, this license,
+        `NOTICE`, `TRADEMARKS.md` and all third-party notices are included
+        unmodified with the distribution, together with the notices for any
+        third-party component the modified version adds.
+    (e) No implied endorsement. Nothing in the modified version's name,
+        presentation, documentation or metadata states or suggests that the
+        Copyright Holder endorses, certifies, sponsors or supports it.
+    (f) License terms for recipients. The distribution includes the complete
+        text of this license, `NOTICE` and `TRADEMARKS.md`, so every recipient
+        can read the terms that apply to the Software.
+    (g) Non-commercial only. The Distribution is free of charge, is not sold,
+        licensed, rented or monetised in any way, and is not bundled into
+        anything that is sold, licensed or monetised.
+
+    A Distribution of a modified version conveys no commercial right of any
+    kind. Distributing a modified version for a commercial purpose, or on terms
+    outside this section, requires the prior written permission of the Copyright
+    Holder under section 5. Reading, studying, running and privately modifying
+    the Software for Non-Commercial Use remain permitted without these
+    conditions; they apply when a Modification is Distributed.
+
+    Your own original additions to a modified version remain yours, and you may
+    license them on terms of your choosing. You may not, however, license the
+    Software itself on any terms, impose terms that narrow a recipient's rights
+    in the Software, or describe the Software as available to a recipient under
+    any additional or different license. A recipient of the modified version
+    receives the permission in section 4.1 in the Software directly from the
+    Copyright Holder; the Copyright Holder grants nothing in your additions, and
+    this license does not make your additions part of the Software.
+
+4.3 This license grants only the permissions stated in it. All other rights are
+    reserved by the Copyright Holder. No permission is granted by implication,
+    estoppel, exhaustion or otherwise, and no permission is granted to use the
+    Software in any way that commercially exploits it, or that competes with or
+    substitutes for the Software commercially.
+
+4.4 Redistribution is a direct grant, not a sublicense. When you pass on a copy
+    of the Software — unmodified under section 4.1(c), or modified under section
+    4.1(d) and section 4.2 — you do not sublicense the Software, you do not
+    transfer or assign your own permission, and you do not act as the Copyright
+    Holder's agent. You distribute a copy, and the recipient's permission in the
+    Software comes directly from the Copyright Holder under section 4.1, on the
+    same non-commercial conditions and with the same limits as yours, including
+    the permission to modify and to redistribute non-commercially under sections
+    4.1(b), 4.1(d) and 4.2. This is why the permission granted in section 4.1 is
+    non-transferable and non-sublicensable without contradicting sections 4.1(c)
+    and 4.2: the copy is passed on, the permission is not moved. Your own
+    permission ends only as provided in section 11, and a recipient who complies
+    with section 4.1 keeps the permission they received with the copy.
+
+    Three limits follow:
+
+    (a) Non-commercial only. No Distribution under section 4.1(c) or section 4.2
+        grants the recipient any commercial right. A recipient who wants one
+        must obtain it from the Copyright Holder under section 5.
+    (b) Not the contributor grant. Section 8.4 — including the right to
+        relicense a contribution under commercial or other terms — is granted to
+        the Copyright Holder only. It is not granted to a recipient, a
+        redistributor, a downstream fork maintainer or any other person, and
+        nothing in this section conveys it.
+    (c) Not the modifier's work. A recipient of a modified version receives the
+        Copyright Holder's permission in the Software. The modifier's own
+        original additions are not licensed by the Copyright Holder and are
+        available only on whatever terms the modifier grants; if the modifier
+        grants none, this license gives the recipient no right to use them.
+
+    This direct-grant construction states the Copyright Holder's intent. Whether
+    it is effective in a given jurisdiction, and whether a recipient's
+    permission survives a redistributor's breach in every legal system, are
+    questions for qualified counsel and are recorded in `NOTICE` ("Open
+    questions for legal review"). This draft does not present the construction
+    as a legal conclusion.
+
+4.5 No commercial redistribution. Selling, licensing, renting, sublicensing or
+    otherwise commercially redistributing the Software or a Modification —
+    including bundling it into a paid product, a paid service, a paid course, a
+    paid support or hosting offering, or an ad-monetised distribution —
+    requires the prior written permission of the Copyright Holder under section
+    5. Passing on an unmodified copy free of charge under section 4.1(c), and
+    Distributing a modified version free of charge under section 4.1(d) and
+    section 4.2, are the only redistributions this license permits. Neither
+    conveys any commercial right to the recipient, neither may be used as a step
+    toward a commercial distribution, and neither may remove or relax the
+    conditions in section 4.2.
+
+5. COMMERCIAL USE REQUIRES PRIOR WRITTEN PERMISSION
+
+5.1 Commercial Use is not permitted under this license, including internal
+    business use that produces no direct revenue.
+
+5.2 Commercial Use, selling, sublicensing and commercial redistribution each
+    require the prior written permission of the Copyright Holder, granted
+    separately and in writing. A permission granted for one use, entity or
+    period is not permission for any other use, entity or period.
+
+5.3 To request permission, contact the Copyright Holder through the repository
+    owner account on GitHub (github.com/Zakariaika). State the entity, the
+    intended use, whether the Software or a Modification will be Distributed,
+    and the commercial context. No permission exists until the Copyright Holder
+    confirms it in writing; a request, an inquiry or a silence is not
+    permission.
+
+5.4 This section does not limit any right the Copyright Holder has under
+    copyright law, contract or otherwise.
+
+6. CONDITIONS ON ALL PERMITTED USE
+
+6.1 You must keep every copyright notice, this license, `NOTICE` and
+    `TRADEMARKS.md` with every copy of the Software you make or distribute, and
+    must not remove, obscure or alter them.
+
+6.2 You must not represent the Software as your own work, must not remove
+    attribution, and must not state or imply that the Copyright Holder endorses
+    you, your Modification or your use.
+
+6.3 You must not use the Software to violate any law, to infringe anyone's
+    rights, or to build a product that misrepresents its verification results.
+    VOLDBASE's documented output states what was and was not tested; suppressing
+    `INCONCLUSIVE`, `NOT_TESTED` or `BLOCKED` outcomes, or presenting an
+    unexecuted run as a `PASS`, is a material breach of this license.
+
+6.4 You must not circumvent, disable or remove any technical measure in the
+    Software that records provenance, integrity or limitations of results.
+
+7. NO EXECUTION CAPABILITY, NO SECURITY GUARANTEE
+
+7.1 The current version of VOLDBASE does not execute imported project code. It
+    reads, analyzes and records metadata about projects. It has no execution
+    engine, no container runtime and no sandbox, and it does not run a
+    project's tests, scripts or build commands.
+
+7.2 VOLDBASE does not provide a validated security guarantee or certification.
+    No independent third-party security audit, penetration test or formal
+    verification of the Software has been performed. The repository does contain
+    internal security design work, threat models and automated checks (for
+    example, tests asserting that product code does not import
+    `node:child_process`); those are development artifacts, not an audit, and
+    their presence is not evidence that the Software is secure. Documentation
+    describing future execution isolation states requirements, not capabilities.
+    Do not treat any part of this repository as a claim that running untrusted
+    code with VOLDBASE is safe.
+
+7.3 You are responsible for the security of the environment in which you run the
+    Software and for any project data you point it at.
+
+8. CONTRIBUTIONS
+
+8.1 Non-commercial contributions are welcome and are accepted only under the
+    terms of this section (the "Contribution Terms"). These terms apply to a
+    contribution only when the contributor has recorded an explicit, affirmative
+    acceptance of them through the procedure in `CONTRIBUTING.md`. Submitting a
+    pull request, opening an issue, attaching a patch or pushing a commit does
+    not by itself record that acceptance, and no such act is treated as
+    agreement to these terms. A contribution without recorded acceptance is not
+    accepted into the Software: it must not be merged, and if it is merged by
+    mistake it may be reverted. The Copyright Holder may also agree separate
+    written terms with a contributor, in which case those terms govern that
+    contribution to the extent they differ. Where a contribution is owned or
+    controlled by an employer, client or other organisation rather than by the
+    individual submitting it, acceptance also requires that the organisation's
+    authority to submit it and to grant the license in section 8.4 be recorded,
+    either in the contributor's acceptance statement or in separate written
+    terms under this section.
+
+    An acceptance recorded for a pull request covers the commits in that pull
+    request when the statement was posted, and any further commits the
+    contributor pushes to the same pull request before it is merged, provided
+    they form part of the same contribution. If the contribution changes
+    materially before merge, a maintainer may require the contributor to confirm
+    the acceptance again. A new pull request requires a new statement.
+
+8.2 When you record acceptance of these Contribution Terms under section 8.1,
+    you confirm, for every contribution you submit under them (a pull request,
+    patch, issue attachment or any other material intended for inclusion), that:
+
+    (a) you are the author of the contribution or have the right to submit it;
+    (b) the contribution is your original work, or any third-party material in
+        it is clearly identified, properly licensed, and licensed in a way that
+        permits the grant in section 8.4, with its notices preserved;
+    (c) to your knowledge the contribution does not infringe anyone's rights;
+    (d) if the contribution is owned or controlled by an employer, client or
+        other organisation, or is submitted on behalf of one, you have that
+        organisation's authority to submit it and to grant the license in
+        section 8.4, or that organisation has separately agreed terms in
+        writing with the Copyright Holder; and
+    (e) you hold, or are authorised to grant, the rights in section 8.4 for the
+        whole contribution, and you grant only the rights you actually hold or
+        are authorised to grant.
+
+8.3 No transfer of ownership. Nothing in this license transfers, assigns or
+    otherwise conveys ownership of any contribution to the Copyright Holder,
+    and the Copyright Holder does not claim ownership of any contribution.
+    Copyright in a contribution stays with whoever actually holds it: a
+    contributor retains the rights the contributor owns, and an employer,
+    client or other organisation that owns or controls the contribution retains
+    those rights. This section does not assert that a contributor owns
+    copyright in every contribution, and it does not decide who owns a
+    contribution; it records only that no ownership is transferred by this
+    license. The project receives only the license expressly granted in section
+    8.4, to the extent the grantor holds, or is authorised to grant, the rights
+    in it, and nothing here implies an ownership transfer from any holder.
+
+8.4 License granted to the Copyright Holder. When you record acceptance under
+    section 8.1, you grant the Copyright Holder, for each contribution you
+    submit under these Contribution Terms and to the extent you hold, or are
+    authorised to grant, the rights in it, a perpetual, irrevocable, worldwide,
+    royalty-free, non-exclusive, transferable and sublicensable license to:
+
+    (a) reproduce, store and archive the contribution;
+    (b) modify it, adapt it and create derivative works of it;
+    (c) distribute it, publicly display it and make it available to the public,
+        in source or built form, as part of the Software or a derivative of the
+        Software;
+    (d) sublicense these rights through multiple tiers; and
+    (e) license the contribution, as part of the Software, under this license
+        or under any other terms, including commercial, paid or otherwise
+        restricted terms, and including a future license that replaces this
+        draft.
+
+    This is the permission the project needs in order to maintain, distribute
+    and commercially license VOLDBASE, and it is granted only for contributions
+    you submit under these Contribution Terms or under separate written terms.
+    It is a license, not an assignment: it does not make the Copyright Holder
+    the owner of your contribution. The grant covers only rights you hold or
+    are authorised to grant. It does not cover third-party material you are not
+    entitled to license, and it conveys nothing in material that section 8.2(b)
+    requires you to identify as owned by another party, beyond what that
+    party's license permits.
+
+    Paragraph (e) is the commercial element, and it is deliberate rather than
+    incidental: section 5 makes commercial use available only by written
+    permission, so the Copyright Holder can grant that permission only if the
+    contribution can be offered to the licensee under commercial terms. The
+    grant is limited to your contribution as part of the Software. It gives no
+    right in your other work, in your name or likeness, or in any project of
+    yours outside the Software, and it does not oblige you to provide support,
+    maintenance or further contributions.
+
+8.5 You grant every recipient of the Software, as part of the Software and on
+    the conditions in this license, only the non-commercial permissions in
+    section 4.1 in your contribution. You do not grant recipients the rights in
+    section 8.4 — in particular the right to relicense under commercial or other
+    terms — which run to the Copyright Holder alone. You do not grant any
+    recipient a commercial right, and nothing in this section lets a recipient
+    or a downstream fork maintainer grant one. The recipient's permission in
+    your contribution reaches them directly from you and the Copyright Holder as
+    described in section 4.4, and it covers your contribution only as part of
+    the Software.
+
+8.6 No contribution creates an employment, agency, partnership or fiduciary
+    relationship, and no contribution entitles you to compensation, revenue
+    share or ownership in the project.
+
+8.7 The Copyright Holder is not obliged to accept, review, merge or keep any
+    contribution, and may remove a contribution at any time. Removing a
+    contribution does not revoke the license granted in section 8.4 for the
+    period during which it was part of the Software.
+
+8.8 Contributions are provided "as is", without warranty of any kind, and the
+    contributor is not liable for their contribution except to the extent the
+    law does not allow that limitation.
+
+8.9 Moral rights. To the extent your jurisdiction allows it, you consent to the
+    modification, combination and distribution of your contribution under this
+    license without further attribution beyond the notices kept with the
+    Software, and you agree not to assert moral rights in a way that prevents
+    the Copyright Holder from exercising the license in section 8.4. If your
+    jurisdiction does not allow that consent, tell the Copyright Holder before
+    submitting, because the project cannot accept a contribution it is not able
+    to license as described.
+
+8.10 Recording acceptance. The procedure is set out in `CONTRIBUTING.md`.
+     Acceptance is recorded in the pull request or patch record in a form that
+     identifies the contributor and the date, and that record is kept with the
+     project's records for as long as the contribution remains in the Software.
+     The project does not infer acceptance from silence, from a commit, or from
+     the act of opening a pull request, and a maintainer must not merge a
+     contribution that does not carry it. If a contributor cannot use the
+     repository's pull request interface, the same statement may be given to
+     the Copyright Holder in writing and recorded with the contribution.
+
+     The recorded statement identifies the contributor by the name or handle
+     they give. It does not verify their legal identity, their authorship or
+     ownership of the contribution, or their authority to license it, and the
+     project does not treat a GitHub account, an email address or a commit
+     author field as proof of any of those things. Whether the procedure binds a
+     particular contributor, and whether additional evidence would be needed to
+     rely on it, is a question for counsel (`NOTICE`, "Open questions for legal
+     review").
+
+8.11 A documented procedure, not a legal conclusion. Section 8.1 and
+     `CONTRIBUTING.md` describe how the project records consent. They are not a
+     claim that the procedure is legally sufficient in any jurisdiction, that it
+     binds a contributor in every circumstance, or that a lawyer has approved it.
+     That question is recorded in `NOTICE` ("Open questions for legal review").
+
+9. THIRD-PARTY COMPONENTS AND NOTICES
+
+9.1 Third-party components included in or required by the Software remain under
+    their own licenses. `NOTICE` lists the components this repository currently
+    depends on and identifies their licenses. You must comply with those
+    licenses independently of this one.
+
+9.2 This license does not grant you any rights in third-party components beyond
+    what their own licenses grant, and does not claim any ownership of them.
+
+9.3 If a third-party license conflicts with this license as applied to that
+    component, the third-party license governs that component, and this license
+    governs the rest of the Software.
+
+10. TRADEMARKS
+
+10.1 This license grants no trademark, service mark, trade name, logo or brand
+     rights. Use of the VOLDBASE name, logo and visual identity is governed by
+     `TRADEMARKS.md`.
+
+10.2 In particular, you may not use the VOLDBASE name or logo in a way that
+     suggests sponsorship, endorsement or official affiliation, and a
+     Modification you are permitted to make must not be presented under the
+     VOLDBASE name as if it were the official Software.
+
+11. TERM AND TERMINATION
+
+11.1 This license takes effect when you first exercise a permission it grants
+     and continues until terminated under this section.
+
+11.2 Material breach and notice. If you materially breach this license, the
+     Copyright Holder may terminate your permission only by written notice that
+     identifies the breach and states what is required to address it. A breach
+     is material only if it defeats the purpose of this license. Commercial use
+     or commercial distribution without permission under section 5, and
+     presenting an unexecuted run as a `PASS` in breach of section 6.3, are
+     material. A failure to keep the notices required by section 6.1 is
+     material only where it defeats that purpose — for example, removing
+     notices in order to pass the Software off as unlicensed or as the
+     distributor's own work — and not where it is an accidental or technical
+     omission corrected after notice.
+
+     This draft distinguishes three kinds of material breach. It does not treat
+     a breach as incurable, and so immediately terminable, merely because
+     something that has already happened cannot be reversed:
+
+     (a) Curable breach. The breach can be fully cured — for example, a
+         missing notice can be restored, or an unauthorised use can be stopped
+         and its copies withdrawn before any further distribution. The notice
+         states what is required to cure it. Termination takes effect 30 days
+         after the notice unless, before then, you fully cure the breach and
+         confirm the cure in writing to the Copyright Holder; a full cure
+         within that period means no termination occurs for that breach;
+
+     (b) Breach whose continuing effects can be stopped or mitigated, but whose
+         past occurrence cannot literally be undone — for example, an
+         unauthorised distribution that has already reached recipients. The
+         notice states the steps reasonably required to stop or mitigate the
+         continuing effects. Termination takes effect 30 days after the notice
+         unless those steps are taken and confirmed in writing before then.
+         Taking them prevents termination for that breach, but does not undo
+         the breach, does not make the past occurrence lawful, and does not
+         limit any remedy the Copyright Holder has for it;
+
+     (c) Genuinely incurable breach. Neither the breach nor its continuing
+         effects can be stopped or mitigated. This paragraph applies only where
+         neither can be stopped or mitigated; where either can be, the breach
+         falls under paragraph (a) or (b). Termination takes effect when the
+         notice is given.
+
+     Termination under this section is never automatic. Whether taking the
+     steps described in paragraph (b) amounts to a cure, whether that paragraph
+     is the right construction in a given legal system, and how a breach is
+     allocated among paragraphs (a) to (c), are questions for qualified
+     counsel; they are recorded in `NOTICE` ("Open questions for legal
+     review") rather than settled here.
+
+11.3 Minor, technical and accidental breaches. Termination is not automatic
+     and is not available for a breach that is not material. An accidental or
+     technical violation — including an inadvertent omission of a notice, a
+     metadata error, or a momentary failure that is corrected promptly after the
+     Copyright Holder points it out — does not terminate this license and does
+     not by itself become material. The Copyright Holder may require you to
+     correct it. Only if you fail to correct it after written notice, and that
+     continued failure defeats the purpose of this license, may it become a
+     material breach under section 11.2. A breach does not move into paragraph
+     (b) or (c) of section 11.2 merely because correcting it cannot erase what
+     has already happened; the question under this section is whether it was
+     material in the first place. Nothing in this section creates a termination
+     right that section 11.2 does not give.
+
+11.4 Claims and challenges. Bringing a claim that the Copyright Holder's rights
+     in the Software are invalid, or that the Copyright Holder's exercise of
+     those rights infringes your rights, does not by itself terminate this
+     license. The Copyright Holder may terminate only under section 11.2.
+     Nothing in this license requires you to give up a right to bring or defend
+     a claim, and nothing in it prevents the Copyright Holder from defending
+     one.
+
+11.5 Effect of termination. On termination you must stop all use and
+     Distribution of the Software and of any Modification and delete the copies
+     you hold, except copies you are required by law to retain and copies you
+     have already lawfully distributed to recipients who remain in compliance
+     with this license.
+
+11.6 What termination does not do. Termination does not revoke a permission
+     already granted to a recipient who received a copy under section 4.1 or
+     section 4.4 and remains in compliance; it does not revoke any right that
+     applicable law does not allow to be revoked; it does not affect a
+     permission the Copyright Holder has separately granted in writing; and it
+     does not limit any remedy the Copyright Holder has for a breach that
+     occurred before termination.
+
+11.7 Reinstatement. A person whose permission has terminated may ask the
+     Copyright Holder in writing for reinstatement. Reinstatement is at the
+     Copyright Holder's discretion, takes effect only in writing, and does not
+     excuse a breach that occurred before it.
+
+11.8 Sections 1, 3, 6.2, 7, 8.3, 8.4, 8.5, 8.9, 9, 10, 12, 13, 14 and this
+     section survive termination.
+
+     Survival preserves the terms, not a terminated party's permission. What a
+     terminated party and its recipients may still do is governed by sections
+     11.5 and 11.6. Section 8.3 survives because the copyright held by a
+     contributor or any other rights holder is not affected by the termination
+     of any license granted under this document. Section 8.9 survives only so
+     that a contribution already part of a copy lawfully distributed before
+     termination may continue to be distributed under the permissions that
+     survive under section 11.6; it does not give a terminated party any new
+     right to modify or distribute the Software.
+
+12. DISCLAIMER OF WARRANTY
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, ACCURACY AND NON-INFRINGEMENT. THE
+COPYRIGHT HOLDER DOES NOT WARRANT THAT THE SOFTWARE IS ERROR-FREE, SECURE, FIT
+FOR ANY PARTICULAR PURPOSE, OR THAT ANY RESULT IT REPORTS IS CORRECT,
+COMPLETE OR SUFFICIENT TO ESTABLISH THAT SOFTWARE WORKS. YOU USE THE SOFTWARE
+AT YOUR OWN RISK.
+
+13. LIMITATION OF LIABILITY
+
+13.1 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER IS
+     NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+     CONSEQUENTIAL DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA, GOODWILL OR
+     BUSINESS OPPORTUNITY, ARISING FROM OR RELATED TO THE SOFTWARE OR THIS
+     LICENSE, WHETHER IN CONTRACT, TORT, NEGLIGENCE OR OTHERWISE, EVEN IF
+     ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+13.2 THIS DRAFT SETS NO MONETARY CAP, NO FORMULA AND NO FIXED LIMITATION
+     AMOUNT, AND IT DOES NOT ASSERT THAT ANY PARTICULAR LIMITATION IS
+     ENFORCEABLE. SECTION 13.1 STATES THE EXCLUSION THE COPYRIGHT HOLDER
+     INTENDS. WHERE APPLICABLE LAW DOES NOT PERMIT THAT EXCLUSION, OR PERMITS IT
+     ONLY IN PART, THE EXTENT OF THE COPYRIGHT HOLDER'S LIABILITY IS LEFT TO
+     THAT LAW AND IS UNRESOLVED IN THIS DRAFT. WHETHER A LIMITATION, A MONETARY
+     CAP OR INSURANCE IS APPROPRIATE, AND WHAT FORM IT COULD TAKE, MUST BE
+     SETTLED WITH QUALIFIED COUNSEL BEFORE THIS DRAFT IS TREATED AS FINAL. THE
+     QUESTION IS RECORDED IN `NOTICE` ("OPEN QUESTIONS FOR LEGAL REVIEW") AND IS
+     NOT PRESENTED HERE AS SETTLED LAW.
+
+14. GENERAL
+
+14.1 No waiver. A failure or delay in enforcing a term is not a waiver of that
+     term or of any other term.
+
+14.2 Severability. If a provision is held invalid or unenforceable, it is
+     modified to the minimum extent necessary to make it enforceable, and the
+     remaining provisions stay in force.
+
+14.3 No assignment. You may not assign or transfer this license or its
+     permissions without the Copyright Holder's prior written consent. The
+     Copyright Holder may assign the copyright and this license.
+
+14.4 Document hierarchy and entire agreement. The documents that make up this
+     licensing documentation have separate and limited roles:
+
+     (a) `LICENSE` (this document) governs the permissions in the Software, and
+         it is the only one of these documents that grants or limits those
+         permissions;
+     (b) `TRADEMARKS.md` governs use of the Brand and any trademark right. It
+         grants no permission in the Software;
+     (c) `NOTICE` provides copyright notices, attribution, third-party
+         disclosures and factual statements about the current state of the
+         Software. It grants no permission in the Software.
+
+     Where `NOTICE` or `TRADEMARKS.md` appears to state a permission or a
+     restriction in the Software that differs from this license, this license
+     governs and the other document does not override it. A separate written
+     permission under section 5 governs where it applies. Together these
+     documents replace any earlier statement about licensing the Software,
+     except rights already granted for copies obtained under a previous license
+     (section 3.6).
+
+14.5 Governing law and venue. NOT DESIGNATED IN THIS DRAFT. The governing law,
+     jurisdiction and dispute-resolution forum are unresolved and must be
+     chosen with legal advice before this draft is treated as final. Nothing in
+     this draft should be read as choosing them by implication.
+
+14.6 Language. This license is written in English. A translation is for
+     convenience only; the English text expresses the Copyright Holder's intent.
+
+— End of draft license (version 0.4, 2026-11-19) —

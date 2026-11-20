@@ -56,6 +56,35 @@ export interface CreateRunInput {
 
 const TERMINAL_STATES: readonly RunState[] = ['completed', 'failed', 'cancelled'];
 
+/**
+ * Deep copy of a run.
+ *
+ * `readonly` is a compile-time promise only: a caller still holds references to
+ * `environment`, the evidence entries and the timestamps, and could mutate them
+ * after handing the run over. Adapters that store or return a run must copy it,
+ * or the stored history can change without going through a transition.
+ */
+export function cloneRun(run: Run): Run {
+  return {
+    id: run.id,
+    projectId: run.projectId,
+    projectRevision: run.projectRevision,
+    experimentId: run.experimentId,
+    experimentDefinitionHash: run.experimentDefinitionHash,
+    environment: { ...run.environment },
+    state: run.state,
+    ...(run.result === undefined ? {} : { result: run.result }),
+    ...(run.startedAt === undefined
+      ? {}
+      : { startedAt: new Date(run.startedAt.getTime()) }),
+    ...(run.finishedAt === undefined
+      ? {}
+      : { finishedAt: new Date(run.finishedAt.getTime()) }),
+    evidence: run.evidence.map((item) => ({ ...item })),
+    ...(run.notes === undefined ? {} : { notes: run.notes }),
+  };
+}
+
 export function isTerminal(state: RunState): boolean {
   return TERMINAL_STATES.includes(state);
 }

@@ -2,9 +2,9 @@
  * Run use cases.
  *
  * This is the thinnest useful orchestration: create a run pinned to an
- * experiment definition, start it, and record an outcome. Execution itself is
- * deliberately absent (ADR-0005) — this service records what a caller reports
- * and enforces the invariants around it.
+ * experiment definition, start it, record an outcome, and cancel it. Execution
+ * itself is deliberately absent (ADR-0005) — this service records what a caller
+ * reports and enforces the invariants around it.
  */
 
 import { experimentDefinitionHash, type Experiment } from '../domain/experiment.ts';
@@ -13,6 +13,7 @@ import { DomainError } from '../domain/errors.ts';
 import type { ProjectId, RunId } from '../domain/ids.ts';
 import type { ResultStatus } from '../domain/result.ts';
 import {
+  cancelRun,
   completeRun,
   createRun,
   startRun,
@@ -97,6 +98,21 @@ export class RunService {
     const started = startRun(run, this.#deps.clock.now());
     await this.#deps.runs.save(started);
     return started;
+  }
+
+  /**
+   * Cancel a queued or running run.
+   *
+   * The transition rule (and the refusal of an already terminal run) lives in
+   * the domain; this method only loads, applies it, and persists the result.
+   * A cancelled run has no verdict: `NOT_TESTED` is a recorded result, but a
+   * cancellation is the absence of one.
+   */
+  async cancelRun(runId: string): Promise<Run> {
+    const run = await this.#requireRun(runId);
+    const cancelled = cancelRun(run, this.#deps.clock.now());
+    await this.#deps.runs.save(cancelled);
+    return cancelled;
   }
 
   async recordOutcome(command: RecordOutcomeCommand): Promise<Run> {
