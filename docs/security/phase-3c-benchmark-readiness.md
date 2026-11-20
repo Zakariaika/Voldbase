@@ -38,7 +38,7 @@ result in one is never evidence for the next.
 | # | Stage | Question it answers | Produces | May not be used to claim |
 | --- | --- | --- | --- | --- |
 | H | **Host readiness** (this document) | Does this machine expose the facilities protocol §2 requires, as observed by read-only checks? | Preflight evidence bundle and one host classification | That any runtime is installable, that any limit is enforced, that KVM acceleration works, that cgroup delegation is granted, that any control holds, or that a benchmark ran |
-| R | **Runtime installation readiness** | Can the selected runtimes be installed at pinned versions on this host, with their artifacts identified? | Install transcript, version and SHA-256 record (protocol §3) | That installation succeeded as a security boundary, or that start-up works |
+| R | **Runtime installation readiness** | Can the selected runtimes be installed at pinned versions on this host, with their artifacts identified, and does an actual microVM start on them? | Install transcript, version and SHA-256 record (protocol §3), and the result of the first actual microVM start | That installation succeeded as a security boundary, or that a run is isolated |
 | B | **Benchmark execution** | Do the measured gates in protocol §7.1 pass, with the evidence bundles of §6? | Raw per-trial data, DNS evidence bundles, report | That controls were verified beyond the tested paths, or that the ADR is accepted |
 | I | **Independent review** | Do two independent reviewers accept the report and the reasoning? | Recorded reviews | That the runtime is safe in general |
 | A | **ADR acceptance** | Are all prerequisites satisfied, so ADR-0019 may be `Accepted`? | An `Accepted` revision | That Phase 3C is complete, or that Phase 3C may skip conformance testing |
@@ -135,7 +135,7 @@ later stage (§8.1), which is never a pass.
 | ID | Check | Command / evidence source | Acceptance condition | Artifact | On failure |
 | --- | --- | --- | --- | --- | --- |
 | PF-13 | Installed memory | `free -b`, `grep MemTotal /proc/meminfo` | ≥ 32 GiB total | `PF-13-memory.txt` | `BLOCKED` |
-| PF-14 | Swap pressure | `swapon --show`, `grep SwapTotal /proc/meminfo`, and `grep 'pswp' /proc/vmstat` read twice around a stated idle interval | Swap configuration and observations recorded, and no swap pressure is observed: the `pswpin`/`pswpout` counter delta over the stated idle interval is zero. Non-zero occupancy, or a single cumulative counter reading, is not pressure | `PF-14-swap.txt` | `BLOCKED` only when the counter delta shows paging during the idle interval; `INCONCLUSIVE` when a reading or the interval is missing or too short to interpret |
+| PF-14 | Swap pressure | `swapon --show`, `grep SwapTotal /proc/meminfo`, and `grep 'pswp' /proc/vmstat` read twice around a documented idle interval | No swap pressure is observed: the `pswpin`/`pswpout` delta over the documented idle interval is zero. Non-zero occupancy, or a single cumulative counter reading, is not pressure, and a non-zero delta is never `PASS` | `PF-14-swap.txt` | `INCONCLUSIVE` when evidence is missing, the interval is undocumented or incomplete, or a non-zero delta's cause is unresolved; `BLOCKED` only when paging persists over a fresh, complete interval after the cause has been addressed |
 | PF-15 | Memory pressure at idle | `cat /proc/pressure/memory` | Recorded; non-zero pressure before any trial is a hygiene defect that must be explained | `PF-15-psi.txt` | `INCONCLUSIVE` if pressure is present and unexplained |
 | PF-16 | Device backing the benchmark path is NVMe | Resolve the path to its block device and then to its transport: `findmnt -no SOURCE <benchmark-path>`, `lsblk -o NAME,TYPE,TRAN,ROTA,SIZE,MODEL <device>`, `lsblk -s -o NAME,TYPE,TRAN <device>`, `readlink -f /sys/block/<device>` | The block device that backs `<benchmark-path>` is identified and is NVMe, recognised from the resolved device itself (`nvme` device naming, `TRAN=nvme`, and the `/sys/block/<device>/device` NVMe subtree). `ROTA=0` and a non-network transport are recorded observations, never the NVMe evidence | `PF-16-blockdev.txt` | `BLOCKED` if the resolved backing device is not NVMe; `INCONCLUSIVE` if the path resolves through a layer stack (LVM, `md`, `dm-crypt`, virtio) whose physical device cannot be identified read-only |
 | PF-17 | Free space | `df -B1 <benchmark-path>` | ≥ 100 GiB available | `PF-17-df.txt` | `BLOCKED` |
@@ -152,17 +152,26 @@ partly occupied, so this check imposes neither:
   about whether the host is paging.
 - **Activity** is what pressure means here, and it is measured by sampling. The `pswpin`
   and `pswpout` counters in `/proc/vmstat` are cumulative and only ever increase, so one
-  reading is a boot-time total, not a rate. The sampling method is: read both counters,
-  wait the stated idle interval (for example 60 s with no benchmark workload, build or
-  package installation running), read them again, and record both absolute readings, the
-  interval and the delta. Only the delta is interpreted.
-- A zero delta over the interval is `PASS`. A non-zero delta is observed paging, and is
-  `BLOCKED` only if it persists once its cause is removed, with the host change recorded
-  and the check re-run. A missing reading, or an unstated or too-short interval, is
-  `INCONCLUSIVE`, because the delta cannot be interpreted.
+  reading is a boot-time total, not a rate. **Method:** read both counters, wait the
+  documented idle interval (for example 60 s with no benchmark workload, build or package
+  installation running), read them again, and record both absolute readings, the interval
+  and the delta. Any workload, build, boot or other agent inside the same interval
+  invalidates it. Only the delta is interpreted.
 
-No threshold beyond *no observed paging during the idle interval* is added, and disabling
-swap is never required.
+**Outcomes, in order.**
+
+1. Documented interval, complete pair of readings, delta exactly zero ⇒ `PASS`.
+2. Any non-zero delta ⇒ never `PASS`, and not `BLOCKED` on the spot. The cause is
+   investigated and recorded (what is paging, and why), addressed as a host change where
+   one is needed (recorded per §4), and the observation is then repeated over a fresh,
+   complete interval.
+3. Paging persists over that fresh interval after the cause has been addressed ⇒
+   `BLOCKED`.
+4. Missing evidence, an undocumented or incomplete interval, or a cause that cannot be
+   resolved ⇒ `INCONCLUSIVE`, whichever of the above it prevents.
+
+No numeric threshold is invented: the only question the counters answer is whether paging
+happened during a documented idle interval. Disabling swap is never required.
 
 **PF-16 identifies the device rather than inferring it.** `ROTA=0` says the device is not
 rotational and a non-network transport says the path is not remote; neither says the device
@@ -177,14 +186,18 @@ device's identity, and reports an unresolvable stack as `INCONCLUSIVE` rather th
 | PF-21 | `/dev/kvm` exists | `test -c /dev/kvm` | Character device present | `PF-21-kvm-device.txt` | `BLOCKED` — there is no container fallback (ADR-0018 decision 2; protocol §8.5) |
 | PF-22 | KVM permissions | `ls -l /dev/kvm`, `id`, `test -r /dev/kvm -a -w /dev/kvm` **as the benchmark user** | Benchmark user can read and write the device without root | `PF-22-kvm-access.txt` | `BLOCKED` |
 | PF-23 | KVM modules | `lsmod`, inspected for `kvm`, `kvm_intel` and `kvm_amd` | `kvm` and the matching `kvm_intel`/`kvm_amd` are loaded, or their absence is recorded as a pending load | `PF-23-kvm-modules.txt` | `INCONCLUSIVE` when the module is not loaded and cannot be loaded without a host change |
-| PF-24 | KVM acceleration usable | `kvm-ok` when the host provides it; the recorded PF-05, PF-08, PF-21 and PF-22 evidence otherwise, with no conclusion drawn from them | If `kvm-ok` is present, it reports acceleration as usable. If it is absent, the row is `DEFERRED`: the four underlying checks are prerequisites that must pass, but they are not evidence of acceleration, and acceleration is decided by the first microVM start in stage R | `PF-24-kvm-ok.txt` | `BLOCKED` if `kvm-ok` reports acceleration unavailable; `DEFERRED` when the tool is absent; `INCONCLUSIVE` when a prerequisite it depends on is `INCONCLUSIVE` |
+| PF-24 | KVM acceleration usable | `kvm-ok` output when the host provides it, recorded verbatim as diagnostic; the recorded PF-05, PF-08, PF-21 and PF-22 evidence otherwise | The stage-H result is `DEFERRED` in every run, with or without `kvm-ok`: acceleration is demonstrated only by an actual microVM start in stage R, and no stage-H output can prove it. A `kvm-ok` diagnostic that reports a problem is recorded, and the prerequisite it concerns (PF-21, PF-22, PF-23) is classified on its own evidence | `PF-24-kvm-ok.txt` | `DEFERRED` in every stage-H run; `BLOCKED` only through a prerequisite row that its own evidence or the diagnostic fails, never through PF-24 itself |
 
-**PF-24 does not decide stage H.** `kvm-ok` is an optional utility and its absence is not
-a host failure, so the row must not make stage H impossible: what stage H requires is the
-KVM device (PF-21) and access to it (PF-22), and both stay `BLOCKED` on failure. When the
-tool is missing the row is `DEFERRED`, and the acceleration result is the first microVM
-start in stage R, which is a mandatory precondition of R → B (§8.1). Until that start has
-succeeded, no report may describe KVM acceleration as usable.
+**PF-24 never decides stage H, with or without `kvm-ok`.** `kvm-ok` is an optional
+diagnostic utility, and its output — present, absent, or reporting a problem — is not proof
+that a microVM can start: it inspects host facilities, not an actual boot. Stage H therefore
+requires the KVM device (PF-21) and access to it (PF-22), both `BLOCKED` on failure, and
+PF-24 stays `DEFERRED` in every stage-H run. The acceleration result is the first actual
+microVM start in stage R, a mandatory precondition of R → B (§8.1). Until that start has
+succeeded, no report may describe KVM acceleration as demonstrated, and none may cite
+`kvm-ok` as the demonstration. A negative diagnostic is neither ignored nor rounded up: it
+is recorded verbatim, carried to stage R, and attributed to the prerequisite row it
+concerns, which is classified on its own evidence.
 
 ### 3.5 cgroup v2 and systemd
 
@@ -290,7 +303,7 @@ Exactly one classification is issued per host, for stage H only.
 
 | Class | Applies to | Meaning | What may happen next |
 | --- | --- | --- | --- |
-| `READY` | host | Every stage-H mandatory check is `PASS` and every artifact exists, and the host is bare metal with `/dev/kvm` accessible to the benchmark user, cgroup v2 with `cpu`, `memory` and `pids` at the delegated root, ≥ 32 GiB, an identified NVMe device with ≥ 100 GiB free behind the benchmark path, and the required tooling. `READY` carries its open `DEFERRED` rows but no verdict on them | Stage R may be attempted on this host. Nothing about isolation is proven, KVM acceleration is not yet shown usable, and cgroup delegation is not yet granted. |
+| `READY` | host | Every stage-H mandatory check is `PASS` and every artifact exists, and the host is bare metal with `/dev/kvm` accessible to the benchmark user, cgroup v2 with `cpu`, `memory` and `pids` at the delegated root, ≥ 32 GiB, an identified NVMe device with ≥ 100 GiB free behind the benchmark path, and the required tooling. `READY` carries its open `DEFERRED` rows but no verdict on them | Stage R may be attempted on this host. Nothing about isolation is proven, KVM acceleration is not yet demonstrated, and cgroup delegation is not yet granted. |
 | `BLOCKED` | host | At least one stage-H mandatory check failed in a way that cannot be corrected without different hardware or a host reconfiguration | The host is not used as the reference host. The failing check is named; no gate is evaluated, and no result from a different host is substituted. |
 | `INCONCLUSIVE` | host | A stage-H mandatory check could not be decided from the evidence: missing artifact, unreadable counter, nested virtualization, unexplained load, or an unavailable tool that the check itself requires | No gate may be evaluated on this host. The gap is named, and either the check is repeated with a complete artifact set or another host is chosen. `INCONCLUSIVE` is never rounded to `READY`. |
 | `DEFERRED` | row only | A requirement recorded at stage H whose verdict belongs to a later stage: KVM acceleration (PF-24, settled in stage R) and cgroup write delegation (PF-29, settled in stage B by RES-08) | It is never a pass and never decides the stage-H class; it blocks the transition named in §8.1 and must be settled before any measured trial. |
@@ -300,9 +313,9 @@ artifact must exist, and no row may be skipped because a later stage will look a
 Two rows carry a deferred verdict, and only these two:
 
 - **PF-24.** PF-05, PF-08, PF-21 and PF-22 are stage-H mandatory and stay `BLOCKED` on
-  failure. When `kvm-ok` is present, its result is part of stage H (`PASS`, or `BLOCKED`
-  if it reports acceleration unavailable); when it is absent the row is `DEFERRED` and the
-  acceleration verdict belongs to the first microVM start in stage R.
+  failure. PF-24 is `DEFERRED` in every stage-H run, whether `kvm-ok` is installed or not:
+  its output is diagnostic only and never proves a microVM can start, so the acceleration
+  verdict belongs to the first actual microVM start in stage R.
 - **PF-29.** The ownership record is stage-H mandatory and is `BLOCKED` when it shows the
   benchmark user cannot own the subtree, `INCONCLUSIVE` when it cannot be read. When the
   record is consistent the row is `DEFERRED`: ownership evidence is not a delegation
@@ -359,7 +372,7 @@ These are hard stops, not preferences:
 | --- | --- |
 | `READY` on every check in §3 | That any isolation control is implemented, enforced or verified. No control in specification §5 is exercised. |
 | `/dev/kvm` accessible | That a microVM starts, that boot or teardown is bounded, or that a run is isolated. |
-| The four underlying KVM checks (PF-05, PF-08, PF-21, PF-22) all passing | That KVM acceleration is usable. Without a `kvm-ok` result the row is `DEFERRED` to the first microVM start; the four checks are prerequisites only. |
+| The four underlying KVM checks (PF-05, PF-08, PF-21, PF-22) all passing, and any `kvm-ok` output | That KVM acceleration is usable. PF-24 is `DEFERRED` in every stage-H run; a `kvm-ok` result, present or absent, is diagnostic only, and only an actual microVM start in stage R settles acceleration. |
 | A `READY` classification | That its `DEFERRED` rows are satisfied. Acceleration and delegation stay open until stage R and stage B settle them, and each blocks the transition named in §8.1. |
 | `ROTA=0` with a non-network transport | That the device is NVMe. Virtual and SCSI-backed devices can report the same pair; PF-16 resolves and identifies the device that backs the path. |
 | cgroup controllers present, and a complete PF-29 ownership record | That the declared limits are enforced at their values, or that the benchmark user can write the delegated subtree. Enforcement is RES-02..RES-04 and writability is the RES-08 write test, both in stage B; the delegation row is `DEFERRED` at stage H and only that write test settles it. |
@@ -377,7 +390,7 @@ misread.
 | Transition | Entry condition | Artifact that must exist | Blocking consequence |
 | --- | --- | --- | --- |
 | H → R | Host classified `READY` for a dated artifact set, with its `DEFERRED` rows listed | Preflight bundle, classification and deferred list | No runtime is installed on an unclassified or non-`READY` host; `READY` settles neither acceleration nor delegation |
-| R → B | Runtime artifacts installed, versions and SHA-256 recorded per protocol §3; no gate claimed; every deferred requirement settled before the first measured trial — acceleration shown by the first microVM start, and the RES-08 cgroup write test passed | Install record, acceleration result, RES-08 record | No measured trial starts without a pinned runtime identity, and none starts while acceleration or delegation is unsettled; a `DEFERRED` row is never treated as passed |
+| R → B | Runtime artifacts installed, versions and SHA-256 recorded per protocol §3; no gate claimed; every deferred requirement settled before the first measured trial — acceleration demonstrated by the first actual microVM start, and the RES-08 cgroup write test passed | Install record, acceleration result, RES-08 record | No measured trial starts without a pinned runtime identity, and none starts while acceleration or delegation is unsettled; a `DEFERRED` row is never treated as passed |
 | B → I | Report produced from raw per-trial data, with DNS evidence bundles, capture control, cleanup counts and attribution classes | Raw data + report | A summary without raw data is not reviewable; a review cannot start |
 | I → A | Two independent reviews recorded, benchmark report attached, gates evaluated | Reviews + report | ADR-0019 stays `Proposed`; Phase 3C stays blocked |
 | A → implementation | ADR-0019 formally `Accepted` | `Accepted` ADR revision | Any executor work before this is out of order (ADR-0018 decision 11; spec §11.1) |
@@ -395,7 +408,7 @@ result is `DEFERRED` — recorded, open, and never a pass — until that stage s
 | Requirement | Source | Settled in | Blocks | Why stage H cannot settle it |
 | --- | --- | --- | --- | --- |
 | `CLOCK_MONOTONIC` is read by the supervisor, outside the environment | protocol §2, §6.1 | B, first supervised trial | any timed result or gate | It is a property of the supervisor that does not yet exist, not of the host; PF-43 records only that the host clock is synchronised |
-| KVM acceleration is actually usable, when `kvm-ok` is unavailable | protocol §2 | R, first microVM start | R → B and every measured trial | Deciding it requires starting a guest, which preflight must not do; PF-21 and PF-22 stay mandatory and `BLOCKED` on failure, so the deferral removes no prerequisite |
+| KVM acceleration is actually usable (PF-24; a `kvm-ok` result, if any, is diagnostic only) | protocol §2 | R, first actual microVM start | R → B and every measured trial | Deciding it requires starting a guest, which preflight must not do; PF-21 and PF-22 stay mandatory and `BLOCKED` on failure, so the deferral removes no prerequisite |
 | The benchmark user can write the delegated cgroup subtree | protocol §2; spec §5.4 | B, RES-08 write test | every measured trial | Proving writability is a write to host state; PF-29 records ownership evidence only and is `DEFERRED`, never a pass |
 
 A `DEFERRED` result is an open requirement, not a waiver. None of the three may be
@@ -419,7 +432,7 @@ CPU / memory:       <sockets × cores> physical cores / <MemTotal>
 Storage:            <device, transport, filesystem, free bytes>
 KVM:                present | absent; readable/writable by benchmark user: yes | no
 cgroup v2:          unified | not unified; delegated controllers: <list>
-Acceleration:       usable (kvm-ok) | DEFERRED to stage R (kvm-ok absent)
+Acceleration:       DEFERRED to stage R in every run; kvm-ok output is diagnostic only
 Delegation:         DEFERRED at stage H; ownership evidence recorded, RES-08 write test in stage B
 Deferred items:     <PF ids and the transition each blocks>
 Capture tooling:    tcpdump <version> | absent
