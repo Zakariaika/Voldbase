@@ -163,3 +163,39 @@ artifact is never missing the code its `bin` entry imports.
 
 Every command in this README is written as `voldbase …`; from a checkout run the
 same command as `node bin/voldbase.js …`, or use the optional `npm link` above.
+
+## CLI
+
+| Command | Description |
+| --- | --- |
+| `voldbase import <path>` | Scan a directory and store its snapshot |
+| `voldbase import <path> --name "Project Name"` | Same, with an explicit name |
+| `voldbase list` | List imported projects |
+| `voldbase show <project-id>` | Show one project in detail |
+| `voldbase analyze <project-id>` | Statically analyse an imported snapshot (no execution) |
+| `voldbase analysis <analysis-id>` | Show a stored analysis: summary and findings |
+| `voldbase architecture <analysis-id>` | Derive the file/module dependency graph from a stored analysis |
+| `voldbase architecture <analysis-id> --format json` | Same model as canonical JSON |
+| `voldbase help` | Usage (also shown when no arguments are given) |
+
+`<path>` may be absolute or relative to the current directory. Exit codes: `0`
+success, `1` runtime failure (missing path, unreadable file, storage error), `2`
+usage error (unknown command or option, missing/extra arguments). Errors are
+printed to stderr with the error code, for example:
+
+```
+error: /home/me/missing does not exist
+  code: path_not_found
+```
+
+### Duplicate imports
+
+A project is an immutable snapshot, so the same directory cannot silently change
+under the same id:
+
+| Situation | Result |
+| --- | --- |
+| Re-import, contents unchanged | `Already imported: <id>` |
+| Re-import, contents changed | Refused; tells you to import with `--name` |
+| Re-import, contents changed, new `--name` | Recorded as a new project |
+| Two directories with identical contents | Two projects |
