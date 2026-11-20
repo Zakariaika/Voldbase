@@ -85,7 +85,7 @@ export const USAGE = [
   '  voldbase list',
   '  voldbase show <project-id>',
   '  voldbase analyze <project-id>',
-  '  voldbase analysis <analysis-id>',
+  '  voldbase analysis <analysis-id> [--format text|json]',
   '  voldbase architecture <analysis-id> [--format text|json]',
   '  voldbase help',
   '',
@@ -99,7 +99,7 @@ export const USAGE = [
   '',
   'Options:',
   '  --name <name>       Explicit project name (import only).',
-  '  --format <format>   Output format for architecture: text (default) or json.',
+  '  --format <format>   Output format for analysis and architecture: text (default) or json.',
   '',
   'Environment:',
   '  VOLDBASE_HOME   Storage root (default: ~/.voldbase).',
@@ -264,7 +264,7 @@ async function runAnalyze(argv: readonly string[], runtime: CliRuntime): Promise
 }
 
 async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promise<number> {
-  const { positionals } = parseArguments(argv, []);
+  const { positionals, options } = parseArguments(argv, ['format']);
   if (positionals.length !== 1) {
     throw new UsageError('analysis needs exactly one analysis id');
   }
@@ -273,12 +273,26 @@ async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promis
     throw new UsageError('analysis needs a non-empty analysis id');
   }
 
+  const format = options.get('format') ?? 'text';
+  if (format !== 'text' && format !== 'json') {
+    throw new UsageError(`--format must be 'text' or 'json', received '${format}'`);
+  }
+
   const { analyses } = buildServices(runtime);
   const snapshot = await analyses.findById(asAnalysisId(requestedId));
   if (snapshot === undefined) {
     runtime.streams.stderr(`error: no analysis with id '${requestedId}'`);
     runtime.streams.stderr('Run `voldbase analyze <project-id>` to create one.');
     return EXIT_FAILURE;
+  }
+
+  if (format === 'json') {
+    // The stored snapshot as canonical JSON: keys sorted, arrays in the order the
+    // domain normalized them, and the digest printed exactly as it was recorded —
+    // this command never recomputes or replaces it. Nothing else is written to
+    // stdout, so the output is one parseable JSON document.
+    runtime.streams.stdout(JSON.stringify(JSON.parse(canonicalize(snapshot)), null, 2));
+    return EXIT_OK;
   }
 
   runtime.streams.stdout(`Analysis ${snapshot.analysisId}`);
