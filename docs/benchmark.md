@@ -292,7 +292,25 @@ Perform 3 warm-up runs, followed by 20 measured runs.
 
 The measured operation is the complete CLI analysis command. It includes the CLI, analysis service, parsing, and local persistence. It is not a parser-only microbenchmark.
 
-Section 4 enables `set -e`, and GNU `/usr/bin/time` exits with the status of the command it wraps. Each run is therefore wrapped in `set +e` / `set -e` so that a failed run is recorded and classified instead of aborting the protocol without a result.
+Section 4 enables `set -e`, and GNU `time` exits with the status of the command it wraps. Each run is therefore wrapped in `set +e` / `set -e` so that a failed run is recorded and classified instead of aborting the protocol without a result.
+
+The timing binary is resolved once, so the commands below run unmodified on a host where GNU time is installed at another path. The default is `/usr/bin/time`; override it with `TIME_BIN`. The prerequisite is checked before any run starts, and a missing binary stops the attempt as a prerequisite failure:
+
+```bash
+TIME_BIN="${TIME_BIN:-/usr/bin/time}"
+
+if [ ! -x "$TIME_BIN" ]; then
+  printf 'Result: BLOCKED\n'
+  printf 'Stage: analysis measurements\n'
+  printf 'Reason: time_prerequisite_missing\n'
+  printf 'Prerequisite: %s is missing or not executable\n' "$TIME_BIN"
+  exit 1
+fi
+
+printf 'TIME_BIN=%s\n' "$TIME_BIN"
+```
+
+Record the resolved `TIME_BIN` path in the report alongside `node --version`, because a different GNU time build is part of the measurement environment.
 
 ```bash
 RESULTS="$WORK_DIR/analysis-results.tsv"
@@ -303,7 +321,7 @@ WARMUP_RESULTS="$WORK_DIR/warmup-status.tsv"
 
 for i in 1 2 3; do
   set +e
-  /usr/bin/time -f '%e\t%M' \
+  "$TIME_BIN" -f '%e\t%M' \
     -o "$WORK_DIR/warmup-$i.time" \
     node bin/voldbase.js analyze "$PROJECT_ID" \
     > "$WORK_DIR/warmup-$i.log" 2>&1
@@ -327,7 +345,7 @@ FAILED_RUN_LIST="$WORK_DIR/analysis-failures.tsv"
 
 for i in $(seq 1 20); do
   set +e
-  /usr/bin/time -f '%e\t%M' \
+  "$TIME_BIN" -f '%e\t%M' \
     -o "$WORK_DIR/run-$i.time" \
     node bin/voldbase.js analyze "$PROJECT_ID" \
     > "$WORK_DIR/run-$i.log" 2>&1
@@ -359,7 +377,7 @@ The TSV columns are:
 
 1. Run number.
 2. Elapsed wall-clock seconds.
-3. Maximum resident set size in KiB, as reported by GNU `/usr/bin/time`.
+3. Maximum resident set size in KiB, as reported by GNU time (`$TIME_BIN`).
 
 Keep all raw logs and timing files, including `warmup-<n>.log`, `warmup-<n>.time`, `run-<n>.log`, `run-<n>.time`, `warmup-status.tsv` and `analysis-failures.tsv`. A failed run keeps its log and time file, and its exit status is recorded in `analysis-failures.tsv`. Do not silently discard failed runs.
 
