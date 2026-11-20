@@ -135,17 +135,40 @@ runtime dependency: `typescript`, used as the parser for JavaScript and TypeScri
 (justified in [ADR-0016](docs/adr/0016-static-analysis-boundary.md)). It installs
 no scripts and needs no network at run time.
 
+VOLDBASE is **not published to npm**: `package.json` is `"private": true`, there is
+no registry release and no tag. `npx voldbase` and `npm install -g voldbase`
+therefore cannot work yet. Install it from a checkout:
+
 ```bash
+git clone https://github.com/Zakariaika/Voldbase.git
+cd Voldbase
+
 npm ci          # install the runtime dependency (typescript) and @types/node
 npm run build   # emit the distribution to dist/ (ADR-0010)
-npm link        # optional: put `voldbase` on your PATH
 
-# or run the built CLI directly
-node bin/voldbase.js import ./some-project
+# 1. first run: the built CLI, straight from the checkout
+node bin/voldbase.js help
+
+# 2. optional: put `voldbase` on your PATH for this checkout
+npm link
+voldbase help
 ```
 
-From a checkout, `node bin/voldbase.js …` and `npx voldbase …` (after `npm link`)
-are equivalent.
+`bin/voldbase.js` loads the compiled CLI from `dist/`, not the TypeScript sources
+(ADR-0010), so `npm run build` must run before the first command. A checkout
+without `dist/` fails with a module-not-found error instead of running the
+sources.
+
+`npm pack` runs the `prepack` script, so the tarball it writes always contains a
+freshly built `dist/` and installs with a working `bin`
+(`npm install ./voldbase-0.2.0-alpha.0.tgz`). `npm install <checkout-dir>` does
+**not** run `prepack`: it links the directory instead of packing it, so the
+installed `bin` uses that checkout's own `dist/` — build it first
+(`npm ci && npm run build`), or the first command fails with a module-not-found
+error.
+
+Every command in this README is written as `voldbase …`; from a checkout run the
+same command as `node bin/voldbase.js …`, or use the optional `npm link` above.
 
 ## CLI
 
@@ -385,6 +408,8 @@ Further reading:
 ```
 .
 ├── bin/voldbase.js              # npm CLI entry point (runs dist/)
+├── scripts/
+│   └── smoke-clean-checkout.mjs # clean-checkout smoke test (clone → ci → build → architecture)
 ├── docs/
 │   ├── adr/                     # Architecture decision records
 │   └── architecture/            # Domain model and system design
@@ -410,12 +435,25 @@ npm run typecheck   # tsc --noEmit (strict, erasable syntax only)
 npm run build       # tsc -p tsconfig.build.json → dist/
 npm test            # node --test tests/*.test.ts
 npm run check       # typecheck + build + test
+
+# clean-checkout smoke test (see below)
+npm run smoke:clean-checkout
 ```
 
 `npm test` runs the sources directly through Node's type stripping. The
 distribution test (`tests/dist-cli.test.ts`) spawns `bin/voldbase.js`, so run
 `npm run build` first; it skips with an explicit message when `dist/` is absent.
 CI runs build before tests, so nothing is skipped there.
+
+`npm run smoke:clean-checkout` proves the first-run workflow from a state that
+has never been built. It clones the current commit (`HEAD` by default, or
+`--ref <git-ref>`) into a temporary directory, runs `npm ci` and
+`npm run build` there, imports and analyses a small prepared fixture, then runs
+`architecture --format json` through the built `bin/voldbase.js`. The JSON must
+parse, carry canonically sorted keys and name the fixture's files, and a second
+run must be byte-identical. Pass `--keep` to inspect the temporary checkout; the
+command exits non-zero on any failure. The test needs registry access for
+`npm ci`, nothing beyond that.
 
 ## Engineering conventions
 

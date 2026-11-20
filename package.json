@@ -12,7 +12,10 @@
     "bin/",
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE",
+    "TRADEMARKS.md",
+    "CONTRIBUTING.md"
   ],
   "engines": {
     "node": ">=22.18.0"
@@ -21,7 +24,9 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "test": "node --test tests/*.test.ts",
-    "check": "npm run typecheck && npm run build && npm test"
+    "check": "npm run typecheck && npm run build && npm test",
+    "prepack": "npm run build",
+    "smoke:clean-checkout": "node scripts/smoke-clean-checkout.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0"
