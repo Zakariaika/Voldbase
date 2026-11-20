@@ -1,0 +1,64 @@
+name: tmp-readme-sync
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-readme-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch README
+        run: |
+          cat > /tmp/patch-readme.cjs <<'JS'
+          const fs = require('node:fs');
+          const file = 'README.md';
+          const oldText = [
+            '`npm run smoke:clean-checkout` proves the first-run workflow from a state that',
+            'has never been built. It refuses to run on a dirty working tree, clones the',
+            'current commit (`HEAD` by default, or `--ref <git-ref>`) into a temporary',
+            'directory, runs `npm ci` and `npm run build` there, imports and analyses a small',
+            'prepared fixture, then runs `architecture --format json` through the built',
+            '`bin/voldbase.js`. The JSON must parse, carry canonically sorted keys, name the',
+            "fixture's files and cycles, and be byte-identical on a second run. Pass `--keep`",
+            'to inspect the temporary checkout; the command exits non-zero on any failure.',
+            'The test needs registry access for `npm ci`, nothing beyond that.',
+          ].join('\n');
+          const newText = [
+            '`npm run smoke:clean-checkout` proves the first-run workflow from a state that',
+            'has never been built. It clones the current commit (`HEAD` by default, or',
+            '`--ref <git-ref>`) into a temporary directory, runs `npm ci` and',
+            '`npm run build` there, imports and analyses a small prepared fixture, then runs',
+            '`architecture --format json` through the built `bin/voldbase.js`. The JSON must',
+            "parse, carry canonically sorted keys and name the fixture's files, and a second",
+            'run must be byte-identical. Pass `--keep` to inspect the temporary checkout; the',
+            'command exits non-zero on any failure. The test needs registry access for',
+            '`npm ci`, nothing beyond that.',
+          ].join('\n');
+          const text = fs.readFileSync(file, 'utf8');
+          if (!text.includes(oldText)) {
+            console.log('README.md is not in the expected state; nothing to patch');
+            process.exit(1);
+          }
+          fs.writeFileSync(file, text.replace(oldText, newText), 'utf8');
+          JS
+          node /tmp/patch-readme.cjs
+
+      - name: Commit and remove this workflow
+        run: |
+          if git diff --quiet -- README.md; then
+            echo 'no README change';
+            exit 0;
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -q .github/workflows/tmp-readme-sync.yml
+          git add README.md
+          git commit -m 'docs(readme): describe the trimmed clean-checkout smoke test'
+          git push
