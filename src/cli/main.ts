@@ -24,7 +24,7 @@ import type {
   ProjectRepository,
   ProjectScanner,
 } from '../application/ports.ts';
-import type { AnalysisSnapshot } from '../domain/analysis.ts';
+import type { AnalysisSnapshot, FindingSeverity } from '../domain/analysis.ts';
 import type { ArchitectureFinding, ArchitectureSnapshot } from '../domain/architecture.ts';
 import { DomainError } from '../domain/errors.ts';
 import { canonicalize } from '../domain/integrity.ts';
@@ -45,6 +45,47 @@ import { describeRevision, field, formatBytes, formatDate, pad } from './render.
 export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
 export const EXIT_USAGE = 2;
+/**
+ * The analysis completed and its output was written, but at least one finding
+ * reached the level selected by `--fail-on`. It is distinct from 1 (the command
+ * could not answer) and 2 (the arguments were wrong), so a script can tell
+ * "this code has findings" from "the tool failed".
+ */
+export const EXIT_FINDINGS = 3;
+
+/** Levels accepted by `--fail-on`, ordered from strictest to off. */
+export const FAIL_ON_LEVELS = ['error', 'warning', 'info', 'none'] as const;
+export type FailOnLevel = (typeof FAIL_ON_LEVELS)[number];
+
+/** Severities that reach each level; `none` reaches nothing. */
+const SEVERITIES_AT_OR_ABOVE: Readonly<
+  Record<Exclude<FailOnLevel, 'none'>, readonly FindingSeverity[]>
+> = {
+  error: ['error'],
+  warning: ['error', 'warning'],
+  info: ['error', 'warning', 'info'],
+};
+
+function isFailOnLevel(value: string): value is FailOnLevel {
+  return (FAIL_ON_LEVELS as readonly string[]).includes(value);
+}
+
+/**
+ * Whether at least one finding is at or above the selected level.
+ *
+ * The threshold is an exit-code convenience for scripts: it changes neither the
+ * stored snapshot, nor a finding, nor the digest, and `none` disables it.
+ */
+function findingsReachLevel(
+  findings: readonly { readonly severity: FindingSeverity }[],
+  level: FailOnLevel,
+): boolean {
+  if (level === 'none') {
+    return false;
+  }
+  const severities = SEVERITIES_AT_OR_ABOVE[level];
+  return findings.some((finding) => severities.includes(finding.severity));
+}
 
 /** Line-oriented output sinks; the default runtime writes to the process streams. */
 export interface CliStreams {
@@ -85,7 +126,7 @@ export const USAGE = [
   '  voldbase list',
   '  voldbase show <project-id>',
   '  voldbase analyze <project-id>',
-  '  voldbase analysis <analysis-id> [--format text|json]',
+  '  voldbase analysis <analysis-id> [--format text|json] [--fail-on error|warning|info|none]',
   '  voldbase architecture <analysis-id> [--format text|json]',
   '  voldbase help',
   '',
@@ -100,6 +141,7 @@ export const USAGE = [
   'Options:',
   '  --name <name>       Explicit project name (import only).',
   '  --format <format>   Output format for analysis and architecture: text (default) or json.',
+  '  --fail-on <level>   Exit 3 when a finding reaches error, warning or info (default none).',
   '',
   'Environment:',
   '  VOLDBASE_HOME   Storage root (default: ~/.voldbase).',
@@ -264,7 +306,7 @@ async function runAnalyze(argv: readonly string[], runtime: CliRuntime): Promise
 }
 
 async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promise<number> {
-  const { positionals, options } = parseArguments(argv, ['format']);
+  const { positionals, options } = parseArguments(argv, ['format', 'fail-on']);
   if (positionals.length !== 1) {
     throw new UsageError('analysis needs exactly one analysis id');
   }
@@ -276,6 +318,13 @@ async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promis
   const format = options.get('format') ?? 'text';
   if (format !== 'text' && format !== 'json') {
     throw new UsageError(`--format must be 'text' or 'json', received '${format}'`);
+  }
+
+  const failOn = options.get('fail-on') ?? 'none';
+  if (!isFailOnLevel(failOn)) {
+    throw new UsageError(
+      `--fail-on must be 'error', 'warning', 'info' or 'none', received '${failOn}'`,
+    );
   }
 
   const { analyses } = buildServices(runtime);
@@ -292,7 +341,7 @@ async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promis
     // this command never recomputes or replaces it. Nothing else is written to
     // stdout, so the output is one parseable JSON document.
     runtime.streams.stdout(JSON.stringify(JSON.parse(canonicalize(snapshot)), null, 2));
-    return EXIT_OK;
+    return findingsReachLevel(snapshot.findings, failOn) ? EXIT_FINDINGS : EXIT_OK;
   }
 
   runtime.streams.stdout(`Analysis ${snapshot.analysisId}`);
@@ -328,7 +377,8 @@ async function runAnalysis(argv: readonly string[], runtime: CliRuntime): Promis
   runtime.streams.stdout(
     'Syntax-level observations only: they describe what the parser saw, not runtime behaviour.',
   );
-  return EXIT_OK;
+  // The report is already complete; the threshold only decides the exit code.
+  return findingsReachLevel(snapshot.findings, failOn) ? EXIT_FINDINGS : EXIT_OK;
 }
 
 /** Rows the text report shows per section before pointing at `--format json`. */
