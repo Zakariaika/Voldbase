@@ -297,7 +297,7 @@ supervisor to read it, and no supervisor exists in this phase.
 - No command in §3 writes to the host outside the evidence directory. If a check cannot be
   performed read-only, it is reported as not performed and classified in §5; it is not
   replaced by an inferred result.
-- If any command needs a host change to produce a passing result (swap off, governor set,
+- If any command needs a host change to produce a passing result (governor set,
   forwarding off), the change is made by the operator, recorded as a host mutation, and
   the checks are then re-run from a clean directory. Preflight itself never performs it.
 
