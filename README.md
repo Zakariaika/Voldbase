@@ -157,9 +157,15 @@ voldbase help
 `bin/voldbase.js` loads the compiled CLI from `dist/`, not the TypeScript sources
 (ADR-0010), so `npm run build` must run before the first command. A checkout
 without `dist/` fails with a module-not-found error instead of running the
-sources. `npm pack` — and therefore `npm install <checkout-dir>` or an install
-from a tarball — rebuilds `dist/` through the `prepack` script, so a packed
-artifact is never missing the code its `bin` entry imports.
+sources.
+
+`npm pack` runs the `prepack` script, so the tarball it writes always contains a
+freshly built `dist/` and installs with a working `bin`
+(`npm install ./voldbase-0.2.0-alpha.0.tgz`). `npm install <checkout-dir>` does
+**not** run `prepack`: it links the directory instead of packing it, so the
+installed `bin` uses that checkout's own `dist/` — build it first
+(`npm ci && npm run build`), or the first command fails with a module-not-found
+error.
 
 Every command in this README is written as `voldbase …`; from a checkout run the
 same command as `node bin/voldbase.js …`, or use the optional `npm link` above.
