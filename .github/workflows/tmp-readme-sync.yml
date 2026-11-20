@@ -1,0 +1,64 @@
+name: tmp-readme-sync
+
+on:
+  push:
+    paths:
+      - .github/workflows/tmp-readme-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch README
+        run: |
+          cat > /tmp/patch-readme.cjs <<'JS'
+          const fs = require('node:fs');
+          const file = 'README.md';
+          const oldText = [
+            '`bin/voldbase.js` loads the compiled CLI from `dist/`, not the TypeScript sources',
+            '(ADR-0010), so `npm run build` must run before the first command. A checkout',
+            'without `dist/` fails with a module-not-found error instead of running the',
+            'sources. `npm pack` \u2014 and therefore `npm install <checkout-dir>` or an install',
+            'from a tarball \u2014 rebuilds `dist/` through the `prepack` script, so a packed',
+            'artifact is never missing the code its `bin` entry imports.',
+          ].join('\n');
+          const newText = [
+            '`bin/voldbase.js` loads the compiled CLI from `dist/`, not the TypeScript sources',
+            '(ADR-0010), so `npm run build` must run before the first command. A checkout',
+            'without `dist/` fails with a module-not-found error instead of running the',
+            'sources.',
+            '',
+            '`npm pack` runs the `prepack` script, so the tarball it writes always contains a',
+            'freshly built `dist/` and installs with a working `bin`',
+            '(`npm install ./voldbase-0.2.0-alpha.0.tgz`). `npm install <checkout-dir>` does',
+            '**not** run `prepack`: it links the directory instead of packing it, so the',
+            "installed `bin` uses that checkout's own `dist/` \u2014 build it first",
+            '(`npm ci && npm run build`), or the first command fails with a module-not-found',
+            'error.',
+          ].join('\n');
+          const text = fs.readFileSync(file, 'utf8');
+          if (!text.includes(oldText)) {
+            console.log('README.md is not in the expected state; nothing to patch');
+            process.exit(1);
+          }
+          fs.writeFileSync(file, text.replace(oldText, newText), 'utf8');
+          JS
+          node /tmp/patch-readme.cjs
+
+      - name: Commit and remove this workflow
+        run: |
+          if git diff --quiet -- README.md; then
+            echo 'no README change';
+            exit 0;
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -q .github/workflows/tmp-readme-sync.yml
+          git add README.md
+          git commit -m 'docs(readme): document verified install and packaging behavior'
+          git push
