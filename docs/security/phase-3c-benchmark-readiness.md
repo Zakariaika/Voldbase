@@ -26,8 +26,9 @@ not add a gate, and does not change any threshold in protocol §2 or §7.1.
   §5 control, and does not move ADR-0019 out of `Proposed`.
 
 No command below starts a container, microVM, sandbox agent or workload, and none
-sends a packet to a test destination. Preflight is read-only host inspection plus
-recording what was observed.
+sends a packet to a test destination. Preflight reads host state and writes only into
+the designated evidence directory of §4; it changes no host configuration and no
+runtime state.
 
 ## 1. Readiness stages
 
@@ -67,10 +68,9 @@ from protocol §2 — this checklist introduces no new numeric threshold.
 | E8 | KVM | `/dev/kvm` present and accessible to the benchmark user **without root**. | protocol §2; ADR-0019 §2.4 |
 | E9 | Network | The host's own uplinks are not used by any trial; trials use only the host-local probe environment. | protocol §2, §4.1 |
 | E10 | Hygiene | No other workloads; CPU governor `performance`; SMT state, microcode, kernel and mount options recorded. | protocol §2 |
-| E11 | Clock | `CLOCK_MONOTONIC` is read by the supervisor, outside the environment. | protocol §2, §6.1 |
 | E12 | Tooling | Node ≥ 22.18, npm, git, jq, `ip`, `nft`, `tcpdump`, `sha256sum` available. | protocol §4.1, §6.2; repository `engines` |
 
-Two clarifications, because they are commonly lost:
+Three clarifications, because they are commonly lost:
 
 - **E2 does not allow an ARM substitute.** The reference host is `x86_64`; an `aarch64`
   machine may be recorded as a second host later, but it cannot stand in for the
@@ -78,12 +78,29 @@ Two clarifications, because they are commonly lost:
 - **E1 is not a preference.** A nested VM can be useful to show that installation
   steps are not obviously broken. It cannot pass any gate, and its memory, timing and
   KVM behaviour are not attributable to hardware.
+- **E11 is deliberately not a host-eligibility row.** `CLOCK_MONOTONIC` is read by the
+  supervisor *outside* the environment (protocol §2, §6.1); it is a property of the
+  future supervisor, not of the host, and no supervisor exists in stage H. The
+  identifier E11 is left unused rather than reassigned, and the requirement is carried
+  into stage B in §8.1.
 
 ## 3. Read-only preflight checks
 
-Each check has exactly one command or evidence source, one acceptance condition, one
-artifact and one failure class. Commands are illustrative of the *evidence source*;
-the recorded artifact is the raw output, not a retyped summary.
+Each check names one evidence source, one acceptance condition, one artifact name and one
+failure class. The evidence source is not a single command: the 44 checks run more than 44
+commands (PF-01, PF-03, PF-13, PF-22, PF-32, PF-34, PF-36 and PF-40 each run several), and
+a check is never passed because one of its commands succeeded. The commands shown are
+illustrative of the *evidence source*; the recorded artifact is the raw output, not a
+retyped summary.
+
+**Recording a multi-command check.** A check that runs more than one command produces one
+artifact file holding one block per command, in the order listed. Each block records the
+exact command line, the invoking user, the start and end timestamp, that command's own
+exit status, then its raw stdout and raw stderr. Commands are run independently, so one
+failing does not truncate the record of the others. The acceptance condition is applied
+to the artifact as a whole; when a check fails, the command that produced the failing
+evidence is named in the report. A check whose commands were partly skipped is
+`INCONCLUSIVE`, never passed. Artifact names in the tables count checks, not commands.
 
 Classifications used in the last column are defined in §5. `BLOCKED` means the host
 cannot serve as the reference host as it stands; `INCONCLUSIVE` means the check could
@@ -93,7 +110,7 @@ not be decided from the evidence.
 
 | ID | Check | Command / evidence source | Acceptance condition | Artifact | On failure |
 | --- | --- | --- | --- | --- | --- |
-| PF-01 | Host identity | `hostname`, `cat /etc/machine-id`, `hostnamectl` | Identity recorded; `machine-id` present and stable across the check | `PF-01-identity.txt` | `INCONCLUSIVE` |
+| PF-01 | Host identity | `hostname`, `hostnamectl`, and `sha256sum` over the concatenation of the hostname and `/etc/machine-id` (the raw identifier is read locally and never written to an artifact) | Identity recorded as the hostname plus the derived host id (first 12 hex characters of the digest); `/etc/machine-id` present and stable across the check | `PF-01-identity.txt` — derived id only | `INCONCLUSIVE` |
 | PF-02 | OS release | `cat /etc/os-release` | `ID`/`VERSION_ID` identify Ubuntu 24.04 LTS, or an equivalence is stated in the report | `PF-02-os-release.txt` | `BLOCKED` if unsupported and no equivalence is recorded |
 | PF-03 | Kernel version | `uname -r`, `uname -a` | Kernel ≥ 6.8 | `PF-03-kernel.txt` | `BLOCKED` |
 | PF-04 | Boot parameters | `cat /proc/cmdline` | Recorded verbatim; no undocumented isolation-relevant option | `PF-04-cmdline.txt` | `INCONCLUSIVE` if unreadable |
@@ -116,13 +133,25 @@ not be decided from the evidence.
 | ID | Check | Command / evidence source | Acceptance condition | Artifact | On failure |
 | --- | --- | --- | --- | --- | --- |
 | PF-13 | Installed memory | `free -b`, `grep MemTotal /proc/meminfo` | ≥ 32 GiB total | `PF-13-memory.txt` | `BLOCKED` |
-| PF-14 | Swap | `swapon --show`, `grep SwapTotal /proc/meminfo` | No active swap, so trial memory is not silently absorbed | `PF-14-swap.txt` | `BLOCKED` until swap is off, and the change is recorded |
+| PF-14 | Swap pressure | `swapon --show`, `grep SwapTotal /proc/meminfo`, `grep 'pswp' /proc/vmstat` | No swap pressure: swap configuration, swap in use and the swap-in/swap-out counters are recorded, and no swap activity or swap occupancy is present at idle | `PF-14-swap.txt` | `BLOCKED` while swap pressure is present and cannot be removed without a host change; the change is then recorded and the checks re-run |
 | PF-15 | Memory pressure at idle | `cat /proc/pressure/memory` | Recorded; non-zero pressure before any trial is a hygiene defect that must be explained | `PF-15-psi.txt` | `INCONCLUSIVE` if pressure is present and unexplained |
-| PF-16 | Device is NVMe | `lsblk -d -o NAME,ROTA,TYPE,TRAN,SIZE,MODEL` | Target device has `ROTA=0` and a non-network transport | `PF-16-blockdev.txt` | `BLOCKED` if rotational or network-backed |
+| PF-16 | Device backing the benchmark path is NVMe | Resolve the path to its block device and then to its transport: `findmnt -no SOURCE <benchmark-path>`, `lsblk -o NAME,TYPE,TRAN,ROTA,SIZE,MODEL <device>`, `lsblk -s -o NAME,TYPE,TRAN <device>`, `readlink -f /sys/block/<device>` | The block device that backs `<benchmark-path>` is identified and is NVMe, recognised from the resolved device itself (`nvme` device naming, `TRAN=nvme`, and the `/sys/block/<device>/device` NVMe subtree). `ROTA=0` and a non-network transport are recorded observations, never the NVMe evidence | `PF-16-blockdev.txt` | `BLOCKED` if the resolved backing device is not NVMe; `INCONCLUSIVE` if the path resolves through a layer stack (LVM, `md`, `dm-crypt`, virtio) whose physical device cannot be identified read-only |
 | PF-17 | Free space | `df -B1 <benchmark-path>` | ≥ 100 GiB available | `PF-17-df.txt` | `BLOCKED` |
 | PF-18 | Filesystem type | `findmnt -no FSTYPE,SOURCE <benchmark-path>` | `ext4` or `xfs` | `PF-18-fstype.txt` | `BLOCKED` |
 | PF-19 | No network filesystem | `findmnt -t nfs,nfs4,cifs,smb3,9p,fuse.sshfs` | No network filesystem backs the benchmark path | `PF-19-netfs.txt` | `BLOCKED` |
 | PF-20 | Mount table | `findmnt --real`, `findmnt -no OPTIONS <benchmark-path>` | Every mount recorded verbatim, with the benchmark path's options identified | `PF-20-mounts.txt` | `INCONCLUSIVE` if the table cannot be read in full |
+
+**PF-14 applies the protocol's wording.** Protocol §2 requires *no swap pressure*, not a
+disabled swap area. Enabled-but-unused swap is recorded (`swapon --show`, `SwapTotal`,
+`SwapFree`) and is not by itself a failure; swap that is occupied, or that is being swapped
+into or out of at idle, is. A stricter local rule such as "swap must be off" would be a new
+threshold and is not imposed here.
+
+**PF-16 identifies the device rather than inferring it.** `ROTA=0` says the device is not
+rotational and a non-network transport says the path is not remote; neither says the device
+is NVMe, which virtual and SCSI-backed devices can also report. The check therefore
+resolves `<benchmark-path>` through its mount source to the block device, records that
+device's identity, and reports an unresolvable stack as `INCONCLUSIVE` rather than a guess.
 
 ### 3.4 KVM
 
@@ -131,7 +160,7 @@ not be decided from the evidence.
 | PF-21 | `/dev/kvm` exists | `test -c /dev/kvm` | Character device present | `PF-21-kvm-device.txt` | `BLOCKED` — there is no container fallback (ADR-0018 decision 2; protocol §8.5) |
 | PF-22 | KVM permissions | `ls -l /dev/kvm`, `id`, `test -r /dev/kvm -a -w /dev/kvm` **as the benchmark user** | Benchmark user can read and write the device without root | `PF-22-kvm-access.txt` | `BLOCKED` |
 | PF-23 | KVM modules | `lsmod`, inspected for `kvm`, `kvm_intel` and `kvm_amd` | `kvm` and the matching `kvm_intel`/`kvm_amd` are loaded, or their absence is recorded as a pending load | `PF-23-kvm-modules.txt` | `INCONCLUSIVE` when the module is not loaded and cannot be loaded without a host change |
-| PF-24 | KVM acceleration usable | `kvm-ok` when available; otherwise the recorded PF-05/PF-08/PF-21/PF-22 evidence | Acceleration is reported as usable by a tool, or the four underlying checks all pass and the report says the tool was unavailable | `PF-24-kvm-ok.txt` | `INCONCLUSIVE` if no tool result exists and any underlying check is undecided |
+| PF-24 | KVM acceleration usable | `kvm-ok` when the host provides it; the recorded PF-05, PF-08, PF-21 and PF-22 evidence otherwise, with no further conclusion drawn from them | Usable acceleration is reported by the tool itself. The four underlying checks are prerequisites, not a substitute for that result: when `kvm-ok` is unavailable the row is `INCONCLUSIVE`, however clean the other four rows are | `PF-24-kvm-ok.txt` | `INCONCLUSIVE` when `kvm-ok` is unavailable and whenever any underlying check is undecided or failing; the acceleration question is then carried to the first microVM start (§8.1) |
 
 ### 3.5 cgroup v2 and systemd
 
@@ -141,12 +170,24 @@ not be decided from the evidence.
 | PF-26 | Available controllers | `cat /sys/fs/cgroup/cgroup.controllers` | Includes `cpu`, `memory` and `pids` | `PF-26-controllers.txt` | `BLOCKED` |
 | PF-27 | Subtree control | `cat /sys/fs/cgroup/cgroup.subtree_control` | Read and recorded; at least the subset the protocol needs is enabled, or its absence is stated | `PF-27-subtree.txt` | `INCONCLUSIVE` if the file cannot be read |
 | PF-28 | Delegation to the benchmark user | `cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers` | Path exists and lists `cpu`, `memory`, `pids` for the benchmark user | `PF-28-delegation.txt` | `BLOCKED` — a limit that cannot be established is `BLOCKED` (RES-08), never assumed |
-| PF-29 | Owner of the delegated subtree | `stat -c '%U %G %a' /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/` | Recorded owner/mode; writable by the benchmark user | `PF-29-delegation-owner.txt` | `INCONCLUSIVE` if ownership is reported but the write access cannot be established read-only |
+| PF-29 | Delegated subtree ownership record | `stat -c '%U %G %a %n'` and `getfacl -p` on `/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/` | Owner, group, permission bits and ACL entries recorded verbatim, and nothing recorded contradicts the benchmark user owning that subtree. A pass records evidence only; it is not a delegation verdict | `PF-29-delegation-owner.txt` | `INCONCLUSIVE` — the delegation result stays `INCONCLUSIVE` even when the ownership record is complete, until the stage-B write test settles it |
 | PF-30 | systemd | `systemd --version`, `systemctl is-system-running` | systemd present and the system reported `running` | `PF-30-systemd.txt` | `INCONCLUSIVE` for `degraded`, `BLOCKED` if systemd is absent |
 
-Creating a transient scope to prove delegation would be a **write** to host state and is
-therefore not part of preflight; it belongs to the per-run capability check (RES-08) in
-stage B.
+**What PF-29 can and cannot establish.** Read-only inspection establishes facts about the
+subtree: which user and group own it, the permission bits and ACL entries, that the path
+exists, and that it is cgroupfs. Those facts are necessary for delegation and are recorded
+as such. They do not establish that the benchmark user can create a child cgroup or write
+`cgroup.procs` in it: effective write access also depends on systemd's `Delegate=` state,
+the cgroup namespace, controller availability in the parent, and the ownership of newly
+created children, none of which `stat` or `getfacl` report. `stat` therefore never proves
+write access, and a complete ownership record is not a delegation verdict: the delegation
+result remains `INCONCLUSIVE` at stage H for every host, including a host whose ownership
+evidence is complete.
+
+Creating a transient scope, a child cgroup or any other write to the hierarchy to prove
+delegation would be a **write** to host state and is therefore not part of preflight; it
+belongs to the per-run capability check (RES-08) in stage B. Until that check has been
+run, no report may describe cgroup delegation as verified.
 
 ### 3.6 Network isolation prerequisites
 
@@ -189,18 +230,31 @@ supervisor to read it, and no supervisor exists in this phase.
 
 ## 4. Evidence collection
 
-- One directory per physical host and date: `evidence/preflight/<host-id>/<YYYY-MM-DD>/`.
-  The host id is derived from `machine-id` plus the hostname, never from an operator's
-  label.
-- Each artifact is the **raw** stdout/stderr of the recorded command, with the command,
-  the invoking user, the start and end timestamp and the exit status stored beside it.
-  A retyped or edited transcript is not evidence.
+- The evidence directory is designated before the run and is the **only** path preflight
+  writes to: `evidence/preflight/<host-id>/<YYYY-MM-DD>/`, kept outside the benchmark path
+  and outside any cgroup, namespace or mount that stage B will measure. Creating it and
+  writing artifacts into it is not a host mutation, and nothing outside it is written.
+- Reading host state is read-only. Preflight changes no host configuration and no runtime
+  state: no `sysctl`, no swap configuration, no CPU governor, no unit, no cgroup, no
+  namespace, no nftables rule, no package installation, and no file outside the evidence
+  directory. A check that would need such a change is reported as not performed.
+- The host id is derived from the hostname and `/etc/machine-id`, never from an operator's
+  label, and is published only as the digest of PF-01. The raw `/etc/machine-id` never
+  appears in an artifact, a report or a published bundle; the machine-id ↔ host-id mapping
+  is kept in one protected local file outside the evidence directory, readable only by the
+  operator, so a host can be correlated across dates. If the mapping is lost, the host id
+  is recomputed from the host, never guessed.
+- Each artifact holds the **raw** stdout and stderr of every command the check runs, with
+  each command's line, invoking user, start and end timestamp and exit status recorded
+  beside its own output, in the multi-command layout of §3. A retyped, merged or edited
+  transcript is not evidence, and an exit status is never inferred from how the output
+  looked.
 - A `manifest.sha256` covers every artifact in the directory. Files are not modified
   after the manifest is written; a re-run creates a new timestamped directory.
 - Missing output is recorded as missing. An empty file is not "nothing found".
-- No command in §3 writes to the host. If a check cannot be performed read-only, it is
-  reported as not performed and classified in §5; it is not replaced by an inferred
-  result.
+- No command in §3 writes to the host outside the evidence directory. If a check cannot be
+  performed read-only, it is reported as not performed and classified in §5; it is not
+  replaced by an inferred result.
 - If any command needs a host change to produce a passing result (swap off, governor set,
   forwarding off), the change is made by the operator, recorded as a host mutation, and
   the checks are then re-run from a clean directory. Preflight itself never performs it.
@@ -211,7 +265,7 @@ Exactly one classification is issued per host, for stage H only.
 
 | Class | Meaning | What may happen next |
 | --- | --- | --- |
-| `READY` | Every mandatory check passed, every artifact exists, and the host is bare metal with KVM, cgroup v2 delegation, ≥ 32 GiB, NVMe with ≥ 100 GiB free, and the required tooling | Stage R may be attempted on this host. Nothing about isolation is yet proven. |
+| `READY` | Every mandatory check passed, every artifact exists, and the host is bare metal with `/dev/kvm` accessible to the benchmark user, cgroup v2 with `cpu`, `memory` and `pids` at the delegated root, ≥ 32 GiB, an identified NVMe device with ≥ 100 GiB free behind the benchmark path, and the required tooling. `READY` never includes a delegation verdict: PF-29 stays `INCONCLUSIVE` | Stage R may be attempted on this host. Nothing about isolation is yet proven, and cgroup delegation is still unverified. |
 | `BLOCKED` | At least one mandatory check failed in a way that cannot be corrected without different hardware or a host reconfiguration | The host is not used as the reference host. The failing check is named; no gate is evaluated, and no result from a different host is substituted. |
 | `INCONCLUSIVE` | A mandatory check could not be decided from the evidence: missing artifact, unreadable counter, nested virtualization, unexplained load, or an unavailable tool | No gate may be evaluated on this host. The gap is named, and either the check is repeated with a complete artifact set or another host is chosen. `INCONCLUSIVE` is never rounded to `READY`. |
 
@@ -259,7 +313,9 @@ These are hard stops, not preferences:
 | --- | --- |
 | `READY` on every check in §3 | That any isolation control is implemented, enforced or verified. No control in specification §5 is exercised. |
 | `/dev/kvm` accessible | That a microVM starts, that boot or teardown is bounded, or that a run is isolated. |
-| cgroup controllers and delegation present | That the declared limits are enforced at their values. That is RES-02..RES-04 and is measured in stage B. |
+| The four underlying KVM checks (PF-05, PF-08, PF-21, PF-22) all passing | That KVM acceleration is usable. Without a `kvm-ok` result the answer is `INCONCLUSIVE` until a guest is started. |
+| `ROTA=0` with a non-network transport | That the device is NVMe. Virtual and SCSI-backed devices can report the same pair; PF-16 resolves and identifies the device that backs the path. |
+| cgroup controllers present, and a complete PF-29 ownership record | That the declared limits are enforced at their values, or that the benchmark user can write the delegated subtree. Enforcement is RES-02..RES-04 and writability is the RES-08 write test, both in stage B; the delegation result stays `INCONCLUSIVE` at stage H. |
 | `nft` present and forwarding off | That default-deny egress holds. That is NET-01 and is tested with the probe environment and the capture control of protocol §5 step 0. |
 | A baseline interface and route inventory | That no unintended path exists. That is NET-01/W16 and requires per-trial captures. |
 | A green `npm ci` / `typecheck` / `build` / `test` run | That the isolation boundary works. The specification §11 says this explicitly. |
@@ -283,6 +339,22 @@ No stage may be skipped, and no stage may borrow another's evidence: host readin
 not installation evidence, installation is not enforcement evidence, a benchmark is not
 a review, and a review is not an accepted ADR.
 
+### 8.1 Requirements deferred to a later stage
+
+Three requirements cannot be settled by read-only inspection. They are not dropped and not
+downgraded; each is carried to the stage that can produce the evidence, and its stage-H
+result is `INCONCLUSIVE` in the meantime.
+
+| Requirement | Source | Settled in | Why stage H cannot settle it |
+| --- | --- | --- | --- |
+| `CLOCK_MONOTONIC` is read by the supervisor, outside the environment | protocol §2, §6.1 | B, first supervised trial | It is a property of the supervisor that does not yet exist, not of the host; PF-43 records only that the host clock is synchronised |
+| KVM acceleration is actually usable, when `kvm-ok` is unavailable | protocol §2 | R, first microVM start | Deciding it requires starting a guest, which preflight must not do; PF-21 and PF-22 stay mandatory and `BLOCKED` on failure |
+| The benchmark user can write the delegated cgroup subtree | protocol §2; spec §5.4 | B, RES-08 write test | Proving writability is a write to host state; PF-29 records ownership evidence only |
+
+Deferral changes no mandatory prerequisite: a missing `/dev/kvm`, an absent delegated
+controller, a `/dev/kvm` the benchmark user cannot access, or an unclassified host still
+stops the work before stage R.
+
 ## 9. Report template
 
 A stage-H report contains exactly the following, and nothing that reads as a benchmark
@@ -290,7 +362,7 @@ result:
 
 ```
 Phase 3C host readiness — stage H
-Host id:            <machine-id> / <hostname>
+Host id:            <derived host id (sha256, 12 hex)> / <hostname>
 Date and user:      <YYYY-MM-DD> / <user>
 Host class:         bare metal | nested VM (compatibility datapoint only)
 Kernel / OS:        <uname -r> / <ID VERSION_ID>
@@ -298,6 +370,7 @@ CPU / memory:       <sockets × cores> physical cores / <MemTotal>
 Storage:            <device, transport, filesystem, free bytes>
 KVM:                present | absent; readable/writable by benchmark user: yes | no
 cgroup v2:          unified | not unified; delegated controllers: <list>
+Delegation:         INCONCLUSIVE at stage H; ownership evidence recorded, write test in stage B
 Capture tooling:    tcpdump <version> | absent
 Host mutations:     <none | list of changes with operator and time>
 Classification:     READY | BLOCKED | INCONCLUSIVE
