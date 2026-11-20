@@ -1,0 +1,26 @@
+name: Assemble README (temporary)
+
+on:
+  push:
+    branches: [fix/pr-1-distribution-clean-checkout]
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    if: ${{ !contains(github.event.head_commit.message, '[readme-assembled]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Concatenate README parts
+        run: cat README.md .readme-parts/tail-a.md .readme-parts/tail-b.md > README.assembled.md && mv README.assembled.md README.md
+
+      - name: Commit the assembled README
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs(readme): assemble the full README [readme-assembled]"
+          git push
