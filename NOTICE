@@ -59,7 +59,7 @@ those permissions, and it must not be read as doing so:
 | Range | License |
 | --- | --- |
 | `main`, initial commit `5aee287` (2026-11-14) through commit `1768aad` (2026-11-18), inclusive | MIT |
-| `main`, from the first commit that contains this NOTICE and the draft `LICENSE` onward | VOLDBASE Source-Available License (draft) |
+| `main`, from commit `2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9` onward (the first commit that contains this NOTICE and the draft `LICENSE`) | VOLDBASE Source-Available License (draft) |
 
 Two facts make the prior side exact. `LICENSE` was committed once, in the
 initial commit, and was not modified again on `main`: the MIT text at `5aee287`
@@ -67,17 +67,17 @@ and at `1768aad` is the identical file, so every commit in that range carried
 MIT. And the repository has **no tags and no published releases**, so there are
 no release artifacts to place on either side of the boundary.
 
-**The limitation.** The first commit under this license is the first commit on
-`main` whose tree contains this NOTICE and the draft `LICENSE`. It is identified
-by that fact alone, not by a commit message or by a particular way of landing
-the change: whether it is a merge commit, a squashed commit or a direct commit,
-the boundary is the first commit on `main` that contains these documents. That
-commit did not exist when this NOTICE was written, so its identifier is not
-recorded here and has not been guessed; until it exists on `main`, no version on
-`main` is distributed under this draft. Copies taken from an unmerged branch
-are not releases and carry the draft text, but that label does not by itself
-decide what legal effect, if any, the draft has on such a copy; that is a
-question for counsel. The identifier should be filled in when the change lands.
+**The boundary commit.** The first commit under this license is the first
+commit on `main` whose tree contains this NOTICE and the draft `LICENSE`.
+It is identified by that fact alone, not by a commit message or by a
+particular way of landing the change: whether it is a merge commit, a
+squashed commit or a direct commit, the boundary is the first commit on
+`main` that contains these documents. That commit is
+`2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9`, and this draft applies from it
+onward. Copies taken from a branch before that commit are not releases and
+carry the draft text, but that label does not by itself decide what legal
+effect, if any, the draft has on such a copy; that is a question for
+counsel.
 Still unresolved: how a repository or product that contains files under both
 licenses should be described (MIT, source-available or both), how version
 numbers should be labelled across the change, and whether any copy of an earlier
@@ -215,17 +215,17 @@ The VOLDBASE name, logo and visual identity are not licensed by `LICENSE`. See
 
 8. OPEN QUESTIONS FOR LEGAL REVIEW
 
-This draft deliberately leaves the following unresolved rather than guessing:
+This draft deliberately leaves the following unresolved rather than
+guessing. The first commit under this license is not one of them: it is
+recorded in section 3 as `2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9`, the
+first commit on `main` whose tree contains these documents. The prior side
+is also verified: `5aee287` through `1768aad` under MIT, with no tags or
+releases.
 
 - The final form of the copyright line (for example whether a year range is
   wanted, and whether the name should carry a legal-entity suffix). The identity
   question is settled: "Zakariaika" is the GitHub handle of Taqiyeddin Maatlia,
   confirmed by the owner.
-- The exact identifier of the first commit under this license: the first commit
-  on `main` whose tree contains these documents, however the change is landed.
-  The prior side is verified (`5aee287` through `1768aad` under MIT, with no
-  tags or releases); the new-side commit does not exist yet and must be recorded
-  when it does, without assuming a merge or a commit message.
 - Whether a repository or product that contains files under both licenses should
   be labelled MIT, source-available or both, and whether any copy of an earlier
   version was distributed under MIT outside this repository.
