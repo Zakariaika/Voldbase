@@ -103,16 +103,16 @@ be claimed yet, and the documents must not pretend otherwise.
     keeps commercial distribution behind `LICENSE` 5. `LICENSE` 4.3 and 4.5 are
     worded so that the new permission cannot be read as a commercial right.
 
-11. **Record the MIT boundary in commit terms, and state what cannot be known.**
+11. **Record the MIT boundary in commit terms.**
     `LICENSE` 3.6 and `NOTICE` 3 now give the verified prior side: MIT applied to
     every commit on `main` from the initial commit `5aee287` (2026-11-14)
     through `1768aad` (2026-11-18), the `LICENSE` blob being unchanged across
     that range, and the repository has no tags and no releases. The new side
     starts at the first commit on `main` whose tree contains these documents,
     whatever its commit message and whether it is a merge, a squash or a direct
-    commit. That commit does not exist yet, so its identifier is not asserted;
-    it must be recorded when the change lands, and until then nothing on `main`
-    is distributed under the draft.
+    commit. That commit is
+    `2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9`, and the draft applies from it
+    onward.
     Copies taken from an unmerged branch are not releases and carry the draft
     text; that label does not by itself decide their legal effect. No historical
     MIT notice is rewritten or removed; `package.json` metadata is not treated as
@@ -229,7 +229,7 @@ be claimed yet, and the documents must not pretend otherwise.
     and that a passing automated check establishes only what it tests. `NOTICE`
     3 no longer assumes the change lands as a merge: the new side begins at the
     first commit on `main` whose tree contains the documents, however it was
-    created, and the identifier is recorded when it exists rather than guessed.
+    created, and the identifier is recorded rather than guessed.
     The same correction is made in `LICENSE` 3.6(e) and decision 11.
 
 21. **Separate the three donation cases from the receipt-based rule.**
@@ -272,10 +272,10 @@ be claimed yet, and the documents must not pretend otherwise.
   versions or copies (`LICENSE` 3.6, `NOTICE` 3). The prior side is recorded
   exactly (`5aee287` through `1768aad`, no tags, no releases); the first commit
   under this license is the first commit on `main` that contains these
-  documents, whatever its commit message, and its identifier can only be
-  recorded once that commit exists. What applies to a given copy therefore
-  depends on when it was obtained, and a repository mixing both licences is a
-  labelling question still open.
+  documents, whatever its commit message, and that commit is
+  `2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9`. What applies to a given copy
+  therefore depends on when it was obtained, and a repository mixing both
+  licences is a labelling question still open.
 - **Contribution friction increases, and consent costs a step.** Contributors
   must accept the terms in `LICENSE` section 8, which license the contribution
   to the Copyright Holder broadly enough to relicense the project commercially,
