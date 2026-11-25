@@ -173,6 +173,7 @@ describe('static analysis: import graph', () => {
     for (const specifier of ['./styles.css', './data.json', './logo.svg']) {
       const item = bySpecifier.get(specifier);
       assert.ok(item, `expected an import edge for ${specifier}`);
+      assert.equal(item.resolution, 'unresolved-relative');
       assert.notEqual(item.resolution, 'resolved-relative');
       assert.equal(item.resolvedPath, undefined);
     }
