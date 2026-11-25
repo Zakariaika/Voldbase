@@ -158,6 +158,28 @@ function hasExportModifier(node: ts.Node): boolean {
   return ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
 }
 
+function hasDefaultModifier(node: ts.Node): boolean {
+  if (!ts.canHaveModifiers(node)) {
+    return false;
+  }
+  return ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
+}
+
+/**
+ * The name a declaration can actually be recorded under, or `undefined`.
+ *
+ * A declaration recovered from broken source may carry no name node at all, or
+ * an empty one; neither is a name, so nothing is invented for it. Only an
+ * `export default` declaration is recorded as `default`, because that is the
+ * name the syntax gives it — an export modifier alone does not.
+ */
+function declaredName(node: ts.Node, name: ts.Identifier | undefined): string | undefined {
+  if (name !== undefined && name.text !== '') {
+    return name.text;
+  }
+  return hasDefaultModifier(node) ? 'default' : undefined;
+}
+
 function stringLiteralValue(node: ts.Node | undefined): string | undefined {
   if (node !== undefined && ts.isStringLiteralLike(node)) {
     return node.text;
@@ -241,19 +263,17 @@ function extractFromSourceFile(
 
   const visit = (node: ts.Node, insideClass: boolean): void => {
     if (ts.isFunctionDeclaration(node)) {
-      addDeclaration(
-        'function',
-        node.name?.text ?? (hasExportModifier(node) ? 'default' : '<anonymous>'),
-        hasExportModifier(node),
-        node.getStart(sourceFile),
-      );
+      const name = declaredName(node, node.name);
+      if (name !== undefined) {
+        addDeclaration('function', name, hasExportModifier(node), node.getStart(sourceFile));
+      }
     } else if (ts.isClassDeclaration(node)) {
-      addDeclaration(
-        'class',
-        node.name?.text ?? (hasExportModifier(node) ? 'default' : '<anonymous>'),
-        hasExportModifier(node),
-        node.getStart(sourceFile),
-      );
+      const name = declaredName(node, node.name);
+      if (name !== undefined) {
+        addDeclaration('class', name, hasExportModifier(node), node.getStart(sourceFile));
+      }
+      // Members are still recorded: a class the parser recovered without a name
+      // is still a class whose methods it saw.
       for (const member of node.members) {
         if (ts.isMethodDeclaration(member) || ts.isConstructorDeclaration(member)) {
           const name = ts.isConstructorDeclaration(member)
