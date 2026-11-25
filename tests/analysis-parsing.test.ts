@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { ANALYSIS_SCHEMA_VERSION, createAnalysisSnapshot } from '../src/index.ts';
 import { analyzeFiles, fileByPath, findingsFor } from './helpers/analysis-fixture.ts';
 
 describe('static analysis: source structure', () => {
@@ -192,8 +193,136 @@ describe('static analysis: source structure', () => {
     });
 
     const declarations = fileByPath(result, 'src/nested.ts').declarations;
-    assert.ok(declarations.some((d) => d.name === 'default'));
-    assert.ok(declarations.some((d) => d.name === 'anon'));
-    assert.ok(declarations.some((d) => d.name === 'inner'));
+    assert.deepEqual(
+      declarations.map((d) => [d.kind, d.name, d.exported]),
+      [
+        ['class', 'default', true],
+        ['export', 'default', true],
+        ['variable', 'anon', false],
+        ['function', 'outer', false],
+        ['function', 'inner', false],
+      ],
+    );
+  });
+
+  it('records no class declaration when the parser recovers a nameless class', async (t) => {
+    // Not valid JavaScript: V8 rejects `class {}` with a SyntaxError. It is here
+    // because TypeScript recovers a ClassDeclaration with no name from it, and no
+    // name may be invented for what the syntax does not name.
+    const { result } = await analyzeFiles(t, { 'src/recovered-class.ts': 'class {}\n' });
+
+    const declarations = fileByPath(result, 'src/recovered-class.ts').declarations;
+    assert.deepEqual(declarations.map((d) => [d.kind, d.name, d.exported]), []);
+    assert.equal(
+      declarations.some((d) => d.name === '<anonymous>'),
+      false,
+      'no placeholder name may be fabricated',
+    );
+  });
+
+  it('records no class declaration for a nameless class in JavaScript source', async (t) => {
+    // The same invalid `class {}` on the JavaScript path: the .js extension selects
+    // the javascript language branch, so the no-placeholder rule is asserted there
+    // too, not only on the .ts path above.
+    const { result } = await analyzeFiles(t, { 'src/recovered-class.js': 'class {}\n' });
+
+    const file = fileByPath(result, 'src/recovered-class.js');
+    assert.equal(file.language, 'javascript');
+    assert.deepEqual(file.declarations.map((d) => [d.kind, d.name, d.exported]), []);
+    assert.equal(
+      file.declarations.some((d) => d.name === '<anonymous>'),
+      false,
+      'no placeholder name may be fabricated',
+    );
+  });
+
+  it('does not read an export modifier alone as the name default', async (t) => {
+    // Not valid JavaScript: V8 rejects `export class {}` with a SyntaxError, and
+    // TypeScript recovers a ClassDeclaration carrying `ExportKeyword` but no
+    // `DefaultKeyword`. An export modifier is not a name, and only `export
+    // default` gives the name `default`.
+    const { result } = await analyzeFiles(t, { 'src/export-class.ts': 'export class {}\n' });
+
+    const declarations = fileByPath(result, 'src/export-class.ts').declarations;
+    assert.equal(
+      declarations.some((d) => d.kind === 'class' && d.name === 'default'),
+      false,
+      'ExportKeyword alone must not produce the name default',
+    );
+    assert.deepEqual(declarations.map((d) => [d.kind, d.name, d.exported]), []);
+  });
+
+  it('keeps member extraction when the enclosing recovered class has no name', async (t) => {
+    // Not valid JavaScript: `class { run() {} }` is missing a binding name.
+    const { result } = await analyzeFiles(t, {
+      'src/recovered-member.ts': 'class { run() {} }\n',
+    });
+
+    const declarations = fileByPath(result, 'src/recovered-member.ts').declarations;
+    assert.deepEqual(
+      declarations.map((d) => [d.kind, d.name, d.exported]),
+      [['method', 'run', false]],
+    );
+  });
+
+  it('keeps variable extraction for a named class expression', async (t) => {
+    const { result } = await analyzeFiles(t, {
+      'src/class-expression.ts': 'const Named = class {};\n',
+    });
+
+    const declarations = fileByPath(result, 'src/class-expression.ts').declarations;
+    assert.deepEqual(
+      declarations.map((d) => [d.kind, d.name, d.exported]),
+      [['variable', 'Named', false]],
+    );
+  });
+
+  it('records an export default class as default and exported', async (t) => {
+    // Valid JavaScript with no class name: the default export is what names it.
+    const { result } = await analyzeFiles(t, { 'src/default-class.ts': 'export default class {}\n' });
+
+    const declarations = fileByPath(result, 'src/default-class.ts').declarations;
+    assert.deepEqual(
+      declarations.map((d) => [d.kind, d.name, d.exported]),
+      [['class', 'default', true]],
+    );
+  });
+
+  it('records an export default function as default and exported', async (t) => {
+    const { result } = await analyzeFiles(t, {
+      'src/default-function.ts': 'export default function () {}\n',
+    });
+
+    const declarations = fileByPath(result, 'src/default-function.ts').declarations;
+    assert.deepEqual(
+      declarations.map((d) => [d.kind, d.name, d.exported]),
+      [['function', 'default', true]],
+    );
+  });
+
+  it('records nothing for a recovered function with an empty name, and still snapshots', async (t) => {
+    // Not valid JavaScript, and not valid TypeScript either: TypeScript reports
+    // "Identifier expected." and recovers a FunctionDeclaration whose name node
+    // has empty text. That is not a name, so no declaration is recorded.
+    const { project, result } = await analyzeFiles(t, {
+      'src/recovered-function.ts': 'function () {}\n',
+    });
+
+    const declarations = fileByPath(result, 'src/recovered-function.ts').declarations;
+    assert.deepEqual(declarations, []);
+    assert.equal(findingsFor(result, 'VB001').length > 0, true, 'the parse diagnostic is kept');
+
+    const snapshot = createAnalysisSnapshot({
+      analysisId: 'ana_recovered_function',
+      projectId: project.id,
+      projectRevision: project.revision,
+      analyzerVersion: result.analyzerVersion,
+      schemaVersion: ANALYSIS_SCHEMA_VERSION,
+      settings: result.settings,
+      files: result.files,
+      findings: result.findings,
+    });
+    assert.equal(snapshot.summary.declarationCount, 0);
+    assert.equal(snapshot.analyzerVersion, result.analyzerVersion);
   });
 });
