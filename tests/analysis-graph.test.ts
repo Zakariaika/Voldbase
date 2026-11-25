@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { ANALYSIS_SCHEMA_VERSION, createAnalysisSnapshot } from '../src/index.ts';
 import { analyzeFiles, fileByPath, findingsFor } from './helpers/analysis-fixture.ts';
 
 function edge(result: Awaited<ReturnType<typeof analyzeFiles>>['result'], file: string, specifier: string) {
@@ -146,6 +147,61 @@ describe('static analysis: import graph', () => {
     const imports = fileByPath(result, 'src/main.ts').imports;
     assert.equal(imports[0]?.typeOnly, true);
     assert.equal(imports[0]?.resolvedPath, 'src/types.ts');
+  });
+
+  it('never resolves an existing non-source target, and still builds a snapshot', async (t) => {
+    const { project, result } = await analyzeFiles(t, {
+      'src/styles.css': 'body { color: red; }\n',
+      'src/data.json': '{"ok":true}\n',
+      'src/logo.svg': '<svg xmlns="http://www.w3.org/2000/svg" />\n',
+      'src/a.ts': 'export const a = 1;\n',
+      'src/main.ts': [
+        "import './styles.css';",
+        "import data from './data.json' with { type: 'json' };",
+        "import './logo.svg';",
+        "import { a } from './a';",
+        "import { gone } from './missing';",
+        "import { x } from '../../../outside/module';",
+      ].join('\n'),
+    });
+
+    const imports = fileByPath(result, 'src/main.ts').imports;
+    const bySpecifier = new Map(imports.map((item) => [item.specifier, item]));
+
+    // An existing asset is still not an analysed source file: it must be
+    // classified without a resolvedPath, never as a resolved source import.
+    for (const specifier of ['./styles.css', './data.json', './logo.svg']) {
+      const item = bySpecifier.get(specifier);
+      assert.ok(item, `expected an import edge for ${specifier}`);
+      assert.equal(item.resolution, 'unresolved-relative');
+      assert.notEqual(item.resolution, 'resolved-relative');
+      assert.equal(item.resolvedPath, undefined);
+    }
+
+    // Valid source imports, unresolved paths and out-of-root paths are unchanged.
+    assert.equal(bySpecifier.get('./a')?.resolution, 'resolved-relative');
+    assert.equal(bySpecifier.get('./a')?.resolvedPath, 'src/a.ts');
+    assert.equal(bySpecifier.get('./missing')?.resolution, 'unresolved-relative');
+    assert.equal(bySpecifier.get('../../../outside/module')?.resolution, 'outside-root');
+    assert.equal(
+      findingsFor(result, 'VB002').some((finding) => finding.evidence === './missing'),
+      true,
+    );
+    assert.equal(findingsFor(result, 'VB004').length, 1);
+
+    // The failure this guards against was `invalid_analysis_snapshot` in the
+    // domain, so the test must build the snapshot, not just the analyzer result.
+    const snapshot = createAnalysisSnapshot({
+      analysisId: 'ana_non_source_targets',
+      projectId: project.id,
+      projectRevision: project.revision,
+      analyzerVersion: result.analyzerVersion,
+      schemaVersion: ANALYSIS_SCHEMA_VERSION,
+      settings: result.settings,
+      files: result.files,
+      findings: result.findings,
+    });
+    assert.equal(snapshot.summary.resolvedImportCount, 1);
   });
 
   it('never resolves a specifier to a file that was not analysed', async (t) => {

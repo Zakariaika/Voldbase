@@ -534,7 +534,11 @@ export class TypeScriptStaticAnalyzer implements ProjectAnalyzer {
       );
     }
 
-    const filePaths = new Set(before.files.map((file) => file.relPath));
+    // Only analysed source files may become resolved targets. The tree also
+    // contains stylesheets, JSON, images and other assets; matching an import
+    // against those would record a `resolvedPath` the snapshot rejects, even
+    // though the resolver never parsed them.
+    const sourcePaths = new Set(sourceFiles.map((file) => file.relPath));
     const parsed: { path: string; text: string; bytes: Buffer; scanned: ScannedFile }[] = [];
 
     for (const scanned of sourceFiles) {
@@ -575,7 +579,7 @@ export class TypeScriptStaticAnalyzer implements ProjectAnalyzer {
           `The parser could not load ${entry.path} from the in-memory host`,
         );
       }
-      const extraction = extractFromSourceFile(sourceFile, entry.path, filePaths);
+      const extraction = extractFromSourceFile(sourceFile, entry.path, sourcePaths);
       findings.push(
         ...extraction.findings,
         ...syntaxFindings(sourceFile, entry.path, program.getSyntacticDiagnostics(sourceFile)),
