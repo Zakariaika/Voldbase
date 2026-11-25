@@ -329,25 +329,57 @@ changes which values are legal, not how bytes are hashed.
 not produce `python`, so a v1 record containing it is corrupt, not "forward
 compatible". v2 vocabularies are separate constants; v1 validation must never be
 widened to accept a v2-only value, and v2 validation must not be used to verify a v1
-record.
+record. The v1 canonicalisation is pinned by a literal digest taken from that
+pre-freeze implementation and reproduced by the frozen normaliser (D22); that pin is a
+mandatory regression requirement, not an open question.
 
-**Migration order (mandatory).** Every step is observable and aborts on failure:
+**Migration order (mandatory).** Every step is observable and aborts on failure. Steps
+1–4 are shared by both read paths; steps 5–9 run only for a (v1, v1) entry, and step 10
+only for a (v2, v2) entry.
 
-1. Validate the storage envelope version.
-2. Validate the entry version and require it to equal the envelope version.
-3. Apply the **frozen v1** structural and semantic validation to the entry.
-4. Reconstruct the original v1 canonical content from the entry (same normaliser as
-   the v1 build used, including the recomputed `summary`).
-5. Recompute the **v1 digest** and compare it with the recorded digest — before any
+1. Validate the storage envelope version. An envelope version this build does not
+   support stops here with `storage_unsupported_schema`; no entry version, pair,
+   validator or digest is inspected afterwards.
+2. Look the (envelope, entry) pair up in the **declared compatibility matrix**. An
+   entry version that is missing, not an integer, or paired with this envelope without
+   being declared there stops here with `analysis_corrupted`. Version equality is not
+   the rule; the matrix is.
+3. Check that every validator the declared read path requires is available in this
+   build, before any structural or semantic validation, digest work or migration
+   begins. A (v1, v1) entry requires both the frozen v1 validator and the v2 validator
+   that validates the migrated record; a (v2, v2) entry requires the v2 validator. If
+   any validator the selected path needs is unavailable, stop here with
+   `analysis_unsupported_schema`.
+4. Branch on the declared pair. A (v1, v1) entry continues with steps 5–9; a (v2, v2)
+   entry continues with step 10. The other path's steps are skipped entirely, so a v2
+   record is never validated, migrated or hashed as if it were v1.
+5. **(v1, v1) Validate with frozen rules.** Apply the **frozen v1** structural and
+   semantic validation to the entry and reconstruct the original v1 canonical content
+   from it (same normaliser as the v1 build used, including the recomputed `summary`).
+6. **(v1, v1) Verify the recorded v1 digest.** Recompute the **v1 digest** under the
+   pair's declared digest rules and compare it with the recorded digest — before any
    data is changed. A mismatch is `analysis_corrupted`.
-6. Transform the validated record into v2 (`schemaVersion: 2`, v2 vocabulary).
-7. Apply independent v2 validation to the transformed record.
-8. Compute the v2 digest.
-9. Persist the complete migrated document atomically on the next save
-   (`#writeToDisk`: temporary file + rename under the existing exclusive lock).
-   Failure behaviour is decision 9; the read itself never writes.
+7. **(v1, v1) Migrate in memory.** Transform the validated record into v2
+   (`schemaVersion: 2`, v2 vocabulary). Nothing is written by the read.
+8. **(v1, v1) Validate the result independently.** Apply v2 validation to the
+   transformed record.
+9. **(v1, v1) Compute the new v2 digest and persist.** Compute the **v2 digest** of the
+   transformed record, then persist the complete migrated document atomically on the
+   next save (`#writeToDisk`: temporary file + rename under the existing exclusive
+   lock). Failure behaviour is decision 9.
+10. **(v2, v2) Validate and verify.** Apply the **v2** structural and semantic
+    validation to the entry and recompute the **v2 digest** under v2 rules, comparing
+    it with the recorded digest. An entry in this pair is not migrated, not
+    transformed and not hashed twice; a mismatch is `analysis_corrupted`.
 
-Under the proposed migration, the read path transforms the whole document in memory;
+**The matrix decides compatibility; equality is not a substitute.** The pairs declared
+today are (v1, v1) and (v2, v2); (v1, v2) and (v2, v1) are not declared and are
+rejected. A future mixed pair such as (v3, v2) is accepted only once it is explicitly
+declared together with its validator, its digest verification rules and its migration
+behaviour — never because the two versions happen to be adjacent, or one of them
+matches the envelope.
+
+Under the proposed migration, the v1 read path transforms the whole document in memory;
 nothing is written by a read. That transformation and its cache semantics are the
 intended post-implementation behaviour (decision 9); today the read path validates v1
 records and does not transform them to v2. Because the digest covers
@@ -360,7 +392,7 @@ no-op and not a false conflict; a v1 digest is never compared against a v2 diges
 
 **`summary` is derived, never stored and never trusted.** `StoredAnalysis` has no
 `summary` field; `summarizeAnalysis()` recomputes it from the validated files and
-findings during step 4 (v1) and step 7 (v2). An injected `summary` key is ignored in
+findings during step 5 (v1) and step 10 (v2). An injected `summary` key is ignored in
 memory and dropped on the next write. There is no summary comparison to add.
 
 **Settings counters are validated.** `maxFiles`, `maxTotalBytes`, `maxFileBytes` and
@@ -385,10 +417,27 @@ One rule per failure, decided in this order:
 | Envelope `schemaVersion` is a supported integer but **older** than any migration path this build has (today: `< 1`) | `storage_unsupported_schema` |
 | Envelope `schemaVersion` missing, non-numeric, non-integer, or the document is not an object | `analysis_corrupted` |
 | Entry `schemaVersion` missing or not an integer | `analysis_corrupted` |
-| Entry `schemaVersion` differs from the envelope version | `analysis_corrupted` |
-| Entry version equals the envelope version but this build has no validator for it | `analysis_unsupported_schema` |
+| Envelope version is supported but the (envelope, entry) pair is absent from the declared compatibility matrix | `analysis_corrupted` |
+| The (envelope, entry) pair is declared but this build lacks the validator it requires | `analysis_unsupported_schema` |
 | Invalid entry structure, invalid semantic values (including settings), duplicate id | `analysis_corrupted` |
 | Reconstructed content does not match the recorded digest | `analysis_corrupted` |
+
+**Envelope/entry compatibility pairs.** The table is a matrix over
+(`ANALYSES_STORAGE_SCHEMA_VERSION`, entry `schemaVersion`) pairs, declared explicitly
+in the storage-schema module and read top to bottom as the validation order: envelope
+first, pair second, validator third, content fourth, digest last. A pair is classified
+by looking it up in that matrix; neither equality between the two numbers nor the
+adjacency of the versions is consulted.
+
+- Under a supported envelope, an **undeclared** pair — an envelope/entry version pair
+  that is absent from the explicitly declared compatibility matrix — is rejected with
+  `analysis_corrupted`. No validator runs and no digest rule is applied, because there
+  is no declared meaning to check.
+- A **declared** pair with no available validator in this build returns
+  `analysis_unsupported_schema`: an upgrade instruction, not corruption, with no
+  validation or digest rule applied.
+- Only a **declared** pair whose required validator exists proceeds to structural and
+  semantic validation, and then to digest reconstruction and comparison.
 
 Two corrections to today's behaviour are explicitly part of this decision:
 
@@ -725,7 +774,7 @@ the remaining boundary is documented rather than described as security.
   Rejected: there is nothing stored to compare; a forged summary is inert because the
   digest is computed from the recomputed value.
 - **Migrate lazily per record on read and keep mixed versions in the envelope.**
-  Rejected: mixed entry versions make "entry equals envelope" untestable and invite
+  Rejected: mixed entry versions would make the declared pairs ambiguous and invite
   the exact precedence ambiguity decision 6 exists to remove.
 - **Map `unknown-root` to `external`, or `ambiguous` to `unresolved-relative`.**
   Rejected: both assert a conclusion the snapshot does not support.
@@ -773,15 +822,21 @@ the remaining boundary is documented rather than described as security.
 
 **Reading.**
 
-- Envelope v1: every entry must be v1; validated with frozen v1 rules, v1 digest
-  verified, transformed to v2 in memory. Reading never writes.
-- Envelope v2: every entry must be v2; validated with v2 rules and the v2 digest
-  verified.
+- Envelope v1: the (v1, v1) pair is declared and supported; validated with frozen v1
+  rules, v1 digest verified, transformed to v2 in memory. Reading never writes.
+- Envelope v2: the (v2, v2) pair is declared and supported; validated with v2 rules and
+  the v2 digest verified.
+- Any other pair — (v1, v2), (v2, v1), or a future mixed pair that is not declared —
+  is rejected per decision 6, before any validation or digest work: undeclared pairs
+  are `analysis_corrupted`, and a declared pair this build cannot validate is
+  `analysis_unsupported_schema`.
 - Envelope newer than the build: `storage_unsupported_schema` with an upgrade message.
   This is what an older VOLDBASE says when it meets a v2 file, and it is correct — the
-  alternative (trying to read it) would be guessing.
+  alternative (trying to read it) would be guessing. The envelope version is checked
+  first (decision 5 step 1), so an unsupported envelope never surfaces an
+  entry-version error such as `analysis_corrupted`.
 - Envelope older than any path this build has: `storage_unsupported_schema`
-  ("no migration path").
+  ("no migration path"), also at step 1.
 - Structural damage anywhere: `analysis_corrupted`, file left byte-for-byte as found.
 
 **Writing.** New and migrated records are written as envelope v2 with v2 entries, by
@@ -792,7 +847,7 @@ build, which is why the error must be a clear upgrade instruction and never a
 corruption claim.
 
 **Digest continuity.** A migrated record's v2 digest differs from its v1 digest by
-design. The v1 digest is preserved only as the verification input at step 5; it is not
+design. The v1 digest is preserved only as the verification input at step 6; it is not
 retained in the v2 record as a second digest, because two digests over the same
 content invite the question of which one is authoritative. If provenance of the
 migration itself is later required, it needs a field outside the hashed content and
@@ -802,7 +857,11 @@ its own decision.
 behaviour is unchanged. The architecture layer reads `resolved-relative` edges only;
 `unresolved-root` and `ambiguous` produce no edge, which is the same treatment
 unresolved imports already receive. JavaScript/TypeScript analyses keep their
-vocabulary, their digests and their CLI output.
+vocabulary, their analysis behaviour and their CLI output, and v1 verification keeps its
+frozen canonicalisation and digest rules (`normalizeAnalysisContentV1`). Their stored
+digests do change when a v1 record is migrated: `schemaVersion` is part of the hashed
+content, so the migrated v2 record carries a new v2 digest (step 9). That one-time
+change applies to every migrated record, not only to JavaScript/TypeScript ones.
 
 **Deployment order.** Schema v2 and the migration land **before** the Python front end
 is enabled, so that no build can write a Python record it cannot read. Enabling `.py`
@@ -823,7 +882,7 @@ and each protects a named code path. None of them exists today.
 | D5 | `settings: { maxFiles: "lots", maxTotalBytes: -1, … }` with a recomputed digest | `analysis_corrupted` (today: accepted) | settings validation |
 | D6 | Two entries with the same `analysisId`, both otherwise valid | `analysis_corrupted` naming the id and both positions (today: last wins silently) | duplicate detection before the `Map` |
 | D7 | Envelope `schemaVersion: 2`, entries v2, valid | Loads with no migration and no write | v2 path |
-| D8 | Envelope `schemaVersion: 2`, one entry `schemaVersion: 1` | `analysis_corrupted` (entry ≠ envelope) | decision 6 row 5 |
+| D8 | Envelope `schemaVersion: 2`, one entry `schemaVersion: 1` | `analysis_corrupted` (the pair is undeclared) | decision 6 row 5 |
 | D9 | Envelope `schemaVersion: 99` | `storage_unsupported_schema` | envelope check |
 | D10 | Envelope missing, `null`, `"1"`, `1.5` | `analysis_corrupted` | `detectVersion` policy |
 | D11 | Envelope v1 document, all entries valid v1 | Transformed in memory to v2; ids, timestamps and file content preserved; v2 digest differs from v1 digest; save is not rejected as `analysis_immutable`; the file is unchanged until a save | steps 1–9 |
@@ -837,12 +896,40 @@ and each protects a named code path. None of them exists today.
 | D19 | A valid v1 entry whose stored `files`/`declarations`/`imports`/`findings`/`supportedExtensions` arrays are permuted, digest left as recorded | The **original recorded v1 digest still verifies** — the frozen v1 normaliser sorts those arrays before hashing, so a permitted permutation is not a content change and preserves the original v1 digest. Migration then computes a **newly computed v2 digest**, because `schemaVersion` is hashed and changes from 1 to 2. The v1 and v2 digests are never expected to be equal and are never compared with each other: the v1 digest is only the pre-transform check, the v2 digest is the current record's digest. Re-saving writes the same document as saving the already-ordered record, that is, the ordered form plus its v2 digest | frozen v1 normaliser (permitted reordering) |
 | D20 | Cancel a parse of a fixed, checked-in Python fixture using a deliberately small, explicit step budget (not the production proposal) chosen so the fixture demonstrably reaches it under the pinned runtime; the fixture and its expected callback count are recorded. The callback asserts every invocation and returns literal `true` when the configured threshold is reached; then call `reset()`, parse a second file and re-parse the first | The callback count reaches the configured threshold (the test asserts the counter equals the budget at cancellation); `parse` returns `null` at budget exhaustion; the run reports `analysis_limit_exceeded`; **no `VB001`** and no partial analysis result are produced; the parses after `reset()` each match a fresh parser's tree (same structure, no `ERROR` attributable to the aborted parse), proving the next parse is independent. This tests budget exhaustion only; it is not a hard timeout and not a CPU-time guarantee | cancellation + `reset()` (decisions 3, 10.2) |
 | D21 | Parser/environment failures kept distinct: (a) grammar loading — invalid grammar WASM and a missing grammar file; (b) ABI incompatibility — a genuinely rebuilt incompatible grammar artifact (a patched version field may document the runtime guard but is not sufficient proof); (c) runtime initialization — missing and invalid runtime WASM rejected by `Parser.init`, with each scenario executed in a fresh Node.js process so cached `Parser.init()` state cannot hide the failure; (d) runtime parse failure — a `parse` call that throws. Add repository-level integration coverage that drives parser initialization and runtime parse failures through the analysis runner and repository boundary | `analysis_parser_failure` in every case; **no `VB001`**; no tree is used and no partial analysis result is produced; no analysis record is persisted for the failed run. Grammar loading, ABI incompatibility, runtime initialization and runtime parse failures remain distinct triggers: initialization cases are testable before any file is parsed, runtime parse failures during a parse | parser initialization, language loading, the parse call and the persistence boundary (decision 10.3) |
+| D22 | A checked-in v1 fixture (specified below) canonicalised by the frozen v1 normaliser; the expected digest `36c3084b405194a16122df4c6d84a01a7d57740e684cfb2b4b2dd6d5b68c0028` is stored as a literal in the test source | The normaliser reproduces the literal exactly, with no ordering, escaping or key-order drift; the expected value is never computed from the implementation under test at run time and never regenerated dynamically | frozen v1 normaliser (`normalizeAnalysisContentV1`) + v1 canonical JSON ordering |
 
 D13 and D19 are complementary on purpose: reordering of the arrays the canonical form
 sorts is permitted and must not change the digest (D19), while a digest computed over a
 different canonical layout is a mismatch (D13). Neither test changes the frozen v1
 rules, and D16/D17 require a failure-injection seam that the repository does not have
 today (see Open questions).
+
+**D22 fixture and the source of its digest.** The fixture is one v1 `AnalysisContent`:
+`schemaVersion: 1`, `analyzerVersion: "1.0.0"`, `projectId: "prj_frozen_v1"`,
+`projectRevision` a 40-character `c` hex string; settings
+`{ supportedExtensions: ["ts", "js"], maxFiles: 3, maxTotalBytes: 4096,
+maxFileBytes: 2048, maxSourceFiles: 2 }` with the extension list deliberately unsorted;
+two `typescript` files supplied in reverse path order — `src/b.ts` (size 12, digest
+`"b"` × 64, one `static` import of `./a` at 3:1 with `typeOnly: false`, resolving to
+`src/a.ts`) and `src/a.ts` (size 5, digest `"a"` × 64, no declarations or imports).
+`src/b.ts` declares, in the original input order, `function zeta` at 2:1 with
+`exported: true` first, then `class Alpha` at 1:1 with `exported: false`; normalisation
+orders them `class Alpha` (1:1) followed by `function zeta` (2:1). Two findings come
+in reverse rule order, both `warning`/`conditional` on `src/b.ts`: `VB002` at 3:1 with
+message `Import specifier could not be read statically.` and evidence `./a`, then
+`VB001` with no location, message
+`File contains a syntax node the parser could not interpret.` and evidence `ERROR`.
+
+Its expected digest, **`36c3084b405194a16122df4c6d84a01a7d57740e684cfb2b4b2dd6d5b68c0028`**,
+was captured from the original v1 implementation — not from the frozen copy, which does
+not exist yet, and not from any v2 code: `analysisContentDigest` over the normalised
+fixture in `src/domain/analysis.ts` (`ANALYSIS_SCHEMA_VERSION = 1`, blob
+`a4efe2e6f0f387893bfcfd640fff3438488991e3`) as merged on `main` at
+`bed3f52a136d4b46d0361b3eee4c8cc2b3f21f3a`. The value was produced identically in
+three independent processes, so the literal is reproducible from the fixture
+description. The fixture and the literal **must be checked in as data when D22 is
+implemented**; as of this ADR they are not yet in the repository. The test may not
+derive the expected value from `normalizeAnalysisContentV1` or from any v2 code.
 
 Additional verification required before activation (not migration tests): parser probe
 on Node 22.18.0 exactly; grammar and runtime hash mismatch → `analysis_parser_failure`;
@@ -887,10 +974,12 @@ the JavaScript/TypeScript digest freeze
 - `unresolved-root` and `ambiguous` appear in the stored vocabulary and in JSON output,
   so downstream consumers (architecture, future reports) must treat them as
   "no edge", not as errors.
-- A file whose declared encoding is unsupported, contradictory or binary is recorded
-  but not extracted: it contributes a conditional finding and no declarations or
-  imports. Reports must read that finding, because the empty lists alone do not mean
-  "empty module".
+- A file whose declared encoding is unsupported or contradictory is recorded but not
+  extracted: it contributes a conditional `VB006` finding and no declarations or
+  imports. A file containing a NUL byte is not in this category: the shared runner
+  rejects it with `analysis_unsupported_source` before the Python decoder runs, and it
+  is never recorded as an unsupported-encoding file. Reports must read that finding,
+  because the empty lists alone do not mean "empty module".
 - A file whose tree contains `ERROR`/`MISSING` nodes loses all of its declarations and
   imports, not just the affected region. That is a deliberate trade of recall for the
   guarantee that partial parsing cannot fabricate a dependency.
@@ -949,9 +1038,6 @@ the JavaScript/TypeScript digest freeze
   so another process's write is invisible to an already-loaded repository instance.
   Whether that matters for the CLI (one process per command) or needs invalidation is
   undecided; nothing here claims reads are fresh.
-- Whether the frozen v1 canonicalisation is pinned by a literal digest in the test
-  suite (as the JS/TS language freeze is), so a future refactor cannot change it
-  silently.
 - Whether `VB001` as `warning`/`conditional` is the right presentation for Python, or
   whether parse problems need a dedicated rule id. This needs a corpus of real files,
   not intuition.
