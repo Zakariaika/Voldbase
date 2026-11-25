@@ -82,7 +82,7 @@ $ voldbase analyze proj_df02e24be8d04a2390f3
 Analysed project proj_df02e24be8d04a2390f3 (demo)
   project      proj_df02e24be8d04a2390f3
   revision     sha256:c5dfb407e8b9…
-  analyzer     1.0.0
+  analyzer     1.0.1
   analysed     2026-11-16T09:00:00.000Z
   source       184 source files (javascript, typescript)
   declarations 1204
