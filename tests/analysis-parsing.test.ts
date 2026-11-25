@@ -220,6 +220,38 @@ describe('static analysis: source structure', () => {
     );
   });
 
+  it('records no class declaration for a nameless class in JavaScript source', async (t) => {
+    // The same invalid `class {}` on the JavaScript path: the .js extension selects
+    // the javascript language branch, so the no-placeholder rule is asserted there
+    // too, not only on the .ts path above.
+    const { result } = await analyzeFiles(t, { 'src/recovered-class.js': 'class {}\n' });
+
+    const file = fileByPath(result, 'src/recovered-class.js');
+    assert.equal(file.language, 'javascript');
+    assert.deepEqual(file.declarations.map((d) => [d.kind, d.name, d.exported]), []);
+    assert.equal(
+      file.declarations.some((d) => d.name === '<anonymous>'),
+      false,
+      'no placeholder name may be fabricated',
+    );
+  });
+
+  it('does not read an export modifier alone as the name default', async (t) => {
+    // Not valid JavaScript: V8 rejects `export class {}` with a SyntaxError, and
+    // TypeScript recovers a ClassDeclaration carrying `ExportKeyword` but no
+    // `DefaultKeyword`. An export modifier is not a name, and only `export
+    // default` gives the name `default`.
+    const { result } = await analyzeFiles(t, { 'src/export-class.ts': 'export class {}\n' });
+
+    const declarations = fileByPath(result, 'src/export-class.ts').declarations;
+    assert.equal(
+      declarations.some((d) => d.kind === 'class' && d.name === 'default'),
+      false,
+      'ExportKeyword alone must not produce the name default',
+    );
+    assert.deepEqual(declarations.map((d) => [d.kind, d.name, d.exported]), []);
+  });
+
   it('keeps member extraction when the enclosing recovered class has no name', async (t) => {
     // Not valid JavaScript: `class { run() {} }` is missing a binding name.
     const { result } = await analyzeFiles(t, {
