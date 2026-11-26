@@ -28,7 +28,7 @@ import { asRevision, type RevisionId } from './revision.ts';
 export const ANALYSIS_SCHEMA_VERSION = 1;
 
 /** Version of the analyzer that produced a snapshot. */
-export const ANALYZER_VERSION = '1.0.1';
+export const ANALYZER_VERSION = '1.0.2';
 
 export const ANALYSIS_LANGUAGES = ['javascript', 'typescript'] as const;
 export type AnalysisLanguage = (typeof ANALYSIS_LANGUAGES)[number];
