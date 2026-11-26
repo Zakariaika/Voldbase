@@ -81,7 +81,7 @@ converts only `resolved-relative` imports into edges and requires the target to 
 in the analysis's file set.
 
 Therefore a target is safe to record only if it is already an analysed source
-file. This remains true after this proposal; no new eligibility rule or schema
+file. This remains true after S2; no new eligibility rule or schema
 field is needed.
 
 ### 1.4 Recorded baseline
@@ -152,7 +152,7 @@ candidate remains eligible solely because JavaScript files are eligible analysed
 sources; it is not modeling `allowJs` behavior.
 
 When both `module.js` and `module.ts` exist, a TypeScript importer therefore now
-selects `module.ts`; that is a deliberate change from VOLDBASE's current
+selects `module.ts`; that is a deliberate change from VOLDBASE's pre-S2
 exact-first result, not an accidental side effect.
 
 No new `ImportResolution` kind is introduced. A resolved substitution is still
