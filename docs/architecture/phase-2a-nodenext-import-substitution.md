@@ -88,7 +88,7 @@ The design-time baseline diagnostic at this SHA recorded: clean working tree,
 figures. This design task did not re-run the suite (it changes no code), but the
 repository state and SHA above were re-verified.
 
-## 2. Proposed behavior
+## 2. Approved behavior
 
 ### 2.1 Scope and gate
 
@@ -402,48 +402,52 @@ Consequences that follow from these decisions, not new choices:
 - Existing stored snapshots keep their recorded `analyzerVersion`, content and
   digest; new analyses are recorded separately as `1.0.2`.
 
-Implementation follow-ups, which are documentation tasks rather than open
-decisions:
+Implementation follow-ups:
 
-- Update the `1.0.1` samples in `README.md` and
-  `docs/architecture/phase-2a-static-analysis.md` to `1.0.2` and record the new
-  behavior and its limitation. This design task intentionally edits only this
-  document.
-- No new ADR is required: the parser boundary, dependency policy, layering and
-  architecture projection are unchanged, and ADR-0016 and ADR-0017 already permit
-  the resulting syntactic edges between analysed files.
+- **Completed in PR #29.** The `1.0.1` samples in `README.md` and
+  `docs/architecture/phase-2a-static-analysis.md` were updated to `1.0.2`, and
+  the new behavior and its limitation are documented there.
+- **No new ADR was required, and none was added in PR #29.** The parser boundary,
+  dependency policy, layering and architecture projection are unchanged, and
+  ADR-0016 and ADR-0017 already permit the resulting syntactic edges between
+  analysed files.
 
 ## 6. Implementation acceptance criteria
 
-The S2 implementation is acceptable only when all of the following hold:
+These criteria were reviewed against the merged implementation in PR #29 (merge
+commit `abd6238346c1363ac3a30497affd4a368fb75d78`) and the evidence available at
+that revision: the full suite passes locally (399 tests in 51 suites), and all
+CI checks on the merge commit succeeded — `typecheck + build + test` on Node
+22.x, 24.x and 26.x, plus the clean-checkout smoke job. A checked box is
+verified; the Zod box is intentionally left unchecked.
 
-- [ ] Current `main` is used as the base; no unrelated resolver changes.
-- [ ] Substitution runs only for relative specifiers from TypeScript importers,
+- [x] Current `main` is used as the base; no unrelated resolver changes.
+- [x] Substitution runs only for relative specifiers from TypeScript importers,
       after the outside-root check, and only for `.js`, `.mjs`, `.cjs` suffixes.
-- [ ] The rule covers every relative specifier the resolver classifies — static
+- [x] The rule covers every relative specifier the resolver classifies — static
       imports, literal dynamic imports, literal `require()`/`import x = require()`,
       `export … from`, and type-only imports/re-exports — and is not narrowed to
       static imports. Computed dynamic imports still produce VB003.
-- [ ] Candidate order is exactly `.ts`, `.tsx`, `.d.ts`, literal for `.js`;
+- [x] Candidate order is exactly `.ts`, `.tsx`, `.d.ts`, literal for `.js`;
       `.mts`, `.d.mts`, literal for `.mjs`; `.cts`, `.d.cts`, literal for `.cjs`.
-- [ ] The first candidate present in `sourcePaths` wins; no filesystem access and
+- [x] The first candidate present in `sourcePaths` wins; no filesystem access and
       no non-source target is ever selected.
-- [ ] JavaScript importers keep current exact-source behavior, including
+- [x] JavaScript importers keep current exact-source behavior, including
       `module.js` winning over `module.ts` when both exist.
-- [ ] Extensionless imports, `index` resolution, `external` classification and
+- [x] Extensionless imports, `index` resolution, `external` classification and
       `outside-root`/VB004 behavior are unchanged.
-- [ ] No substitution outside the approved mappings is performed: `.js` never
+- [x] No substitution outside the approved mappings is performed: `.js` never
       maps to `.mjs`, `.mts` or `.cts`; `.mjs` never maps to `.ts` or `.tsx`;
       `.cjs` never maps to `.ts` or `.tsx`; `.jsx` remains out of scope.
-- [ ] Resolved imports keep the original specifier and use the existing
+- [x] Resolved imports keep the original specifier and use the existing
       `resolved-relative` resolution; no new resolution kind or finding rule.
-- [ ] `ANALYZER_VERSION` is `1.0.2`; `ANALYSIS_SCHEMA_VERSION` remains 1 and the
+- [x] `ANALYZER_VERSION` is `1.0.2`; `ANALYSIS_SCHEMA_VERSION` remains 1 and the
       storage document version remains 1.
-- [ ] Existing snapshots still load and retain their recorded digest and
+- [x] Existing snapshots still load and retain their recorded digest and
       `analyzerVersion`; no migration is introduced.
-- [ ] New snapshots validate, their digests are reproducible, and existing tests
+- [x] New snapshots validate, their digests are reproducible, and existing tests
       remain valid.
-- [ ] The full regression matrix in §4 passes, including declaration-target,
+- [x] The full regression matrix in §4 passes, including declaration-target,
       JS-importer, precedence, snapshot and architecture tests.
 - [ ] The Zod acceptance target in §3.2 is re-measured after implementation; the
       recorded baseline is 2 resolved imports, 678 VB002, 2 architecture edges,
@@ -453,10 +457,12 @@ The S2 implementation is acceptable only when all of the following hold:
       52 modules, 41 distinct module-to-module pairs, 22 isolated modules and 2
       cycle components**, exactly as approved in §5. The
       295 architecture findings are threshold-dependent and are not an acceptance
-      criterion.
-- [ ] `README.md` and `docs/architecture/phase-2a-static-analysis.md` samples are
+      criterion. **Pending:** no post-implementation re-measurement has been
+      verified; the figures in §3.2 remain projections.
+- [x] `README.md` and `docs/architecture/phase-2a-static-analysis.md` samples are
       updated from `1.0.1` to `1.0.2`, and the new behavior/limitation is
       documented.
-- [ ] The 350 existing tests in 50 suites remain green, every new regression
+- [x] The 350 existing tests in 50 suites remain green, every new regression
       test in §4 passes, and `npm run typecheck`, `npm run build` and `npm test`
-      pass.
+      pass. (The suite now reports 399 tests in 51 suites, all passing: the 350
+      pre-existing tests plus the 49 new substitution tests.)
