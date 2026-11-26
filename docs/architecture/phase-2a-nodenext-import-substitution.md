@@ -17,9 +17,13 @@ implementation, and it was implemented in PR #29 (merge commit
 parser, declaration extraction, finding rules, snapshot shape or architecture
 algorithms.
 
-## 1. Verified current behavior
+## 1. Verified pre-S2 baseline behavior
 
 ### 1.1 Resolver
+
+This section records the resolver behavior verified before S2. The description
+and examples below are the pre-S2 baseline (before PR #29), not the current
+resolver behavior; §2 describes the behavior S2 approved and PR #29 implemented.
 
 `resolveImportSpecifier()` in
 `src/infrastructure/fs/typescript-analyzer.ts` classifies every import at parse
@@ -36,13 +40,13 @@ For a relative specifier it:
 4. returns the first candidate present in the analysed source-path set, or
    `unresolved-relative`.
 
-Consequences today:
+Consequences before S2:
 
 - `./module.js` produces candidates such as `module.js`, `module.js.ts`, …; the
   final extension is never replaced. It resolves only when an actual `module.js`
   was analysed.
 - The exact literal path is tried **first**. When both `module.js` and
-  `module.ts` exist, VOLDBASE currently selects `module.js`.
+  `module.ts` exist, the pre-S2 resolver selects `module.js`.
 - `.mjs` and `.cjs` behave the same way: only an exact `.mjs`/`.cjs` source
   resolves; there is no `.mjs` → `.mts` or `.cjs` → `.cts` substitution.
 - The importing file's language is not consulted.
