@@ -62,6 +62,20 @@ const SOURCE_LANGUAGES: ReadonlyMap<string, AnalysisLanguage> = new Map([
   ['.cts', 'typescript'],
 ]);
 
+/**
+ * NodeNext-style substitutions for a TypeScript importer (S2).
+ *
+ * Keys are the JavaScript extensions a specifier may end in; values are the
+ * analysed TypeScript candidates tried, in order, before the literal specifier.
+ * No other mapping exists: `.js` never maps to `.mjs`/`.mts`/`.cts`, `.mjs`
+ * never maps to `.ts`/`.tsx`, and `.jsx` is not substituted at all.
+ */
+const TYPESCRIPT_SUBSTITUTIONS: ReadonlyMap<string, readonly string[]> = new Map([
+  ['.js', ['.ts', '.tsx', '.d.ts']],
+  ['.mjs', ['.mts', '.d.mts']],
+  ['.cjs', ['.cts', '.d.cts']],
+]);
+
 /** Extension candidates tried when resolving a relative specifier. */
 const RESOLUTION_EXTENSIONS: readonly string[] = [
   '.ts',
@@ -105,8 +119,32 @@ export function isSupportedSourcePath(relativePath: string): boolean {
 }
 
 /**
+ * TypeScript candidates an import specifier may name before its literal path.
+ *
+ * Only a TypeScript importer gets substitution, and only for `.js`, `.mjs` and
+ * `.cjs` specifiers; every other case keeps the exact-source candidate list. The
+ * returned paths are only candidates: they still have to be analysed files.
+ */
+function substitutionCandidates(normalized: string, fromPath: string): readonly string[] {
+  if (languageOf(fromPath) !== 'typescript') {
+    return [];
+  }
+  const extension = path.posix.extname(normalized);
+  const replacements = TYPESCRIPT_SUBSTITUTIONS.get(extension);
+  if (replacements === undefined) {
+    return [];
+  }
+  const stem = normalized.slice(0, -extension.length);
+  return replacements.map((replacement) => `${stem}${replacement}`);
+}
+
+/**
  * Classify a specifier without touching the filesystem: only names that match an
  * analysed file are reported as resolved.
+ *
+ * A TypeScript importer's `./x.js`-style specifier is tried against its approved
+ * TypeScript counterparts first and the literal JavaScript file last (S2).
+ * JavaScript importers never substitute: for them the literal path stays first.
  */
 export function resolveImportSpecifier(
   specifier: string,
@@ -125,7 +163,7 @@ export function resolveImportSpecifier(
     return { resolution: 'outside-root' };
   }
 
-  const candidates = [normalized];
+  const candidates = [...substitutionCandidates(normalized, fromPath), normalized];
   for (const extension of RESOLUTION_EXTENSIONS) {
     candidates.push(`${normalized}${extension}`);
   }

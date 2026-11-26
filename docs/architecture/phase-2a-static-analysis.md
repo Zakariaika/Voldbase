@@ -101,7 +101,7 @@ A snapshot is persisted only after all four checks pass.
 | --- | --- |
 | `analysisId`, `createdAt` | identity and provenance — **excluded** from the digest |
 | `schemaVersion` | format version (currently 1) |
-| `analyzerVersion` | what produced the result (currently `1.0.1`) |
+| `analyzerVersion` | what produced the result (currently `1.0.2`) |
 | `projectId`, `projectRevision` | exactly what was analysed |
 | `settings` | extensions, and the file/byte/source-file bounds in force |
 | `files` | analysed files with declarations and import edges |
@@ -156,7 +156,7 @@ $ voldbase analyze proj_df02e2
 Analysed project proj_df02e2 (demo)
   project      proj_df02e2
   revision     sha256:c5dfb407e8b9…
-  analyzer     1.0.1
+  analyzer     1.0.2
   analysed     2026-11-16T09:00:00.000Z
   source       1 files (javascript)
   declarations 2
