@@ -1,4 +1,4 @@
-# 0021 — Python parsing, analysis schema evolution and migration integrity
+# 0021 — Python parsing, analysis schema evolution and migration integrity (analysis and storage schema versions deferred to a unified decision)
 
 - Status: Proposed
 - Date: 2026-11-23
@@ -27,11 +27,27 @@ Three things make this expensive to reverse, and therefore an ADR:
 2. **A recorded-format change.** Analyses are content-addressed records on disk
    (ADR-0009, ADR-0016). Recording Python files requires new domain vocabulary, and
    the `schemaVersion` field is *inside* the hashed content, so adding vocabulary
-   moves digests and forces a migration of existing records.
+   moves digests and, whenever a new version is assigned, forces a migration of
+   existing records.
 3. **A migration that must not damage evidence.** Existing v1 records are the
    product's evidence. A migration that recomputes a digest before proving the
    original is intact would launder a modified record into a "valid" one, and the
    current read path has exactly that shape.
+
+The recorded-format change in item 2 needs a version number, and this ADR does not
+choose one. `ANALYSIS_SCHEMA_VERSION` (the meaning of one analysis record) and
+`ANALYSES_STORAGE_SCHEMA_VERSION` (the envelope document) are **independent version
+dimensions**: this ADR does not assume they advance together, and it does not assume a
+compatibility pair must be `(next, next)`. Both numbers are deferred to a unified
+schema-evolution decision that covers every recorded format — including the Python
+vocabulary in item 2, the Workspace Resolution values `resolved-workspace` and its
+`resolvedPath` invariants, and any other approved change to persisted analysis records
+or storage compatibility. Until that decision is accepted and implemented, this ADR
+allocates no version, claims no migration path and is not implemented. The
+version-specific vocabulary, envelope and migration material below is a set of
+conditional requirements on that decision, not an allocation. Naming Workspace
+Resolution here records that dependency only; it does not implement it, change its
+design or authorize implementation.
 
 What the investigation established (Steps 3R–3R.3, all read-only, no code changed):
 
@@ -61,9 +77,10 @@ What the investigation established (Steps 3R–3R.3, all read-only, no code chan
   `tree-sitter-python` grammar at ABI 15 parses Python in WASM. The probe ran on
   **Node 26.13.1 only**; Node 22.18.0 was never exercised.
 
-The work is therefore staged: the parser, its grammar asset, the encoding subset, the
-domain mapping and the schema migration are decided here; `.py` activation is a
-separate, later review.
+The work is therefore staged: the parser, its grammar asset, the encoding subset and
+the domain mapping are decided here; the schema-version allocation and the migration
+are conditional requirements in decision 5, and `.py` activation is a separate, later
+review.
 
 ## Decision
 
@@ -97,7 +114,8 @@ requires, each reviewed on its own:
 1. the parser adapter (pinned runtime, vendored grammar, ABI assertion, integrity
    check, cancellation budget);
 2. the extractor (declarations, imports, findings) with its tests;
-3. the domain mapping (decision 8) and the schema v2 migration (decision 5);
+3. the domain mapping (decision 8) and the schema migration the unified decision
+   assigns (decision 5);
 4. integration review: limits, encoding behaviour, error precedence and the
    regression tests in the testing section below, plus Node 22.18.0 verification
    (decision 2).
@@ -270,12 +288,12 @@ verified against CPython 3.12.3's `tokenize.detect_encoding`:
   misrepresenting non-ASCII identifiers and string contents, and a syntactically
   plausible tree over that text would not be evidence about the original source. No
   such tree is produced or interpreted.
-- **Remaining representation gap, stated rather than hidden:** v2 has no per-file
-  "not analysed" status. A file refused for encoding is still recorded (path, size,
-  digest) with empty declaration and import lists plus its `VB006` finding. The
-  finding is the statement that the file was not read; no consumer may interpret the
-  empty lists as "this module has no declarations or imports". A per-file status is a
-  v3 question (see Open questions).
+- **Remaining representation gap, stated rather than hidden:** no version decided
+  here has a per-file "not analysed" status. A file refused for encoding is still
+  recorded (path, size, digest) with empty declaration and import lists plus its
+  `VB006` finding. The finding is the statement that the file was not read; no
+  consumer may interpret the empty lists as "this module has no declarations or
+  imports". A per-file status is a later schema decision (see Open questions).
 - **UTF-16 / UTF-32 are binary for this path,** not "another unsupported PEP 263
   codec". The shared runner's NUL check runs first: UTF-16/32 text containing any code
   point in `U+0000–U+00FF` carries NUL bytes and is already refused with
@@ -303,39 +321,77 @@ Codec details that still need implementation-time verification:
 - Whether `unused-coding-cookie`/BOM-plus-cookie cases deserve their own diagnostic
   text is a wording question for implementation.
 
-### 5. Analysis schema v2 and migration integrity
+### 5. Analysis schema evolution and migration integrity (version numbers deferred)
+
+**Version numbers are deferred.** This ADR does not assign a value to
+`ANALYSIS_SCHEMA_VERSION` or to `ANALYSES_STORAGE_SCHEMA_VERSION`. Both numbers are
+deferred to a single unified schema-evolution decision covering every recorded format,
+not only analysis. Until that decision is accepted and implemented, this ADR allocates
+no version and claims no migration path; the requirements below are what such a
+decision must satisfy for Python, with the numbers left as placeholders.
 
 **Two versions, two jobs.** `ANALYSIS_SCHEMA_VERSION` names the meaning of one
 analysis record: which vocabularies and rules its fields obey. It is part of the
 hashed content. `ANALYSES_STORAGE_SCHEMA_VERSION` names the envelope document
 (`{ schemaVersion, analyses }`): which entry versions it may contain and how it is
-laid out. It is not hashed. They both move to **2** here, because this change alters
-the record vocabulary *and* which entry versions the envelope accepts, but they stay
-separate constants: an envelope-only change (a new top-level field) may later bump
-only the storage version.
+laid out. It is not hashed. A Python vocabulary change alters the record vocabulary,
+and accepting new entry versions alongside v1 is an envelope statement, but neither
+statement makes the two numbers equal or ties them to a single move. They must stay
+separate constants, because an envelope-only change (a new top-level field) may bump
+only the storage version, while a record-only change leaves the envelope number to the
+unified decision.
 
-**What v2 adds.** The `python` language value (already present in the domain
-vocabulary since the Stage 1 widening, but never produced by a v1 analyzer and not
-accepted by the frozen v1 rules), and six import-resolution values instead of four:
+**Independent axes, not one number twice.** `ANALYSIS_SCHEMA_VERSION` and
+`ANALYSES_STORAGE_SCHEMA_VERSION` are separate dimensions: this ADR assumes neither
+that a new record version forces the same envelope version nor the reverse. The
+**declared compatibility matrix** is where the two axes meet, and each pair it declares
+carries both numbers explicitly alongside its validator, digest rules and migration
+behaviour — so a declared pair whose two numbers differ is as valid as (v1, v1).
+`(next, next)` is not an assumed default, and no pair is derived from arithmetic on the
+other number.
+
+**Scope of the unified decision.** That decision must account for every approved change
+to the recorded format, not only Python's:
+
+- Python analysis vocabulary additions: the domain values `unresolved-root` and
+  `ambiguous` (decision 8), plus `python` as a language value.
+- Workspace Resolution: the `resolved-workspace` resolution value and its
+  `resolvedPath` invariants.
+- Any other approved change that affects persisted analysis records or storage
+  compatibility.
+
+Recording Workspace Resolution in this scope records its dependency on the version
+decision only. It does not implement Workspace Resolution, change its design, or treat
+its earlier approval as authorization to implement it.
+
+**What a new version must add (conditional).** Once a version is assigned, the record
+vocabulary it defines must contain the `python` language value (already present in the
+domain vocabulary since the Stage 1 widening, but never produced by a v1 analyzer and
+not accepted by the frozen v1 rules) and six import-resolution values instead of four:
 the existing `resolved-relative`, `unresolved-relative`, `external`, `outside-root`
-plus the new `unresolved-root` and `ambiguous` (decision 8). Canonicalisation — key
-ordering, array ordering, which fields the digest covers — is **unchanged**; v2
-changes which values are legal, not how bytes are hashed.
+plus `unresolved-root` and `ambiguous` (decision 8). Whether both need a new version at
+all, and which numbers carry them, is the unified decision's to make. Canonicalisation
+— key ordering, array ordering, which fields the digest covers — must be
+**unchanged**: a new version changes which values are legal, not how bytes are
+hashed.
 
 **Frozen v1.** The v1 normaliser and v1 vocabularies are copied into a frozen module
 (`IMPORT_RESOLUTIONS_V1`, `DECLARATION_KINDS_V1`, `ANALYSIS_LANGUAGES_V1`,
 `ANALYSIS_SETTINGS_RULES_V1`, `normalizeAnalysisContentV1`) and are not edited again.
 `ANALYSIS_LANGUAGES_V1` is `['javascript', 'typescript']`: a real v1 analyzer could
 not produce `python`, so a v1 record containing it is corrupt, not "forward
-compatible". v2 vocabularies are separate constants; v1 validation must never be
-widened to accept a v2-only value, and v2 validation must not be used to verify a v1
-record. The v1 canonicalisation is pinned by a literal digest taken from that
-pre-freeze implementation and reproduced by the frozen normaliser (D22); that pin is a
-mandatory regression requirement, not an open question.
+compatible". The next version's vocabularies are separate constants; v1 validation
+must never be widened to accept a value the new version introduces, and the new
+validation must not be used to verify a v1 record. The v1 canonicalisation is pinned
+by a literal digest taken from that pre-freeze implementation and reproduced by the
+frozen normaliser (D22); that pin is a mandatory regression requirement, not an open
+question.
 
-**Migration order (mandatory).** Every step is observable and aborts on failure. Steps
-1–4 are shared by both read paths; steps 5–9 run only for a (v1, v1) entry, and step 10
-only for a (v2, v2) entry.
+**Migration order (mandatory, once a version is assigned).** Every step is observable
+and aborts on failure. Steps 1–4 are shared by both read paths; steps 5–9 run only for
+a (v1, v1) entry, and step 10 only for an entry at the assigned version. The version
+numbers in these steps are placeholders; the order and the verify-before-transform
+property are the requirement.
 
 1. Validate the storage envelope version. An envelope version this build does not
    support stops here with `storage_unsupported_schema`; no entry version, pair,
@@ -343,57 +399,66 @@ only for a (v2, v2) entry.
 2. Look the (envelope, entry) pair up in the **declared compatibility matrix**. An
    entry version that is missing, not an integer, or paired with this envelope without
    being declared there stops here with `analysis_corrupted`. Version equality is not
-   the rule; the matrix is.
+   the rule; the matrix is, and a declared pair's two numbers may differ.
 3. Check that every validator the declared read path requires is available in this
    build, before any structural or semantic validation, digest work or migration
-   begins. A (v1, v1) entry requires both the frozen v1 validator and the v2 validator
-   that validates the migrated record; a (v2, v2) entry requires the v2 validator. If
-   any validator the selected path needs is unavailable, stop here with
+   begins. A (v1, v1) entry requires both the frozen v1 validator and the validator
+   for the assigned version that validates the migrated record; an entry at the
+   assigned version requires that validator. If any validator the selected path needs
+   is unavailable, stop here with
    `analysis_unsupported_schema`.
-4. Branch on the declared pair. A (v1, v1) entry continues with steps 5–9; a (v2, v2)
-   entry continues with step 10. The other path's steps are skipped entirely, so a v2
-   record is never validated, migrated or hashed as if it were v1.
+4. Branch on the declared pair. A (v1, v1) entry continues with steps 5–9; an entry at
+   the assigned version continues with step 10. The other path's steps are skipped
+   entirely, so a record at the assigned version is never validated, migrated or
+   hashed as if it were v1.
 5. **(v1, v1) Validate with frozen rules.** Apply the **frozen v1** structural and
    semantic validation to the entry and reconstruct the original v1 canonical content
    from it (same normaliser as the v1 build used, including the recomputed `summary`).
 6. **(v1, v1) Verify the recorded v1 digest.** Recompute the **v1 digest** under the
    pair's declared digest rules and compare it with the recorded digest — before any
    data is changed. A mismatch is `analysis_corrupted`.
-7. **(v1, v1) Migrate in memory.** Transform the validated record into v2
-   (`schemaVersion: 2`, v2 vocabulary). Nothing is written by the read.
-8. **(v1, v1) Validate the result independently.** Apply v2 validation to the
-   transformed record.
-9. **(v1, v1) Compute the new v2 digest and persist.** Compute the **v2 digest** of the
-   transformed record, then persist the complete migrated document atomically on the
-   next save (`#writeToDisk`: temporary file + rename under the existing exclusive
-   lock). Failure behaviour is decision 9.
-10. **(v2, v2) Validate and verify.** Apply the **v2** structural and semantic
-    validation to the entry and recompute the **v2 digest** under v2 rules, comparing
-    it with the recorded digest. An entry in this pair is not migrated, not
-    transformed and not hashed twice; a mismatch is `analysis_corrupted`.
+7. **(v1, v1) Migrate in memory.** Transform the validated record into the assigned
+   version (`schemaVersion` set to that number, its vocabulary). Nothing is written by
+   the read.
+8. **(v1, v1) Validate the result independently.** Apply the assigned version's
+   validation to the transformed record.
+9. **(v1, v1) Compute the new digest and persist.** Compute the **digest under the
+   assigned version's rules** for the transformed record, then persist the complete
+   migrated document atomically on the next save (`#writeToDisk`: temporary file +
+   rename under the existing exclusive lock). Failure behaviour is decision 9.
+10. **(assigned entry version) Validate and verify.** Apply the **assigned entry
+    version's** structural and semantic validation to the entry and recompute its
+    digest under the declared pair's rules, comparing it with the recorded digest. An
+    entry in this pair is not migrated, not transformed and not hashed twice; a
+    mismatch is `analysis_corrupted`.
 
-**The matrix decides compatibility; equality is not a substitute.** The pairs declared
-today are (v1, v1) and (v2, v2); (v1, v2) and (v2, v1) are not declared and are
-rejected. A future mixed pair such as (v3, v2) is accepted only once it is explicitly
-declared together with its validator, its digest verification rules and its migration
-behaviour — never because the two versions happen to be adjacent, or one of them
-matches the envelope.
+**The matrix decides compatibility; equality is not a substitute.** The only pair
+declared today is (v1, v1); every further pair is declared when its envelope number,
+its entry number, its validator, its digest rules and its migration behaviour are
+decided and implemented, never in advance. The two numbers of a declared pair are
+independent and may differ; `(next, next)` is not a default, and no pair is inferred
+from the other number. A future mixed pair — a newer envelope with an older entry
+version, or an older envelope with a newer entry version — is accepted only once it is
+explicitly declared with its validator, its digest verification rules and its
+migration behaviour, never because the two versions happen to be adjacent, one of them
+matches the envelope, or both would carry the same number.
 
 Under the proposed migration, the v1 read path transforms the whole document in memory;
 nothing is written by a read. That transformation and its cache semantics are the
 intended post-implementation behaviour (decision 9); today the read path validates v1
-records and does not transform them to v2. Because the digest covers
+records and does not transform them to a newer version. Because the digest covers
 `schemaVersion`, a migrated v1 record has a **different**
 digest from the v1 record it came from. That is intended: the v1 digest is preserved
 only as a check, never as the current digest. The repository's immutability rule
 (`analysis_immutable`) compares an incoming save against a fresh read of the document
 under the lock (which is itself migrated on read), so re-saving a migrated record is a
-no-op and not a false conflict; a v1 digest is never compared against a v2 digest.
+no-op and not a false conflict; a v1 digest is never compared against a newer digest.
 
 **`summary` is derived, never stored and never trusted.** `StoredAnalysis` has no
 `summary` field; `summarizeAnalysis()` recomputes it from the validated files and
-findings during step 5 (v1) and step 10 (v2). An injected `summary` key is ignored in
-memory and dropped on the next write. There is no summary comparison to add.
+findings during step 5 (v1) and step 10 (the assigned version). An injected `summary`
+key is ignored in memory and dropped on the next write. There is no summary
+comparison to add.
 
 **Settings counters are validated.** `maxFiles`, `maxTotalBytes`, `maxFileBytes` and
 `maxSourceFiles` must be positive safe integers (`Number.isSafeInteger(value) &&
@@ -475,6 +540,10 @@ not be merged by widening the domain to match the resolver. The mapping is expli
 | `unknown-root` | **`unresolved-root`** (new) | — | a plausible local module exists under a single top-level directory |
 | `ambiguous` | **`ambiguous`** (new) | — | the layout cannot prove a unique target |
 
+Both `unresolved-root` and `ambiguous` are conditional requirements: they need a new
+analysis schema version to be assigned (decision 5). Until then the four-value v1
+vocabulary remains the only recorded vocabulary.
+
 - `unknown-root` must **not** map to `external`: the point of the outcome is that the
   snapshot contains a plausible local module and the import root is unconfigured.
 - `ambiguous` must **not** map to `unresolved-relative`: "the path matches nothing" and
@@ -498,15 +567,16 @@ not be merged by widening the domain to match the resolver. The mapping is expli
   documentation or fixtures from an import root; the ADR records that as an open
   limitation rather than adding heuristics.
 - `implicitPaths` and `itemCandidates` are **conditional evidence and do not become
-  edges.** They are not fields of `ImportEdge` in v2: the architecture layer turns
+  edges.** They are not fields of `ImportEdge` in the new version: the architecture
+  layer turns
   every `resolved-relative` edge into a dependency edge (ADR-0017), so putting
   implicit `__init__.py` files or `from package import item` candidates into `edges`
   would silently manufacture dependencies that Python may not have (CPython imports
   `package.item` only when the package does not already define that name). Carrying
-  them in the snapshot needs its own field and its own ADR (v3).
+  them in the snapshot needs its own field and its own ADR (a later schema version).
 - The invariant "`resolvedPath` is present if and only if `resolution` is
-  `resolved-relative`" (and names an analysed file) is kept for v2 and becomes
-  `IMPORT_RESOLUTIONS_V2`'s rule; the frozen v1 rule stays exactly as it is.
+  `resolved-relative`" (and names an analysed file) is kept for a later version and
+  becomes that vocabulary constant's rule; the frozen v1 rule stays exactly as it is.
 - **JavaScript/TypeScript behaviour is unchanged.** Their front end keeps producing
   the four v1 values for the same inputs, and the same digests for the same content.
 
@@ -551,15 +621,15 @@ are decided here explicitly because a migration is written by exactly this path:
   directory is atomic on POSIX, so a concurrent reader sees either the whole old
   document or the whole new one — never a partial one.
 - **Cache state, narrowed to what the code proves:** the cache mechanics below are
-  current; the v2 form and migration retry semantics are intended behaviour once the
-  decision 5 migration is implemented. Today `ANALYSES_STORAGE_SCHEMA_VERSION` is `1`
+  current; the migrated form and migration retry semantics are intended behaviour once
+  the decision 5 migration is implemented. Today `ANALYSES_STORAGE_SCHEMA_VERSION` is `1`
   and a read validates v1 records without transforming them. `this.#analyses` still
   holds the map from the last successful `#load()` or the last successful write.
   `findById` and `listByProject` go through `#load()`, which returns that map and
   **never re-reads** while it is defined (`json-analysis-repository.ts:118–125`).
-  Under the proposed migration, a map populated by a read is already in migrated v2
-  form, so after a failed migration write the cache can hold v2 records while the
-  document is still v1: the records are equivalent, but the cache is not byte-identical
+  Under the proposed migration, a map populated by a read is already in migrated
+  form, so after a failed migration write the cache can hold migrated records while
+  the document is still v1: the records are equivalent, but the cache is not byte-identical
   to the file. If no read has populated the cache, the
   next `findById`/`listByProject` calls `#readFromDisk()` and migrates the unchanged
   v1 document again. After a failed save the reader therefore sees this process's
@@ -571,9 +641,9 @@ are decided here explicitly because a migration is written by exactly this path:
   here. The lock is released in `finally` in every case.
 - **Leftovers:** if removing the temporary file also fails, a `*.tmp` file may remain.
   It is never the document, and reads ignore it.
-- **Reads never write.** A migration that fails in memory (bad v1 digest, v2
-  validation failure) persists nothing. It is recomputed only on the next read that
-  actually reaches disk: `#load()` returns the cached map without re-reading once
+- **Reads never write.** A migration that fails in memory (bad v1 digest, assigned-
+  version validation failure) persists nothing. It is recomputed only on the next read
+  that actually reaches disk: `#load()` returns the cached map without re-reading once
   `this.#analyses` is populated (`json-analysis-repository.ts:118–125`), so an
   already-loaded repository instance does not retry the migration on every subsequent
   read. This retry statement is part of the intended post-implementation behaviour,
@@ -620,12 +690,12 @@ must not be collapsed into one another.
   consumers read `imports[]`, not the finding list.
 - **Representation:** the file record keeps path/size/digest with empty lists, and
   `VB001` is the statement that it was not read. This is the same representation gap as
-  decision 4 — v2 has no per-file status — and it is recorded as an open question
-  rather than disguised.
+  decision 4 — no version decided here has a per-file status — and it is recorded
+  as an open question rather than disguised.
 - **Deliberate cost:** one unparsable line loses that file's declarations and imports.
   That is coarse on purpose. Per-subtree extraction guarded by "no `ERROR`/`MISSING`
-  ancestor", with an explicit certainty marker on `ImportEdge`, is a v3 design that
-  needs its own schema and its own evidence.
+  ancestor", with an explicit certainty marker on `ImportEdge`, is a later schema
+  design that needs its own schema and its own evidence.
 
 **10.2 Cancellation by the deterministic step budget.**
 
@@ -695,19 +765,19 @@ reviewability matter more here than parse throughput, which the input bounds alr
 cap.
 
 **Why the digests must move, and why that is safe.** `schemaVersion` is hashed, so a
-v2 record cannot keep a v1 digest. Keeping v1 digests valid would mean hashing
-`schemaVersion` out of the content, which would invalidate every existing v1 digest
+record at a new version cannot keep a v1 digest. Keeping v1 digests valid would mean
+hashing `schemaVersion` out of the content, which would invalidate every existing v1 digest
 (all of them were computed with it) and destroy the only check that proves an old
 record is intact. Instead, the v1 digest is verified under frozen v1 rules before any
-transformation, and the v2 digest is computed afterwards. Old evidence keeps its
+transformation, and the new digest is computed afterwards. Old evidence keeps its
 integrity check; new evidence gets a digest that describes the record as it now is.
 
-**Why verify before transforming.** Validating a v1 record with v2 rules and hashing
-the result would accept a record whose stored digest was never valid — exactly the
-laundering the migration must avoid. It would also silently reinterpret v1 data
-(a v1 `resolved-relative` entry is valid under v2's wider vocabulary but the reverse
-is not). Frozen rules plus "verify first, transform second" keeps both directions
-honest.
+**Why verify before transforming.** Validating a v1 record with the next version's
+rules and hashing the result would accept a record whose stored digest was never
+valid — exactly the laundering the migration must avoid. It would also silently
+reinterpret v1 data (a v1 `resolved-relative` entry is valid under the next version's
+wider vocabulary but the reverse is not). Frozen rules plus "verify first, transform second" keeps both
+directions honest.
 
 **Why `unknown-root` and `ambiguous` are new domain values.** They describe things the
 snapshot can see and the existing four values cannot say. Collapsing them into
@@ -759,13 +829,16 @@ the remaining boundary is documented rather than described as security.
 - **Keep one schema version and add Python under v1.** Rejected: v1 records would then
   contain `unresolved-root`/`ambiguous`/`python`, which v1-era builds reject — the
   vocabulary would silently widen historical rules, which is what this ADR forbids.
-- **Bump only `ANALYSIS_SCHEMA_VERSION`.** Rejected: the envelope must accept entry
-  version 2 while still reading version 1, which is a storage-version statement; the
-  two constants describe different things and moving only one leaves the envelope
-  lying about what it contains.
+- **Bump only `ANALYSIS_SCHEMA_VERSION` and leave both the envelope number and the
+  compatibility matrix untouched.** Rejected as a shape, independent of the numbers: an
+  envelope that accepts an entry version its declared matrix does not pair with it is
+  lying about what it contains. Whether the envelope *number* must change, or whether
+  the new entry version is declared as a pair under the existing envelope number, is
+  the unified decision's to make (decision 5). Moving only `ANALYSIS_SCHEMA_VERSION` is
+  therefore not rejected as such — only the undeclared widening of entry versions is.
 - **Keep v1 digests valid by excluding `schemaVersion` from the hash.** Rejected: it
   invalidates every existing v1 digest and removes the check that proves old records
-  are intact. A categorical "v1 or v2" marker outside the hash was also rejected:
+  are intact. A categorical version marker outside the hash was also rejected:
   it is the same information with weaker guarantees.
 - **Trust `summary` from the stored record to avoid recomputation.** Rejected: it is
   derived in one line, it is not stored, and a stored summary would be a second source
@@ -818,37 +891,44 @@ the remaining boundary is documented rather than described as security.
 - **No new network, telemetry or credential surface.** The parser loads local bytes and
   returns a tree.
 
-## Compatibility and migration strategy
+## Compatibility and migration strategy (conditional)
+
+Everything in this section is conditional on the unified schema-evolution decision
+assigning a version (decision 5); the version numbers are placeholders.
 
 **Reading.**
 
 - Envelope v1: the (v1, v1) pair is declared and supported; validated with frozen v1
-  rules, v1 digest verified, transformed to v2 in memory. Reading never writes.
-- Envelope v2: the (v2, v2) pair is declared and supported; validated with v2 rules and
-  the v2 digest verified.
-- Any other pair — (v1, v2), (v2, v1), or a future mixed pair that is not declared —
-  is rejected per decision 6, before any validation or digest work: undeclared pairs
-  are `analysis_corrupted`, and a declared pair this build cannot validate is
+  rules and the v1 digest verified. Once a new version is assigned, the v1 record is
+  transformed in memory to that version. Reading never writes.
+- The envelope version the unified decision pairs with the assigned entry version —
+  which may be a different number — is declared as a pair once it exists, and its
+  entries are validated with that pair's rules and its digest verified.
+- Any pair the matrix does not declare — including an envelope/entry combination whose
+  two numbers differ that the unified decision has not declared — is rejected per
+  decision 6, before any validation or digest work: undeclared pairs are
+  `analysis_corrupted`, and a declared pair this build cannot validate is
   `analysis_unsupported_schema`.
 - Envelope newer than the build: `storage_unsupported_schema` with an upgrade message.
-  This is what an older VOLDBASE says when it meets a v2 file, and it is correct — the
-  alternative (trying to read it) would be guessing. The envelope version is checked
-  first (decision 5 step 1), so an unsupported envelope never surfaces an
-  entry-version error such as `analysis_corrupted`.
+  This is what an older VOLDBASE says when it meets a file at a newer schema version,
+  and it is correct — the alternative (trying to read it) would be guessing. The
+  envelope version is checked first (decision 5 step 1), so an unsupported envelope
+  never surfaces an entry-version error such as `analysis_corrupted`.
 - Envelope older than any path this build has: `storage_unsupported_schema`
   ("no migration path"), also at step 1.
 - Structural damage anywhere: `analysis_corrupted`, file left byte-for-byte as found.
 
-**Writing.** New and migrated records are written as envelope v2 with v2 entries, by
-`#writeToDisk` under the exclusive lock, atomically (temporary file + rename). A failed
-migration never writes; a successful read followed by an unrelated save persists the
-migrated document. There is no down-migration: a v2 file is not readable by a v1
-build, which is why the error must be a clear upgrade instruction and never a
-corruption claim.
+**Writing.** New and migrated records are written under the declared pair's envelope
+version (which may differ from the entry version) with entries at the assigned entry
+version, by `#writeToDisk` under the exclusive lock, atomically (temporary file +
+rename). A failed migration never writes; a successful read followed by an
+unrelated save persists the migrated document. There is no down-migration: a file at
+the new version is not readable by a v1 build, which is why the error must be a clear
+upgrade instruction and never a corruption claim.
 
-**Digest continuity.** A migrated record's v2 digest differs from its v1 digest by
+**Digest continuity.** A migrated record's new digest differs from its v1 digest by
 design. The v1 digest is preserved only as the verification input at step 6; it is not
-retained in the v2 record as a second digest, because two digests over the same
+retained in the migrated record as a second digest, because two digests over the same
 content invite the question of which one is authoritative. If provenance of the
 migration itself is later required, it needs a field outside the hashed content and
 its own decision.
@@ -860,32 +940,34 @@ unresolved imports already receive. JavaScript/TypeScript analyses keep their
 vocabulary, their analysis behaviour and their CLI output, and v1 verification keeps its
 frozen canonicalisation and digest rules (`normalizeAnalysisContentV1`). Their stored
 digests do change when a v1 record is migrated: `schemaVersion` is part of the hashed
-content, so the migrated v2 record carries a new v2 digest (step 9). That one-time
+content, so the migrated record carries a new digest (step 9). That one-time
 change applies to every migrated record, not only to JavaScript/TypeScript ones.
 
-**Deployment order.** Schema v2 and the migration land **before** the Python front end
-is enabled, so that no build can write a Python record it cannot read. Enabling `.py`
-without the migration would produce records that a v1 build rejects as corrupt — the
-failure this ordering prevents.
+**Deployment order.** The new entry version, its declared envelope version and the
+migration between them land **before** the Python front end is enabled, so that no
+build can write a Python record it cannot read. Enabling `.py` without the migration would produce records that a v1 build
+rejects as corrupt — the failure this ordering prevents.
 
 ## Testing and verification requirements
 
 These are the regression tests the change must ship with; expected results are exact,
-and each protects a named code path. None of them exists today.
+and each protects a named code path. None of them exists today. Tests that name a new
+schema version (D4, D7–D9, D11–D13, D19) are conditional on the unified decision
+assigning one; their version numbers are placeholders.
 
 | # | Test | Expected | Protected path |
 | --- | --- | --- | --- |
 | D1 | Inject a `summary` object with wrong counts into a stored v1 entry, digest untouched | Loads; `summary` is the recomputed one; the key is absent after the next save | `storedToAnalysis`, `analysisToStored`, `summarizeAnalysis` |
 | D2 | Alter a finding message in a v1 entry, keep the digest | `analysis_corrupted` | frozen v1 validation + v1 digest check |
 | D3 | Alter a finding message **and** recompute the v1 digest | Accepted (documents the non-authenticating boundary) | decision 7 |
-| D4 | Set an unknown `resolution` value with a recomputed digest | `analysis_corrupted` | `IMPORT_RESOLUTIONS_V1`/`_V2` |
+| D4 | Set an unknown `resolution` value with a recomputed digest | `analysis_corrupted` | v1 and next-version vocabularies |
 | D5 | `settings: { maxFiles: "lots", maxTotalBytes: -1, … }` with a recomputed digest | `analysis_corrupted` (today: accepted) | settings validation |
 | D6 | Two entries with the same `analysisId`, both otherwise valid | `analysis_corrupted` naming the id and both positions (today: last wins silently) | duplicate detection before the `Map` |
-| D7 | Envelope `schemaVersion: 2`, entries v2, valid | Loads with no migration and no write | v2 path |
-| D8 | Envelope `schemaVersion: 2`, one entry `schemaVersion: 1` | `analysis_corrupted` (the pair is undeclared) | decision 6 row 5 |
+| D7 | Envelope at the assigned envelope version, entries at the assigned entry version — the pair the matrix declares — valid | Loads with no migration and no write | new-version path |
+| D8 | Envelope at the assigned envelope version, one entry at a version the matrix does not pair with it (for example `schemaVersion: 1` when that pair is not declared) | `analysis_corrupted` (the pair is undeclared) | decision 6 row 5 |
 | D9 | Envelope `schemaVersion: 99` | `storage_unsupported_schema` | envelope check |
 | D10 | Envelope missing, `null`, `"1"`, `1.5` | `analysis_corrupted` | `detectVersion` policy |
-| D11 | Envelope v1 document, all entries valid v1 | Transformed in memory to v2; ids, timestamps and file content preserved; v2 digest differs from v1 digest; save is not rejected as `analysis_immutable`; the file is unchanged until a save | steps 1–9 |
+| D11 | Envelope v1 document, all entries valid v1 | Transformed in memory to the new version; ids, timestamps and file content preserved; its digest differs from the v1 digest; save is not rejected as `analysis_immutable`; the file is unchanged until a save | steps 1–9 |
 | D12 | Envelope v1 entry with `language: 'python'` and a valid-looking v1 digest | `analysis_corrupted` (v1 vocabulary is frozen) | `ANALYSIS_LANGUAGES_V1` |
 | D13 | v1 entry whose recorded digest was computed over a **non-canonical input** (for example extensions hashed unsorted, or an extra key folded into the hash), so the digest cannot be reproduced from the canonical form | `analysis_corrupted` — the digest is over canonical JSON and is not recomputed under a looser rule | frozen v1 normaliser + `analysisContentDigest` |
 | D14 | A `.py` file declaring `# coding: cp1251` (outside the allowlist) whose ASCII body contains a `def` and an `import pkg.mod`; a second file with a UTF-8 BOM plus `# coding: latin-1` | Both recorded (path, size, digest) with **zero** declarations and **zero** imports, one `VB006` `warning`/`conditional` finding each, and no `ImportEdge` at all | encoding gate before extraction (decision 4) |
@@ -893,7 +975,7 @@ and each protects a named code path. None of them exists today.
 | D16 | A save that would persist a migrated document, with the temporary-file write forced to fail | `storage_write_failed`; the document on disk byte-identical to before; `listByProject` still returns the pre-save analyses; no `.tmp` left (or, if cleanup fails too, only a `.tmp`); a later save succeeds | `#writeToDisk` + `save` ordering (decision 9) |
 | D17 | The same save with **rename** forced to fail | `storage_write_failed`; disk unchanged; in-memory map unchanged (record not added); a following successful save writes the complete document once, with no duplicate and no lost record | decision 9 |
 | D18 | `fromPath: app.py`, paths `src/myapp/__init__.py`, `src/myapp/core.py`, import `myapp.core` | Resolver status `unknown-root` → domain `unresolved-root`; no `resolvedPath`; no architecture edge. A genuinely absent name (`requests`) stays `external`; neither becomes `unresolved-relative` | resolver → domain mapping (decision 8) |
-| D19 | A valid v1 entry whose stored `files`/`declarations`/`imports`/`findings`/`supportedExtensions` arrays are permuted, digest left as recorded | The **original recorded v1 digest still verifies** — the frozen v1 normaliser sorts those arrays before hashing, so a permitted permutation is not a content change and preserves the original v1 digest. Migration then computes a **newly computed v2 digest**, because `schemaVersion` is hashed and changes from 1 to 2. The v1 and v2 digests are never expected to be equal and are never compared with each other: the v1 digest is only the pre-transform check, the v2 digest is the current record's digest. Re-saving writes the same document as saving the already-ordered record, that is, the ordered form plus its v2 digest | frozen v1 normaliser (permitted reordering) |
+| D19 | A valid v1 entry whose stored `files`/`declarations`/`imports`/`findings`/`supportedExtensions` arrays are permuted, digest left as recorded | The **original recorded v1 digest still verifies** — the frozen v1 normaliser sorts those arrays before hashing, so a permitted permutation is not a content change and preserves the original v1 digest. Migration then computes a **newly computed digest for the new version**, because `schemaVersion` is hashed and changes. The v1 and new digests are never expected to be equal and are never compared with each other: the v1 digest is only the pre-transform check, the new digest is the current record's digest. Re-saving writes the same document as saving the already-ordered record, that is, the ordered form plus its new-version digest | frozen v1 normaliser (permitted reordering) |
 | D20 | Cancel a parse of a fixed, checked-in Python fixture using a deliberately small, explicit step budget (not the production proposal) chosen so the fixture demonstrably reaches it under the pinned runtime; the fixture and its expected callback count are recorded. The callback asserts every invocation and returns literal `true` when the configured threshold is reached; then call `reset()`, parse a second file and re-parse the first | The callback count reaches the configured threshold (the test asserts the counter equals the budget at cancellation); `parse` returns `null` at budget exhaustion; the run reports `analysis_limit_exceeded`; **no `VB001`** and no partial analysis result are produced; the parses after `reset()` each match a fresh parser's tree (same structure, no `ERROR` attributable to the aborted parse), proving the next parse is independent. This tests budget exhaustion only; it is not a hard timeout and not a CPU-time guarantee | cancellation + `reset()` (decisions 3, 10.2) |
 | D21 | Parser/environment failures kept distinct: (a) grammar loading — invalid grammar WASM and a missing grammar file; (b) ABI incompatibility — a genuinely rebuilt incompatible grammar artifact (a patched version field may document the runtime guard but is not sufficient proof); (c) runtime initialization — missing and invalid runtime WASM rejected by `Parser.init`, with each scenario executed in a fresh Node.js process so cached `Parser.init()` state cannot hide the failure; (d) runtime parse failure — a `parse` call that throws. Add repository-level integration coverage that drives parser initialization and runtime parse failures through the analysis runner and repository boundary | `analysis_parser_failure` in every case; **no `VB001`**; no tree is used and no partial analysis result is produced; no analysis record is persisted for the failed run. Grammar loading, ABI incompatibility, runtime initialization and runtime parse failures remain distinct triggers: initialization cases are testable before any file is parsed, runtime parse failures during a parse | parser initialization, language loading, the parse call and the persistence boundary (decision 10.3) |
 | D22 | A checked-in v1 fixture (specified below) canonicalised by the frozen v1 normaliser; the expected digest `36c3084b405194a16122df4c6d84a01a7d57740e684cfb2b4b2dd6d5b68c0028` is stored as a literal in the test source | The normaliser reproduces the literal exactly, with no ordering, escaping or key-order drift; the expected value is never computed from the implementation under test at run time and never regenerated dynamically | frozen v1 normaliser (`normalizeAnalysisContentV1`) + v1 canonical JSON ordering |
@@ -922,14 +1004,16 @@ message `Import specifier could not be read statically.` and evidence `./a`, the
 
 Its expected digest, **`36c3084b405194a16122df4c6d84a01a7d57740e684cfb2b4b2dd6d5b68c0028`**,
 was captured from the original v1 implementation — not from the frozen copy, which does
-not exist yet, and not from any v2 code: `analysisContentDigest` over the normalised
-fixture in `src/domain/analysis.ts` (`ANALYSIS_SCHEMA_VERSION = 1`, blob
+not exist yet, and not from any code implementing a later schema version:
+`analysisContentDigest` over the normalised fixture in `src/domain/analysis.ts`
+(`ANALYSIS_SCHEMA_VERSION = 1`, blob
 `a4efe2e6f0f387893bfcfd640fff3438488991e3`) as merged on `main` at
 `bed3f52a136d4b46d0361b3eee4c8cc2b3f21f3a`. The value was produced identically in
 three independent processes, so the literal is reproducible from the fixture
 description. The fixture and the literal **must be checked in as data when D22 is
 implemented**; as of this ADR they are not yet in the repository. The test may not
-derive the expected value from `normalizeAnalysisContentV1` or from any v2 code.
+derive the expected value from `normalizeAnalysisContentV1` or from any code
+implementing a later schema version.
 
 Additional verification required before activation (not migration tests): parser probe
 on Node 22.18.0 exactly; grammar and runtime hash mismatch → `analysis_parser_failure`;
@@ -950,12 +1034,16 @@ the JavaScript/TypeScript digest freeze
 
 ## Consequences
 
-- Recording Python analyses requires schema v2; a v1 build meeting a v2 file fails
-  with `storage_unsupported_schema` and must be upgraded. That is a visible,
-  one-directional floor on supported versions.
+- Recording Python analyses requires a new analysis record version, and an envelope
+  whose declared compatibility matrix accepts it — the two numbers need not be equal.
+  A v1 build meeting such a file fails with `storage_unsupported_schema` and must be
+  upgraded. Which numbers those are, and which pair is declared, remain deferred
+  (decision 5). That is a visible, one-directional floor on supported
+  versions.
 - Every existing analysis is migrated in memory on first read and rewritten on the next
-  save once this decision is implemented. Ids, project revisions, files, findings and
-  timestamps are preserved; digests change once, by design.
+  save once the unified decision assigns a version and the migration is implemented.
+  Ids, project revisions, files, findings and timestamps are preserved; digests change
+  once, by design.
 - The analysis document gains a stricter read path: settings counters are validated,
   duplicate ids are refused, and unknown entry versions stop being reported as
   corruption. A previously "readable" hand-edited file may now be refused; that is the
@@ -1012,6 +1100,10 @@ the JavaScript/TypeScript digest freeze
 
 **Requires implementation-time verification (do not treat as settled).**
 
+- Which version numbers the unified schema-evolution decision assigns to the analysis
+  schema and to the storage envelope, which compatibility pairs it declares (including
+  any pair whose two numbers differ), and how it schedules the recorded-format changes
+  in decision 5's scope.
 - Whether the parser and grammar actually work on **Node 22.18.0** exactly — never
   exercised; CI floats `22.x`. A pinned job is required before activation.
 - The correct step-budget value: 250,000 callbacks per file is a proposal, not a
@@ -1023,14 +1115,14 @@ the JavaScript/TypeScript digest freeze
 - The exact codec allowlist implementation: WHATWG label aliasing
   (`iso-8859-1` → windows-1252) must be resolved before `cp1252` and `iso-8859-1` can
   both be supported; non-ASCII bytes before the cookie keyword need a test.
-- How v2 should represent a file that was deliberately not extracted from (unsupported
-  encoding, partially recovered tree). Today the only carrier is a finding plus empty
-  lists; a per-file status field would be a schema change of its own. Cancellation is
-  not part of this question: it aborts the run with `analysis_limit_exceeded` and
+- How a future version should represent a file that was deliberately not extracted
+  from (unsupported encoding, partially recovered tree). Today the only carrier is a
+  finding plus empty lists; a per-file status field would be a schema change of its
+  own. Cancellation is not part of this question: it aborts the run with `analysis_limit_exceeded` and
   produces no persisted per-file record.
 - Whether the whole-file loss on partial trees is acceptable in practice, or whether
   per-subtree extraction with an explicit certainty marker on `ImportEdge` is worth a
-  v3 schema.
+  later schema version.
 - The failure-injection seam needed for D16/D17: the repository has no hook for
   injected filesystem failures today, so adding one is an implementation decision, not
   something this ADR can assume.
@@ -1046,11 +1138,11 @@ the JavaScript/TypeScript digest freeze
 - How the Python extractor should set `Declaration.exported`: the working decision is
   `false` for every Python declaration (the language has no export modifier, and
   `__all__`/star-import rules are runtime facts), but a `visibility` field may be a
-  better answer and would be a v3 decision.
+  better answer and would be a later schema decision.
 - Whether `implicitPaths`/`itemCandidates` ever belong in the snapshot, and with what
-  edge semantics — deliberately out of scope for v2.
-- Whether storage v2 should ever permit mixed entry versions (currently: no), and what
-  would justify it.
+  edge semantics — deliberately out of scope for a new version.
+- Whether a future storage version should ever permit mixed entry versions (currently:
+  no), and what would justify it.
 - The removal path if `web-tree-sitter` is abandoned: it is reachable — the resolver,
   front end and schema are ours; only the WASM binding would need replacing — but no
   alternative binding has been evaluated.

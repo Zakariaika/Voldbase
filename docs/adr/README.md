@@ -50,4 +50,4 @@ Rules:
 | [0018](0018-execution-control-plane-and-sandbox-boundaries.md) | Execution control plane and sandbox boundaries | Proposed |
 | [0019](0019-isolation-runtime-selection.md) | Isolation runtime selection for the execution engine | Proposed |
 | [0020](0020-licensing-model.md) | Licensing model: source-available, non-commercial by default | Proposed |
-| [0021](0021-python-static-analysis.md) | Python parsing, analysis schema evolution and migration integrity | Proposed |
+| [0021](0021-python-static-analysis.md) | Python parsing, analysis schema evolution and migration integrity (analysis and storage schema versions deferred to a unified decision) | Proposed |
