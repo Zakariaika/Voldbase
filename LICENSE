@@ -261,15 +261,14 @@ grants the rights that an open-source license such as the MIT License grants.
         and the text in `1768aad` are the same file. This draft does not apply
         to any of those commits, and it does not apply to any copy obtained
         from them.
-    (e) Start of this license, and the limit of what can be stated. This draft
-        applies to repository contents from the first commit on `main` whose
-        tree contains it. That commit is identified by that fact alone, not by
-        its commit message or by the way the change was landed: whether it is a
-        merge commit, a squashed commit or a direct commit, the boundary is the
-        first commit on `main` that contains this draft. It did not exist when
-        this section was written, so its identifier cannot be recorded here and
-        must not be guessed. Until such a commit exists on `main`, no version on
-        `main` is distributed under this draft.
+    (e) Start of this license. This draft applies to repository contents
+        from the first commit on `main` whose tree contains it. That commit
+        is identified by that fact alone, not by its commit message or by
+        the way the change was landed: whether it is a merge commit, a
+        squashed commit or a direct commit, the boundary is the first commit
+        on `main` that contains this draft. The first such commit is
+        `2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9`, and this draft applies
+        from it onward.
     (f) No releases. The repository has no tags and no published releases, so
         the boundary is commit-based only: there are no release artifacts on
         either side of it.

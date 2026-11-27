@@ -522,10 +522,11 @@ claim of enforceability in any jurisdiction. Every commit on `main` up to and
 including `1768aad` (2026-11-18) was distributed under the MIT License and
 remains available under MIT for anyone who obtained it; the repository has no
 tags and no releases, so there is no other release boundary. Versions that
-include this license are offered under the draft only, from the commit that
-introduces it onward — `NOTICE` section 3 records that boundary and the one part
-of it that cannot be known before the change is merged. A contribution is
-accepted only with a recorded, explicit acceptance of the contribution terms;
-submitting a pull request alone does not record it (see
+include this license are offered under the draft only, from commit
+`2b31d97589d5af7b4c7e7925b725e7bd53c1c2e9` onward — the first commit on
+`main` whose tree contains these documents, which `NOTICE` section 3
+records. A contribution is accepted only with a recorded, explicit
+acceptance of the contribution terms; submitting a pull request alone does
+not record it (see
 [`CONTRIBUTING.md`](CONTRIBUTING.md)). The change and its open questions are
 recorded in [ADR-0020](docs/adr/0020-licensing-model.md).
