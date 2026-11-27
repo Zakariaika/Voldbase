@@ -10,6 +10,7 @@
  */
 
 import {
+  ANALYSIS_SCHEMA_VERSION,
   createAnalysisSnapshot,
   type AnalysisSnapshot,
   type AnalyzedFile,
@@ -75,6 +76,13 @@ export function storedToAnalysis(value: unknown, context = 'analysis'): Analysis
   }
   if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion)) {
     throw corrupted(`${context} has no integer schemaVersion`);
+  }
+  if (schemaVersion > ANALYSIS_SCHEMA_VERSION) {
+    throw new DomainError(
+      'storage_unsupported_schema',
+      `${context}: Analysis schema version ${schemaVersion} is newer than this build supports ` +
+        `(${ANALYSIS_SCHEMA_VERSION}); upgrade VOLDBASE to read it`,
+    );
   }
   if (typeof digest !== 'string') {
     throw corrupted(`${context} has no digest`);
