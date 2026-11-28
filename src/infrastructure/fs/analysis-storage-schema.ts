@@ -62,6 +62,19 @@ export function storedToAnalysis(value: unknown, context = 'analysis'): Analysis
   }
   const { analysisId, projectId, projectRevision, analyzerVersion, schemaVersion, digest } = value;
   const { createdAt } = value;
+  // Classify the record version before validating any other field. A record written
+  // by a newer build is an upgrade instruction, not corruption, so a missing or
+  // renamed legacy field in a newer record must not be reported as corruption first.
+  if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion)) {
+    throw corrupted(`${context} has no integer schemaVersion`);
+  }
+  if (schemaVersion > ANALYSIS_SCHEMA_VERSION) {
+    throw new DomainError(
+      'storage_unsupported_schema',
+      `${context}: Analysis schema version ${schemaVersion} is newer than this build supports ` +
+        `(${ANALYSIS_SCHEMA_VERSION}); upgrade VOLDBASE to read it`,
+    );
+  }
   if (typeof analysisId !== 'string' || analysisId.trim() === '') {
     throw corrupted(`${context} has no analysisId`);
   }
@@ -73,16 +86,6 @@ export function storedToAnalysis(value: unknown, context = 'analysis'): Analysis
   }
   if (typeof analyzerVersion !== 'string') {
     throw corrupted(`${context} has no analyzerVersion`);
-  }
-  if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion)) {
-    throw corrupted(`${context} has no integer schemaVersion`);
-  }
-  if (schemaVersion > ANALYSIS_SCHEMA_VERSION) {
-    throw new DomainError(
-      'storage_unsupported_schema',
-      `${context}: Analysis schema version ${schemaVersion} is newer than this build supports ` +
-        `(${ANALYSIS_SCHEMA_VERSION}); upgrade VOLDBASE to read it`,
-    );
   }
   if (typeof digest !== 'string') {
     throw corrupted(`${context} has no digest`);

@@ -199,6 +199,26 @@ describe('analysis storage', () => {
     }
   });
 
+  it('classifies a newer record version before validating legacy fields', async (t) => {
+    const snapshot = await buildSnapshot(t);
+    const newer = ANALYSIS_SCHEMA_VERSION + 1;
+    const document = documentWithSnapshot(snapshot, (record) => {
+      record.schemaVersion = newer;
+      // A newer version may rename or drop legacy fields; its version still decides
+      // that the record is an upgrade, not corruption.
+      delete record.analysisId;
+      delete record.projectId;
+    });
+
+    assert.throws(
+      () => documentToAnalyses(document),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'storage_unsupported_schema' &&
+        error.message.includes(`Analysis schema version ${newer}`),
+    );
+  });
+
   it('propagates a newer per-record schema error through the repository', async (t) => {
     const snapshot = await buildSnapshot(t);
     const home = await makeTempDir(t, 'voldbase-2a-home-');

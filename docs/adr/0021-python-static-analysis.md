@@ -364,15 +364,43 @@ Recording Workspace Resolution in this scope records its dependency on the versi
 decision only. It does not implement Workspace Resolution, change its design, or treat
 its earlier approval as authorization to implement it.
 
+**What the unified decision must determine, and this ADR must not.** For each change in
+scope that decision must record a versioning treatment and a compatibility declaration,
+not leave them implied by a number, an adjacency or an equality. For the Python
+vocabulary additions — the domain values `unresolved-root` and `ambiguous`, `python` as
+a language value, and the resulting six-value import-resolution vocabulary (the existing
+`resolved-relative`, `unresolved-relative`, `external` and `outside-root` plus those
+two) — it must answer each of the following explicitly, with reasons:
+
+- Whether the additions share **one** new analysis schema version, or whether they
+  require **independent** versioning — for example `python` as a language widening and
+  the two resolution values as a resolution widening treated as separate moves.
+- Whether any part of the change requires **no version increment at all** — for example
+  a value already present in the domain vocabulary but never produced by a v1 analyzer
+  and never accepted by the frozen v1 rules, or a change the current envelope can carry
+  unchanged.
+- Whether adopting the additions changes what an existing `ANALYSIS_SCHEMA_VERSION`
+  value means, because a value the number previously excluded becomes legal under it.
+- Which (envelope, entry) **compatibility pairs** the move declares, which validators
+  each declared pair requires, and therefore whether `ANALYSES_STORAGE_SCHEMA_VERSION`
+  moves with the entry number, moves on its own, or stays where it is.
+
+This ADR chooses none of those answers. Its only requirement here is procedural: the
+unified decision must contain an explicit determination for each question and must
+declare its compatibility pairs rather than deriving them from arithmetic. A record that
+says "some version, to be decided" satisfies neither this ADR nor the matrix rule above
+that an undeclared pair is `analysis_corrupted`.
+
 **What a new version must add (conditional).** Once a version is assigned, the record
 vocabulary it defines must contain the `python` language value (already present in the
 domain vocabulary since the Stage 1 widening, but never produced by a v1 analyzer and
 not accepted by the frozen v1 rules) and six import-resolution values instead of four:
 the existing `resolved-relative`, `unresolved-relative`, `external`, `outside-root`
-plus `unresolved-root` and `ambiguous` (decision 8). Whether both need a new version at
-all, and which numbers carry them, is the unified decision's to make. Canonicalisation
-— key ordering, array ordering, which fields the digest covers — must be
-**unchanged**: a new version changes which values are legal, not how bytes are
+plus `unresolved-root` and `ambiguous` (decision 8). Which versioning treatment
+applies to each addition, and which schema versions carry those changes, is the
+unified decision's to determine and record against the questions above.
+Canonicalisation — key ordering, array ordering, which fields the digest covers — must
+be **unchanged**: a new version changes which values are legal, not how bytes are
 hashed.
 
 **Frozen v1.** The v1 normaliser and v1 vocabularies are copied into a frozen module
