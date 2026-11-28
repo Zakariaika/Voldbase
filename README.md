@@ -513,7 +513,7 @@ before new product surface is added.
 | Phase 1 — local import with content snapshots, durable JSON storage, `import` / `list` / `show`, distribution build | **Implemented** |
 | Phase 2A — syntax-level JS/TS analysis: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` | **Implemented** |
 | Phase 2B — derived file and module dependency graph, circular dependencies, fan-in/fan-out, structural findings, `architecture` with text and canonical JSON | **Implemented** |
-| Phase 2C — experiment, run and evidence records with their states and artifacts, JSON repositories, storage schema and run use cases | **Partially implemented**: the domain, storage and application layers and their tests exist, but there is no CLI surface for experiments or runs, and **no project code is executed** — every run records `NOT_TESTED` or `BLOCKED` |
+| Phase 2C — experiment, run and evidence records with their states and artifacts, JSON repositories, storage schema and run use cases | **Partially implemented**: the domain, storage and application layers and their tests exist, but there is no CLI surface for experiments or runs. The run use cases record experiment and run state, evidence references and outcomes supplied by their caller ([ADR-0001](docs/adr/0001-product-scope.md)), and VOLDBASE itself **executes no project code** — a recorded outcome is not proof that VOLDBASE performed or independently verified an execution |
 | Analyzer reliability, import-resolution coverage, real-project tests, performance and memory validation | **Partially implemented**, continuing |
 | Experiment Service work that does not execute project code | **Partially implemented** (run use cases); the remaining service surface is **Not started** |
 | Python activation | **Deferred** — see stage 8 |
@@ -536,9 +536,13 @@ can act on, without running that project's code.
 | Evidence reports | Evidence references **Partially implemented** at the domain level; report export **Not started** |
 | CLI and GitHub integration | The local CLI is **Implemented** for `import` / `list` / `show` / `analyze` / `analysis` / `architecture`; GitHub integration is **Not started** |
 
-The MVP adds **no secure execution, no sandbox and no large AI dependency**. Every
-result it can produce is a static observation or an explicitly unexecuted
-(`NOT_TESTED` / `BLOCKED`) run.
+The MVP adds **no secure execution, no sandbox and no large AI dependency**. It does
+not execute project code: it produces static analyzer observations, and its run use
+cases may record outcomes supplied by their caller. A caller-supplied `PASS` or
+`FAIL` is not automatically a VOLDBASE-verified execution result, and a recorded
+outcome must not be represented as an execution performed or independently verified
+by VOLDBASE. Result semantics are defined by
+[ADR-0001](docs/adr/0001-product-scope.md).
 
 ### 2. Official public website
 
