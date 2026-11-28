@@ -486,21 +486,154 @@ command exits non-zero on any failure. The test needs registry access for
 
 ## Roadmap
 
-| Phase | Outcome |
-| --- | --- |
-| 0 — Foundation | Product definition, ADRs, domain model, skeleton, CI |
-| 1 — Walking skeleton | Local import with content snapshots, durable JSON storage, `import` / `list` / `show` CLI, distribution build |
-| 2A — Static analysis | Syntax-only analysis of JS/TS: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` CLI |
-| 2B — Architecture intelligence | Derived file and module dependency graph, circular dependencies, fan-in/fan-out, explainable structural findings, `architecture` CLI with text and canonical JSON output |
-| 2C — Experiments and runs (domain only) | Experiment and run records, their states and artifacts modelled and persisted end to end; **no project code is executed**, and every run records `NOT_TESTED` or `BLOCKED` |
-| 3A — Execution safety specification | Trust boundaries, threat model, control matrix and negative acceptance tests for the future execution engine; documentation only, no execution capability |
-| **3B — Isolation runtime decision** (current) | ADR-0019 compares rootless containers, Firecracker and Kata against the 3A controls, excludes a shared kernel as the sole boundary, and records the product choice as pending a reproducible benchmark; still no executor |
-| 3C — Isolated execution engine | The executor itself, implementing the 3A controls and conformance-tested against them; may not start until 3A and 3B are accepted |
-| 3D — Evidence integrity | Content-addressed artifacts, reproducible environment manifests, report export |
-| 4 — Production hardening | Auth/tenancy design for hosted mode, observability, backups, SLOs |
-| 5 — Generalization | Only after two concrete non-software/AI use cases justify it |
+The roadmap is ordered by product priority. Foundation and analyzer reliability
+come first, the MVP and its public launch follow, and **secure execution is the
+final major stage**. The old Phase 3B → 3C path is therefore no longer the
+immediate product critical path: the executor's architectural prerequisites are
+unchanged, but the executor itself is deferred until the product, its evidence
+and its verification layer exist and are in use.
 
-The order is binding, not advisory. **2C models experiments and runs without executing project code**; **3A** (the specification) and **3B** (the runtime decision) must both be accepted before **3C** may implement an executor (ADR-0005, ADR-0018). A change that adds execution ahead of that order is out of sequence, not an optimisation.
+Status labels used below:
+
+| Label | Meaning |
+| --- | --- |
+| **Implemented** | Present on `main` and exercised by tests |
+| **Partially implemented** | A subset exists (usually domain, storage or application) but not the end-to-end capability |
+| **Documented only** | Specified or decided in a document; no capability |
+| **Deferred** | Deliberately inactive until a later stage |
+| **Not started** | No implementation and no accepted design yet |
+
+### 0. Foundation and analyzer reliability
+
+Phases 1, 2A, 2B and 2C are preserved. This stage finishes what they started
+before new product surface is added.
+
+| Work | Status |
+| --- | --- |
+| Phase 1 — local import with content snapshots, durable JSON storage, `import` / `list` / `show`, distribution build | **Implemented** |
+| Phase 2A — syntax-level JS/TS analysis: declarations, import graph, explainable findings, versioned analysis snapshots, `analyze` / `analysis` | **Implemented** |
+| Phase 2B — derived file and module dependency graph, circular dependencies, fan-in/fan-out, structural findings, `architecture` with text and canonical JSON | **Implemented** |
+| Phase 2C — experiment, run and evidence records with their states and artifacts, JSON repositories, storage schema and run use cases | **Partially implemented**: the domain, storage and application layers and their tests exist, but there is no CLI surface for experiments or runs, and **no project code is executed** — every run records `NOT_TESTED` or `BLOCKED` |
+| Analyzer reliability, import-resolution coverage, real-project tests, performance and memory validation | **Partially implemented**, continuing |
+| Experiment Service work that does not execute project code | **Partially implemented** (run use cases); the remaining service surface is **Not started** |
+| Python activation | **Deferred** — see stage 8 |
+
+Completing this stage means the analyzer is trustworthy on real repositories and
+the experiment and run layer is usable end to end without introducing execution.
+
+### 1. MVP development
+
+The first complete product: analyze a real project and produce evidence a person
+can act on, without running that project's code.
+
+| Capability | Status |
+| --- | --- |
+| Project import and dependency analysis | Import **Implemented**; manifest recording **Implemented**; dependency parsing and resolution **Not started** |
+| Architecture intelligence | **Implemented** (Phase 2B) |
+| Change-impact analysis | **Not started** |
+| Revision comparison | **Not started** — revisions are pinned and reproducible, but are not yet compared |
+| Regression detection | **Not started** |
+| Evidence reports | Evidence references **Partially implemented** at the domain level; report export **Not started** |
+| CLI and GitHub integration | The local CLI is **Implemented** for `import` / `list` / `show` / `analyze` / `analysis` / `architecture`; GitHub integration is **Not started** |
+
+The MVP adds **no secure execution, no sandbox and no large AI dependency**. Every
+result it can produce is a static observation or an explicitly unexecuted
+(`NOT_TESTED` / `BLOCKED`) run.
+
+### 2. Official public website
+
+**Not started.** It may proceed in parallel with MVP development, but it must
+describe only implemented and verified capabilities — it may not present roadmap
+stages, planned integrations or deferred work as shipped features. It carries the
+approved product identity: **VOLDBASE — Verify. Then Trust.**
+
+### 3. MVP launch
+
+**Not started.** A usable product validated against real projects, not a demo.
+The guarantee that the MVP does not execute project code is preserved at launch
+and must remain true in everything the launch claims.
+
+### 4. Evidence platform
+
+| Work | Status |
+| --- | --- |
+| External evidence ingestion | **Not started** |
+| Normalization and provenance recording | **Not started** |
+| Content fingerprints | **Not started** |
+| Internal analyzer evidence, content-addressed references, definition pinning and existing integrity mechanisms | **Implemented** at the domain level ([ADR-0006](docs/adr/0006-evidence-integrity.md)) |
+
+The platform extends evidence beyond what VOLDBASE itself observed, without
+weakening what it observed. A valid fingerprint establishes identity and integrity
+of the bytes; it is **not** proof that the evidence is true.
+
+### 5. Evidence-based verification
+
+Policy and gate evaluation over collected evidence, plus defined handling of
+conflicting and incomplete evidence, are **Not started**. The result taxonomy
+(`PASS` / `FAIL` / `INCONCLUSIVE` / `NOT_TESTED` / `BLOCKED`) is **Implemented** as
+the domain result type and defined by [ADR-0001](docs/adr/0001-product-scope.md);
+this stage references that taxonomy and does not restate or extend it.
+
+### 6. Certification and independent verification
+
+**Not started.** Certification output and independently reproducible verification
+of a recorded result build on stages 4 and 5; neither the process nor its artifacts
+exist yet.
+
+### 7. Product expansion
+
+**Not started**, and prioritised by demonstrated demand rather than by a fixed
+list: API, dashboard and additional integrations. Hosted production concerns
+(auth and tenancy design, observability, backups, SLOs) belong to this stage, not
+to the MVP. Generalization beyond software and AI repositories remains gated on two
+concrete non-software/AI use cases justifying it (ADR-0001, decision 1).
+
+### 8. Python and mixed-language support
+
+A post-MVP expansion stage, **not** the final stage of this roadmap. Status:
+**Deferred**, and **Documented only** — [ADR-0021](docs/adr/0021-python-static-analysis.md)
+is `Proposed`, and no Python parser, resolver or analysis path is active on `main`.
+
+- **Before the MVP:** study Python analysis requirements and resolve the necessary
+  architectural and storage-compatibility decisions, including the unified
+  schema-evolution decision that ADR-0021 defers version allocation to. This README
+  assigns no schema version.
+- **During the MVP:** Python analysis activation stays deferred. Effort goes to
+  reliable JavaScript and TypeScript analysis and MVP delivery.
+- **After MVP launch:** reassess priority using demonstrated market demand and
+  actual product usage. Python may be prioritised ahead of some product-expansion
+  items when that evidence justifies it.
+
+Python support follows ADR-0021 and the unified schema-evolution decision. Nothing
+here activates Python analysis or allocates schema versions.
+
+### 9. Secure execution and sandbox
+
+The last major stage of the roadmap, undertaken after the budget and suitable
+hardware exist — not the next phase after the current work.
+
+| Work | Status |
+| --- | --- |
+| Phase 3A — execution safety specification | **Documented only** — trust boundaries, threat model, control matrix and negative acceptance tests; adds no execution capability |
+| Phase 3B — isolation runtime selection | **Documented only**, decision **pending** — ADR-0019 is `Proposed`, the benchmark protocol and readiness checklist exist, no benchmark has been executed and no runtime is selected |
+| Phase 3C — isolated execution engine | **Not started** — there is no executor, no launcher and no sandbox dependency |
+
+[ADR-0005](docs/adr/0005-execution-isolation.md),
+[ADR-0018](docs/adr/0018-execution-control-plane-and-sandbox-boundaries.md) and
+[ADR-0019](docs/adr/0019-isolation-runtime-selection.md) are preserved unchanged.
+Runtime selection and its mandatory benchmark and acceptance gates remain
+prerequisites for executor implementation, and security design stays part of every
+earlier stage rather than being postponed with the executor. **No project-code
+execution is introduced into the MVP.**
+
+### Sequencing rules that remain binding
+
+Priorities order the work; they do not relax the architecture. **2C models
+experiments and runs without executing project code.** **3A** (the specification)
+and **3B** (the runtime decision) must both be accepted before **3C** may implement
+an executor (ADR-0005, ADR-0018) — deferring the executor moves when that gate is
+approached, not what it requires. A change that adds execution ahead of that gate
+remains out of sequence, not an optimisation.
 
 ## License
 
