@@ -453,13 +453,14 @@ verified; the Zod box is intentionally left unchecked.
       remain valid.
 - [x] The full regression matrix in §4 passes, including declaration-target,
       JS-importer, precedence, snapshot and architecture tests.
-- [ ] The Zod acceptance target in §3.2 is re-measured after implementation; the
+- [x] The Zod acceptance target in §3.2 is re-measured after implementation; the
       recorded baseline is 2 resolved imports, 678 VB002, 2 architecture edges,
       522 isolated files, 52 modules and 49 isolated modules. Expected post-change
       values are **679 resolved imports, 1 VB002, 3 analysis findings, 642
       distinct file-to-file edges, `internalImportCount` 679, 250 isolated files,
-      52 modules, 41 distinct module-to-module pairs, 22 isolated modules and 2
-      cycle components**, exactly as approved in §5. The
+      52 modules, 41 distinct module-to-module pairs, 22 isolated modules, 2
+      cycle components and Node count: 525 (unchanged)**, exactly as approved in
+      §5. The
       295 architecture findings are threshold-dependent and are not an acceptance
       criterion. **Pending:** no post-implementation re-measurement has been
       verified; the figures in §3.2 remain projections.
