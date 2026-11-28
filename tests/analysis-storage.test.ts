@@ -16,6 +16,7 @@ import {
   ANALYSIS_SCHEMA_VERSION,
   ANALYSES_STORAGE_SCHEMA_VERSION,
   analysisStorageFilePath,
+  analysisToStored,
   asAnalysisId,
   asProjectId,
   createAnalysisSnapshot,
@@ -62,6 +63,15 @@ function repositoryAt(filePath: string): JsonAnalysisRepository {
     filePath,
     lock: { timeoutMs: 2_000, pollIntervalMs: 10, staleMs: 5_000 },
   });
+}
+
+function documentWithSnapshot(
+  snapshot: AnalysisSnapshot,
+  mutate: (record: Record<string, unknown>) => void,
+): unknown {
+  const record = analysisToStored(snapshot) as unknown as Record<string, unknown>;
+  mutate(record);
+  return { schemaVersion: 1, analyses: [record] };
 }
 
 describe('analysis storage', () => {
@@ -168,6 +178,90 @@ describe('analysis storage', () => {
       repositoryAt(filePath).findById(asAnalysisId('ana-1')),
       isDomainError('storage_unsupported_schema'),
     );
+  });
+
+  it('refuses a per-record analysis schema version newer than this build', async (t) => {
+    const snapshot = await buildSnapshot(t);
+
+    for (const version of [2, 3]) {
+      const document = documentWithSnapshot(snapshot, (record) => {
+        record.schemaVersion = version;
+      });
+      assert.throws(
+        () => documentToAnalyses(document),
+        (error: unknown) =>
+          error instanceof DomainError &&
+          error.code === 'storage_unsupported_schema' &&
+          error.message.includes('analysis #1') &&
+          error.message.includes(String(version)) &&
+          error.message.includes(String(ANALYSIS_SCHEMA_VERSION)),
+      );
+    }
+  });
+
+  it('classifies a newer record version before validating legacy fields', async (t) => {
+    const snapshot = await buildSnapshot(t);
+    const newer = ANALYSIS_SCHEMA_VERSION + 1;
+    const document = documentWithSnapshot(snapshot, (record) => {
+      record.schemaVersion = newer;
+      // A newer version may rename or drop legacy fields; its version still decides
+      // that the record is an upgrade, not corruption.
+      delete record.analysisId;
+      delete record.projectId;
+    });
+
+    assert.throws(
+      () => documentToAnalyses(document),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'storage_unsupported_schema' &&
+        error.message.includes(`Analysis schema version ${newer}`),
+    );
+  });
+
+  it('propagates a newer per-record schema error through the repository', async (t) => {
+    const snapshot = await buildSnapshot(t);
+    const home = await makeTempDir(t, 'voldbase-2a-home-');
+    const filePath = analysisStorageFilePath(home);
+    await repositoryAt(filePath).save(snapshot);
+
+    const document = JSON.parse(await fs.readFile(filePath, 'utf8')) as {
+      schemaVersion: number;
+      analyses: Record<string, unknown>[];
+    };
+    document.analyses[0]!.schemaVersion = 2;
+    await fs.writeFile(filePath, `${JSON.stringify(document)}\n`, 'utf8');
+
+    await assert.rejects(
+      repositoryAt(filePath).findById(asAnalysisId('ana-1')),
+      isDomainError('storage_unsupported_schema'),
+    );
+  });
+
+  it('keeps malformed and non-newer record versions as corruption errors', async (t) => {
+    const snapshot = await buildSnapshot(t);
+    const cases: { label: string; mutate: (record: Record<string, unknown>) => void }[] = [
+      {
+        label: 'missing',
+        mutate: (record) => {
+          delete record.schemaVersion;
+        },
+      },
+      { label: 'zero', mutate: (record) => { record.schemaVersion = 0; } },
+      { label: 'negative', mutate: (record) => { record.schemaVersion = -1; } },
+      { label: 'non-integer', mutate: (record) => { record.schemaVersion = 1.5; } },
+      { label: 'string', mutate: (record) => { record.schemaVersion = '1'; } },
+      { label: 'null', mutate: (record) => { record.schemaVersion = null; } },
+    ];
+
+    for (const testCase of cases) {
+      const document = documentWithSnapshot(snapshot, testCase.mutate);
+      assert.throws(
+        () => documentToAnalyses(document),
+        isDomainError('analysis_corrupted'),
+        testCase.label,
+      );
+    }
   });
 
   it('rejects a malformed stored analysis with a corruption error', async () => {

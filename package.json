@@ -2,7 +2,7 @@
   "name": "voldbase",
   "version": "0.2.0-alpha.0",
   "private": true,
-  "description": "Universal Experiment & Verification Infrastructure for software and AI projects",
+  "description": "Evidence-based analysis and verification for your codebase — every finding backed by recorded evidence.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "bin": {

@@ -1,6 +1,9 @@
 # VOLDBASE
 
-**Universal Experiment & Verification Infrastructure for software and AI projects.**
+**Verify. Then Trust.**
+
+Evidence-based analysis and verification for your codebase — every finding backed by
+recorded evidence.
 
 VOLDBASE turns "it should work" into evidence. You connect a GitHub repository or
 import a local software project; VOLDBASE analyzes its structure, revision,
