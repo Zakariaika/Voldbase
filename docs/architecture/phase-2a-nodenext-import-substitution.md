@@ -269,8 +269,7 @@ Candidate eligibility was validated before projecting post-change numbers:
 - the two resolved `.mjs` imports are exact matches and are unaffected;
 - non-relative `.js`/`.cjs` package subpaths remain `external`.
 
-Projected post-implementation measurements, if the policy above is implemented
-exactly:
+Verified post-implementation measurements:
 
 | Measurement | Expected |
 | --- | --- |
@@ -309,11 +308,14 @@ thresholds and must not be treated as a fixed acceptance criterion; changing
 those thresholds changes the count. The **2 cycle components**, by contrast, are
 structural facts of the projected graph.
 
-These are read-only projections over the stored analysis, not an implementation
-run, and they have **not been re-measured** after implementation. Because there
-are no declaration candidates or ambiguous cases in Zod, the declaration-target
-decision does not change these numbers. If either approved decision were
-reversed, the projection must be recomputed rather than copied.
+These measurements were produced by a post-implementation analysis of
+`colinhacks/zod` at `d40c329910436e528d3c26cb1b9179e05abebf05` and verified
+against all 11 expected values above. The independent source-preservation audit
+confirmed 679/679 exact import-specifier matches, with zero mismatches and zero
+unverified records. Because Zod has no declaration candidates and no ambiguous
+cases, the declaration-target decision does not affect these measurements. If an
+approved decision were reversed, the measurements must be recomputed rather than
+reused.
 
 ## 4. Regression test matrix
 
