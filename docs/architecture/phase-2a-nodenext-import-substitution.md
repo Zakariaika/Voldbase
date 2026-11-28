@@ -423,7 +423,8 @@ commit `abd6238346c1363ac3a30497affd4a368fb75d78`) and the evidence available at
 that revision: the full suite passes locally (399 tests in 51 suites), and all
 CI checks on the merge commit succeeded — `typecheck + build + test` on Node
 22.x, 24.x and 26.x, plus the clean-checkout smoke job. A checked box is
-verified; the Zod box is intentionally left unchecked.
+verified; all listed criteria, including the Zod acceptance target, have been
+verified.
 
 - [x] Current `main` is used as the base; no unrelated resolver changes.
 - [x] Substitution runs only for relative specifiers from TypeScript importers,
@@ -462,8 +463,10 @@ verified; the Zod box is intentionally left unchecked.
       cycle components and Node count: 525 (unchanged)**, exactly as approved in
       §5. The
       295 architecture findings are threshold-dependent and are not an acceptance
-      criterion. **Pending:** no post-implementation re-measurement has been
-      verified; the figures in §3.2 remain projections.
+      criterion. Post-implementation re-measurement has been completed and
+      verified against all 11 expected values in §3.2. The independent
+      source-preservation audit confirmed 679/679 exact import-specifier
+      matches, with zero mismatches and zero unverified records.
 - [x] `README.md` and `docs/architecture/phase-2a-static-analysis.md` samples are
       updated from `1.0.1` to `1.0.2`, and the new behavior/limitation is
       documented.
