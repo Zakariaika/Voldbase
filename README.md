@@ -26,32 +26,38 @@ should say so.
 
 ## Project status
 
-**Phase 3B — isolation runtime decision.** Phases 1, 2A, 2B and 3A are implemented:
-local import with reproducible snapshots, durable storage, syntax-level static
-analysis, architecture intelligence, and the execution safety specification, through
-the `import` / `list` / `show` / `analyze` / `analysis` / `architecture` CLI. The
-current phase selects, and does not build, the future execution engine's isolation
-runtime. It runs entirely on your machine: no account, no network, no telemetry.
+**Foundation and analyzer reliability — roadmap stage 0.** This is the current
+priority. It finishes what Phases 1, 2A and 2B started — local import with
+reproducible snapshots, durable storage, syntax-level static analysis and
+architecture intelligence, exposed through the `import` / `list` / `show` /
+`analyze` / `analysis` / `architecture` CLI — and makes the analyzer trustworthy on
+real repositories (import-resolution coverage, real-project tests, performance and
+memory validation). Phase 2C is **partially implemented** (domain, storage and
+application layers; no CLI surface for experiments or runs). It runs entirely on
+your machine: no account, no network, no telemetry. See the [roadmap](#roadmap) for
+the full ordering.
 
 **No project code is ever executed.** There is no executor, no install step and no
 `child_process` in the product; the analyzer parses text, it does not run it, type
 check it or resolve packages, and the architecture layer reads only that analysis
-— never the project files again. Verifying experiments (Phases 3C onward) is still
-ahead; see the [roadmap](#roadmap) and
-[ADR-0005](docs/adr/0005-execution-isolation.md).
+— never the project files again. The MVP adds no secure execution and no sandbox,
+and the executor is deferred until the product, its evidence and its verification
+layer exist; see [ADR-0005](docs/adr/0005-execution-isolation.md).
 
-**Phase 3A adds no execution capability.** The
+**Phase 3A is documented, not implemented.** The
 [execution safety specification](docs/security/execution-safety-specification-v1.md)
 defines the trust boundaries, threat model, control matrix and acceptance tests a
 future engine must satisfy before any project code may run. Nothing in this repository
 implements it: there is no executor, no sandbox and no `PASS` — an experiment that was
 never executed is `NOT_TESTED`.
 
-**Phase 3B adds no runtime.** [ADR-0019](docs/adr/0019-isolation-runtime-selection.md)
-compares rootless containers, Firecracker microVMs and Kata Containers against the
-Phase 3A controls, excludes a shared kernel as the sole isolation boundary, and leaves
-the product choice **pending** the reproducible benchmark it defines. No runtime, no
-launcher and no sandbox dependency is added, and no project code is executed.
+**Phase 3B is pending and adds no runtime.**
+[ADR-0019](docs/adr/0019-isolation-runtime-selection.md) compares rootless
+containers, Firecracker microVMs and Kata Containers against the Phase 3A controls,
+excludes a shared kernel as the sole isolation boundary, and leaves the product
+choice **pending** the reproducible benchmark it defines. Runtime selection is
+deferred along with the executor: no runtime, no launcher and no sandbox dependency
+is added, and no project code is executed.
 
 ## What works today
 
