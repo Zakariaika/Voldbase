@@ -269,8 +269,7 @@ Candidate eligibility was validated before projecting post-change numbers:
 - the two resolved `.mjs` imports are exact matches and are unaffected;
 - non-relative `.js`/`.cjs` package subpaths remain `external`.
 
-Projected post-implementation measurements, if the policy above is implemented
-exactly:
+Verified post-implementation measurements:
 
 | Measurement | Expected |
 | --- | --- |
@@ -309,11 +308,14 @@ thresholds and must not be treated as a fixed acceptance criterion; changing
 those thresholds changes the count. The **2 cycle components**, by contrast, are
 structural facts of the projected graph.
 
-These are read-only projections over the stored analysis, not an implementation
-run, and they have **not been re-measured** after implementation. Because there
-are no declaration candidates or ambiguous cases in Zod, the declaration-target
-decision does not change these numbers. If either approved decision were
-reversed, the projection must be recomputed rather than copied.
+These measurements were produced by a post-implementation analysis of
+`colinhacks/zod` at `d40c329910436e528d3c26cb1b9179e05abebf05` and verified
+against all 11 expected values above. The independent source-preservation audit
+confirmed 679/679 exact import-specifier matches, with zero mismatches and zero
+unverified records. Because Zod has no declaration candidates and no ambiguous
+cases, the declaration-target decision does not affect these measurements. If an
+approved decision were reversed, the measurements must be recomputed rather than
+reused.
 
 ## 4. Regression test matrix
 
@@ -423,7 +425,8 @@ commit `abd6238346c1363ac3a30497affd4a368fb75d78`) and the evidence available at
 that revision: the full suite passes locally (399 tests in 51 suites), and all
 CI checks on the merge commit succeeded — `typecheck + build + test` on Node
 22.x, 24.x and 26.x, plus the clean-checkout smoke job. A checked box is
-verified; the Zod box is intentionally left unchecked.
+verified; all listed criteria, including the Zod acceptance target, have been
+verified.
 
 - [x] Current `main` is used as the base; no unrelated resolver changes.
 - [x] Substitution runs only for relative specifiers from TypeScript importers,
@@ -453,16 +456,19 @@ verified; the Zod box is intentionally left unchecked.
       remain valid.
 - [x] The full regression matrix in §4 passes, including declaration-target,
       JS-importer, precedence, snapshot and architecture tests.
-- [ ] The Zod acceptance target in §3.2 is re-measured after implementation; the
+- [x] The Zod acceptance target in §3.2 is re-measured after implementation; the
       recorded baseline is 2 resolved imports, 678 VB002, 2 architecture edges,
       522 isolated files, 52 modules and 49 isolated modules. Expected post-change
       values are **679 resolved imports, 1 VB002, 3 analysis findings, 642
       distinct file-to-file edges, `internalImportCount` 679, 250 isolated files,
-      52 modules, 41 distinct module-to-module pairs, 22 isolated modules and 2
-      cycle components**, exactly as approved in §5. The
+      52 modules, 41 distinct module-to-module pairs, 22 isolated modules, 2
+      cycle components and Node count: 525 (unchanged)**, exactly as approved in
+      §5. The
       295 architecture findings are threshold-dependent and are not an acceptance
-      criterion. **Pending:** no post-implementation re-measurement has been
-      verified; the figures in §3.2 remain projections.
+      criterion. Post-implementation re-measurement has been completed and
+      verified against all 11 expected values in §3.2. The independent
+      source-preservation audit confirmed 679/679 exact import-specifier
+      matches, with zero mismatches and zero unverified records.
 - [x] `README.md` and `docs/architecture/phase-2a-static-analysis.md` samples are
       updated from `1.0.1` to `1.0.2`, and the new behavior/limitation is
       documented.
